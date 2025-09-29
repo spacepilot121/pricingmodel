@@ -481,21 +481,23 @@
     };
 
     const SIZE_MULT = {
-      Icon: { rate: 1.636, views: 2.083 },
-      Mega: { rate: 1.273, views: 1.458 },
+      // Rate multipliers are held at 1 so the CPV remains anchored to the rate card.
+      // Views scale with creator size to reflect typical audience reach by tier.
+      Icon: { rate: 1, views: 5 },
+      Mega: { rate: 1, views: 2.5 },
       Macro: { rate: 1, views: 1 },
-      HMid: { rate: 0.818, views: 0.5 },
-      LMid: { rate: 0.636, views: 0.333 },
-      Micro: { rate: 0.5, views: 0.188 },
+      HMid: { rate: 1, views: 0.6 },
+      LMid: { rate: 1, views: 0.4 },
+      Micro: { rate: 1, views: 0.2 },
     };
 
     const SIZE_FOLLOWERS = {
-      Icon: 7500000,
-      Mega: 2500000,
-      Macro: 750000,
-      HMid: 375000,
-      LMid: 175000,
-      Micro: 55000,
+      Icon: 5000000,
+      Mega: 1200000,
+      Macro: 150000,
+      HMid: 90000,
+      LMid: 60000,
+      Micro: 30000,
     };
 
     const VERTICAL_MULT = {
@@ -525,37 +527,39 @@
       Micro: 0,
     };
 
+    // Each deliverable stores a base macro view count and creator CPV so we can derive
+    // consistent pricing across creator sizes while still allowing vertical/language uplifts.
     const RATE_CARD = {
       YouTube: {
         deliverables: {
-          Dedicated: { rate: 45000, views: 500000 },
-          Integrated: { rate: 32000, views: 250000 },
-          Shorts: { rate: 18000, views: 150000 },
-          Stream: { rate: 40000, views: 20000 },
+          Dedicated: { baseViews: 80000, cpv: 0.12 },
+          Integrated: { baseViews: 50000, cpv: 0.1 },
+          Shorts: { baseViews: 40000, cpv: 0.07 },
+          Stream: { baseViews: 35000, cpv: 0.05 },
         },
       },
       Instagram: {
         deliverables: {
-          Reel: { rate: 12000, views: 90000 },
-          Video: { rate: 10000, views: 80000 },
-          Story: { rate: 7000, views: 50000 },
-          Photo: { rate: 6000, views: 39000 },
+          Reel: { baseViews: 35000, cpv: 0.06 },
+          Video: { baseViews: 28000, cpv: 0.05 },
+          Story: { baseViews: 20000, cpv: 0.04 },
+          Photo: { baseViews: 15000, cpv: 0.025 },
         },
       },
       TikTok: {
         deliverables: {
-          Video: { rate: 15000, views: 120000 },
-          Live: { rate: 22000, views: 60000 },
+          Video: { baseViews: 45000, cpv: 0.06 },
+          Live: { baseViews: 40000, cpv: 0.05 },
         },
       },
       Twitch: {
         deliverables: {
-          Stream: { rate: 35000, views: 15000 },
+          Stream: { baseViews: 30000, cpv: 0.045 },
         },
       },
       Twitter: {
         deliverables: {
-          Video: { rate: 8000, views: 50000 },
+          Video: { baseViews: 25000, cpv: 0.045 },
         },
       },
     };
@@ -784,13 +788,23 @@
     }
 
     function getRateDefaults(platform, deliverable, size, vertical, language) {
-      const base = RATE_CARD[platform]?.deliverables?.[deliverable] || { rate: 0, views: 0 };
+      const base = RATE_CARD[platform]?.deliverables?.[deliverable] || { baseViews: 0, cpv: 0 };
       const sizeAdjust = SIZE_MULT[size] || { rate: 1, views: 1 };
       const verticalAdjust = VERTICAL_MULT[vertical] || { rate: 1, views: 1 };
       const languageAdjust = LANGUAGE_MULT[language] || { rate: 1, views: 1 };
+      const views = Math.round(
+        (base.baseViews || 0)
+          * (sizeAdjust.views ?? 1)
+          * (verticalAdjust.views ?? 1)
+          * (languageAdjust.views ?? 1),
+      );
+      const cpv = (base.cpv || 0)
+        * (sizeAdjust.rate ?? 1)
+        * (verticalAdjust.rate ?? 1)
+        * (languageAdjust.rate ?? 1);
       return {
-        rate: Math.round(base.rate * sizeAdjust.rate * verticalAdjust.rate * languageAdjust.rate),
-        views: Math.round(base.views * sizeAdjust.views * verticalAdjust.views * languageAdjust.views),
+        rate: Math.round(cpv * views),
+        views,
       };
     }
 
