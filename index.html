@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Precise Influencer Calculator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --accent: #38bdf8;
+      --muted: #94a3b8;
+      --danger: #f87171;
+      --success: #34d399;
+      --border: #334155;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: #e2e8f0;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      background: linear-gradient(120deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.25));
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    header h1 {
+      margin: 0 0 0.25rem;
+      font-size: 2rem;
+      letter-spacing: 0.04em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 1.5rem;
+      padding: 1.5rem;
+    }
+
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        top: auto;
+        height: auto;
+      }
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 24px 48px -32px rgba(15, 23, 42, 0.8);
+    }
+
+    section h2 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .gating-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .gating-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: rgba(15, 23, 42, 0.35);
+    }
+
+    .gating-item label {
+      flex: 1;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .approver-tag {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 0.5rem;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 0.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    select,
+    input[type="number"],
+    input[type="text"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 8px;
+      color: inherit;
+      padding: 0.45rem 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 1.1rem;
+      height: 1.1rem;
+      cursor: pointer;
+    }
+
+    .table-actions {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    button {
+      background: var(--accent);
+      color: #0f172a;
+      border: none;
+      border-radius: 999px;
+      padding: 0.55rem 1.25rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 18px -12px rgba(56, 189, 248, 0.65);
+    }
+
+    button.secondary {
+      background: rgba(148, 163, 184, 0.15);
+      color: #cbd5f5;
+    }
+
+    aside {
+      position: sticky;
+      top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: calc(100vh - 3rem);
+    }
+
+    .summary-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .summary-card h3 {
+      margin-top: 0;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.95rem;
+      color: #cbd5f5;
+    }
+
+    .summary-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: baseline;
+      padding: 0.65rem 0.75rem;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.35);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .summary-item span:last-child {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .status-ok {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+    }
+
+    .status-needs {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+    }
+
+    .platform-breakdown {
+      margin-top: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+      padding-top: 1rem;
+      display: grid;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .platform-breakdown div {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+    }
+
+    .paid-media-mode {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .paid-media-mode label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+
+    .input-group {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .input-row label {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    footer {
+      padding: 1rem 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .danger-text {
+      color: var(--danger);
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Precise Influencer Calculator</h1>
+    <p>Architect and protect the creator campaign economics in one responsive workspace.</p>
+  </header>
+  <main>
+    <div>
+      <section id="gating-section">
+        <h2>Gating Questions</h2>
+        <div class="gating-grid" id="gating-grid"></div>
+      </section>
+
+      <section>
+        <h2>Travel & Additional Costs</h2>
+        <div class="input-group">
+          <div class="input-row">
+            <label for="other-costs">Other Costs</label>
+            <input type="number" id="other-costs" min="0" step="100" />
+          </div>
+          <div class="input-row">
+            <label for="study-costs">Study Costs</label>
+            <input type="number" id="study-costs" min="0" step="100" />
+          </div>
+          <div class="input-row">
+            <label for="additional-costs">Additional Costs</label>
+            <input type="number" id="additional-costs" min="0" step="100" />
+          </div>
+        </div>
+        <div id="travel-controls" class="input-group" style="display:none; margin-top:1rem;">
+          <div class="input-row">
+            <label for="travel-creators">Traveling Creators</label>
+            <input type="number" id="travel-creators" min="0" step="1" />
+          </div>
+          <div class="input-row">
+            <label for="travel-budget">Travel Budget / Creator</label>
+            <input type="number" id="travel-budget" min="0" step="100" />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Build the Campaign</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Deliverable</th>
+                <th>Creator Size</th>
+                <th>Whitelist</th>
+                <th>Unit Rate ($)</th>
+                <th>Qty / Creator</th>
+                <th>Creators</th>
+                <th>Views per Piece</th>
+                <th>Line Total ($)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="campaign-body"></tbody>
+          </table>
+        </div>
+        <div class="table-actions">
+          <button id="add-line">Add Deliverable</button>
+          <button class="secondary" id="reset-state">Reset All</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Paid Media Options</h2>
+        <div class="paid-media-mode">
+          <label><input type="radio" name="paid-mode" value="cpv" /> CPV Mode</label>
+          <label><input type="radio" name="paid-mode" value="cpm" /> CPM Mode</label>
+        </div>
+        <div class="input-group">
+          <div class="input-row">
+            <label for="paid-budget">Paid Media Budget</label>
+            <input type="number" id="paid-budget" min="0" step="100" />
+          </div>
+          <div class="input-row">
+            <label id="paid-rate-label" for="paid-rate">CPV</label>
+            <input type="number" id="paid-rate" min="0" step="0.001" />
+          </div>
+        </div>
+      </section>
+    </div>
+    <aside>
+      <div class="summary-card">
+        <h3>Estimated Deliverables &amp; Commercials</h3>
+        <div style="margin-bottom: 1rem;">
+          <label for="margin-goal" style="display:block; font-size:0.8rem; color:var(--muted); margin-bottom:0.35rem;">Margin Goal (%)</label>
+          <input type="number" id="margin-goal" min="0" max="90" step="1" />
+        </div>
+        <div id="status-badge" class="status-badge status-ok">OK — Ready</div>
+        <div class="summary-grid" id="summary-grid"></div>
+        <div class="platform-breakdown" id="platform-breakdown"></div>
+      </div>
+    </aside>
+  </main>
+  <footer>
+    State auto-saves locally. Refresh anytime and pick up where you left off.
+  </footer>
+
+  <script>
+    /* =============================
+       Constants (EMPTY tab mapping)
+       =============================
+       The workbook exposes key multipliers near rows 44563-44613. They are consolidated below for easy edits.
+    */
+    const STORAGE_KEY = 'precise-influencer-calculator-v1';
+
+    const SIZE_MULT = {
+      Icon: { rate: 1.8, views: 5 },
+      Mega: { rate: 1.4, views: 3.5 },
+      Macro: { rate: 1.1, views: 2.4 },
+      HMid: { rate: 0.9, views: 1.2 },
+      LMid: { rate: 0.7, views: 0.8 },
+      Micro: { rate: 0.55, views: 0.45 },
+    };
+
+    const WHITELIST_UPLIFT_PCT = {
+      Icon: 0.3,
+      Mega: 0.3,
+      Macro: 0.3,
+      HMid: 0.3,
+      LMid: 0.1,
+      Micro: 0,
+    };
+
+    const RATE_CARD = {
+      YouTube: {
+        deliverables: {
+          Dedicated: { rate: 45000, views: 500000 },
+          Integrated: { rate: 32000, views: 250000 },
+          Shorts: { rate: 18000, views: 150000 },
+          Stream: { rate: 40000, views: 20000 },
+        },
+      },
+      Instagram: {
+        deliverables: {
+          Reel: { rate: 12000, views: 90000 },
+          Video: { rate: 10000, views: 80000 },
+          Story: { rate: 7000, views: 50000 },
+          Photo: { rate: 6000, views: 39000 },
+        },
+      },
+      TikTok: {
+        deliverables: {
+          Video: { rate: 15000, views: 120000 },
+          Live: { rate: 22000, views: 60000 },
+        },
+      },
+      Twitch: {
+        deliverables: {
+          Stream: { rate: 35000, views: 15000 },
+        },
+      },
+      Twitter: {
+        deliverables: {
+          Video: { rate: 8000, views: 50000 },
+        },
+      },
+    };
+
+    const GATE_RULES = [
+      {
+        id: 'listApproved',
+        label: 'Will the brand approve a list 4x the views/content pieces required?',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.contentMultiplier += 0.1; // fallback for list scrubbing overhead
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'timelineAdequate',
+        label: 'Will the execution team have at least 6 weeks to complete the campaign (list creation, outreach, negotiations, content live, etc.)?',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.otherMultiplier += 0.1; // rush fee uplift from EMPTY buffer logic
+            ctx.organicViewMultiplier -= 0.05; // rushed work underperforms slightly
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'withinQ1Q3',
+        label: 'Will the campaign happen within Q1 - Q3?',
+        approver: null,
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.contentMultiplier += 0.15; // Q4 buffer (K61 = 0.15)
+          }
+        },
+      },
+      {
+        id: 'brandFit',
+        label: 'Will the creators want to partner with this brand (i.e. nothing too spammy, sketchy, gambling, sex toys, etc.)?',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.contentMultiplier += 0.2;
+            ctx.organicViewMultiplier -= 0.1; // lower organic reach when brand is risky
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'messagingSimple',
+        label: 'Will the brand messaging be simple (no more than 3 talking points)?',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.contentMultiplier += 0.08;
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'creatorControl',
+        label: 'Will the creators have control of their content and can integrate the brand how they want?',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.organicViewMultiplier -= 0.08;
+            ctx.contentMultiplier += 0.05;
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'postingWindow',
+        label: 'Will the creators have a posting window of at least a week (i.e. not on a specific launch day, but a day within a week)',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.otherMultiplier += 0.05;
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'creationTime',
+        label: 'Will the creators have at least 3 weeks to create their content?',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.contentMultiplier += 0.05;
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'legalClear',
+        label: 'Will the content/creator strategy not have any potential legal issues (i.e. giveaways, travel, renting cars, purchasing large gifts, etc.)',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.otherMultiplier += 0.12; // legal handling uplift
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+      {
+        id: 'brandCoverTravel',
+        label: 'Will brand cover creator travel (if applicable)? If not, allocate $5k per creator in Travel Budget.',
+        approver: null,
+        default: true,
+        effect(value, ctx) {
+          ctx.travelCovered = value;
+        },
+      },
+      {
+        id: 'brandExclusivity',
+        label: 'Will the brand want brand exclusivity on the creator\'s channel for 3 months?',
+        approver: null,
+        default: false,
+        effect(value, ctx) {
+          if (value) {
+            ctx.contentMultiplier += 0.2; // Exclusivity Multiplier (K58)
+          }
+        },
+      },
+      {
+        id: 'travelNeeded',
+        label: 'Will the creator need to travel to an event?',
+        approver: null,
+        default: false,
+        effect(value, ctx) {
+          ctx.travelRequired = value;
+          if (value && !ctx.travelCovered) {
+            ctx.otherMultiplier += 0.02; // handling overhead
+          }
+        },
+      },
+      {
+        id: 'nicheGroup',
+        label: 'Will the creators be a niche group (i.e. skinfluencers, bakers in Atlanta, etc.)',
+        approver: 'Mark',
+        default: false,
+        effect(value, ctx) {
+          if (value) {
+            ctx.contentMultiplier += 0.2; // Niche multiplier (K59)
+            ctx.approvalsNeeded.add('Mark');
+          }
+        },
+      },
+      {
+        id: 'brandLiftStudy',
+        label: 'Does the brand want an organic brand lift study?',
+        approver: null,
+        default: false,
+        effect(value, ctx) {
+          if (value) {
+            ctx.otherBase += 12000; // placeholder for study vendor cost
+          }
+        },
+      },
+      {
+        id: 'salesStudy',
+        label: 'Does the brand want a sales measurement study?',
+        approver: null,
+        default: false,
+        effect(value, ctx) {
+          if (value) {
+            ctx.otherBase += 15000;
+          }
+        },
+      },
+      {
+        id: 'awarenessOnly',
+        label: 'Will the main KPI for the campaign be just awareness?',
+        approver: 'Director',
+        default: true,
+        effect(value, ctx) {
+          if (!value) {
+            ctx.contentMultiplier += 0.05; // non-awareness adds extra deliverable pressure
+            ctx.approvalsNeeded.add('Director');
+          }
+        },
+      },
+    ];
+
+    function createDefaultLine() {
+      const platform = Object.keys(RATE_CARD)[0];
+      const deliverable = Object.keys(RATE_CARD[platform].deliverables)[0];
+      const size = 'Macro';
+      const defaults = getRateDefaults(platform, deliverable, size);
+      return {
+        platform,
+        deliverable,
+        size,
+        whitelist: false,
+        unitRate: defaults.rate,
+        qtyPerCreator: 1,
+        creators: 3,
+        viewsPerPiece: defaults.views,
+      };
+    }
+
+    function getRateDefaults(platform, deliverable, size) {
+      const base = RATE_CARD[platform]?.deliverables?.[deliverable] || { rate: 0, views: 0 };
+      const sizeAdjust = SIZE_MULT[size] || { rate: 1, views: 1 };
+      return {
+        rate: Math.round(base.rate * sizeAdjust.rate),
+        views: Math.round(base.views * sizeAdjust.views),
+      };
+    }
+
+    const defaultState = {
+      gating: Object.fromEntries(GATE_RULES.map(rule => [rule.id, rule.default])),
+      otherCosts: {
+        other: 0,
+        study: 0,
+        additional: 0,
+      },
+      travel: {
+        creators: 0,
+        perCreator: 5000,
+      },
+      campaignLines: [createDefaultLine()],
+      paidMedia: {
+        mode: 'cpv',
+        budget: 0,
+        rate: 0.06,
+      },
+      marginGoal: 40,
+    };
+
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return structuredClone(defaultState);
+        const parsed = JSON.parse(raw);
+        return {
+          ...structuredClone(defaultState),
+          ...parsed,
+          gating: { ...defaultState.gating, ...parsed.gating },
+          otherCosts: { ...defaultState.otherCosts, ...parsed.otherCosts },
+          travel: { ...defaultState.travel, ...parsed.travel },
+          campaignLines: (parsed.campaignLines || []).map(line => ({ ...createDefaultLine(), ...line })),
+          paidMedia: { ...defaultState.paidMedia, ...parsed.paidMedia },
+        };
+      } catch (err) {
+        console.error('Failed to load state', err);
+        return structuredClone(defaultState);
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function init() {
+      renderGating();
+      renderCampaign();
+      bindPaidMedia();
+      bindOtherCosts();
+      bindSummaryControls();
+      recalc();
+    }
+
+    function renderGating() {
+      const grid = document.getElementById('gating-grid');
+      grid.innerHTML = '';
+      GATE_RULES.forEach(rule => {
+        const row = document.createElement('div');
+        row.className = 'gating-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!state.gating[rule.id];
+        checkbox.id = rule.id;
+        checkbox.addEventListener('change', () => {
+          state.gating[rule.id] = checkbox.checked;
+          saveState();
+          recalc();
+          if (rule.id === 'travelNeeded' || rule.id === 'brandCoverTravel') {
+            toggleTravelControls();
+          }
+        });
+        const label = document.createElement('label');
+        label.htmlFor = rule.id;
+        label.textContent = rule.label;
+        if (rule.approver) {
+          const tag = document.createElement('div');
+          tag.className = 'approver-tag';
+          tag.textContent = `Approver: ${rule.approver}`;
+          label.appendChild(document.createElement('br'));
+          label.appendChild(tag);
+        }
+        row.appendChild(checkbox);
+        row.appendChild(label);
+        grid.appendChild(row);
+      });
+      toggleTravelControls();
+    }
+
+    function toggleTravelControls() {
+      const travelBlock = document.getElementById('travel-controls');
+      if (state.gating.travelNeeded) {
+        travelBlock.style.display = 'grid';
+      } else {
+        travelBlock.style.display = 'none';
+      }
+    }
+
+    function renderCampaign() {
+      const tbody = document.getElementById('campaign-body');
+      tbody.innerHTML = '';
+      state.campaignLines.forEach((line, index) => {
+        const tr = document.createElement('tr');
+
+        const platformTd = document.createElement('td');
+        const platformSelect = document.createElement('select');
+        Object.keys(RATE_CARD).forEach(platform => {
+          const opt = document.createElement('option');
+          opt.value = platform;
+          opt.textContent = platform;
+          if (platform === line.platform) opt.selected = true;
+          platformSelect.appendChild(opt);
+        });
+        platformSelect.addEventListener('change', () => {
+          line.platform = platformSelect.value;
+          const deliverables = Object.keys(RATE_CARD[line.platform].deliverables);
+          if (!deliverables.includes(line.deliverable)) {
+            line.deliverable = deliverables[0];
+          }
+          const defaults = getRateDefaults(line.platform, line.deliverable, line.size);
+          line.unitRate = defaults.rate;
+          line.viewsPerPiece = defaults.views;
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        platformTd.appendChild(platformSelect);
+        tr.appendChild(platformTd);
+
+        const deliverableTd = document.createElement('td');
+        const deliverableSelect = document.createElement('select');
+        const deliverableOptions = RATE_CARD[line.platform]?.deliverables || {};
+        Object.keys(deliverableOptions).forEach(deliverable => {
+          const opt = document.createElement('option');
+          opt.value = deliverable;
+          opt.textContent = deliverable;
+          if (deliverable === line.deliverable) opt.selected = true;
+          deliverableSelect.appendChild(opt);
+        });
+        deliverableSelect.addEventListener('change', () => {
+          line.deliverable = deliverableSelect.value;
+          const defaults = getRateDefaults(line.platform, line.deliverable, line.size);
+          line.unitRate = defaults.rate;
+          line.viewsPerPiece = defaults.views;
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        deliverableTd.appendChild(deliverableSelect);
+        tr.appendChild(deliverableTd);
+
+        const sizeTd = document.createElement('td');
+        const sizeSelect = document.createElement('select');
+        Object.keys(SIZE_MULT).forEach(size => {
+          const opt = document.createElement('option');
+          opt.value = size;
+          opt.textContent = size;
+          if (size === line.size) opt.selected = true;
+          sizeSelect.appendChild(opt);
+        });
+        sizeSelect.addEventListener('change', () => {
+          line.size = sizeSelect.value;
+          const defaults = getRateDefaults(line.platform, line.deliverable, line.size);
+          line.unitRate = defaults.rate;
+          line.viewsPerPiece = defaults.views;
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        sizeTd.appendChild(sizeSelect);
+        tr.appendChild(sizeTd);
+
+        const whitelistTd = document.createElement('td');
+        const whitelistCheckbox = document.createElement('input');
+        whitelistCheckbox.type = 'checkbox';
+        whitelistCheckbox.checked = line.whitelist;
+        whitelistCheckbox.addEventListener('change', () => {
+          line.whitelist = whitelistCheckbox.checked;
+          saveState();
+          recalc();
+        });
+        whitelistTd.appendChild(whitelistCheckbox);
+        tr.appendChild(whitelistTd);
+
+        const unitRateTd = document.createElement('td');
+        const unitRateInput = document.createElement('input');
+        unitRateInput.type = 'number';
+        unitRateInput.min = '0';
+        unitRateInput.step = '100';
+        unitRateInput.value = Number(line.unitRate || 0);
+        unitRateInput.addEventListener('change', () => {
+          line.unitRate = parseFloat(unitRateInput.value) || 0;
+          saveState();
+          recalc();
+        });
+        unitRateTd.appendChild(unitRateInput);
+        tr.appendChild(unitRateTd);
+
+        const qtyTd = document.createElement('td');
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.min = '0';
+        qtyInput.step = '1';
+        qtyInput.value = Number(line.qtyPerCreator || 0);
+        qtyInput.addEventListener('change', () => {
+          line.qtyPerCreator = parseFloat(qtyInput.value) || 0;
+          saveState();
+          recalc();
+        });
+        qtyTd.appendChild(qtyInput);
+        tr.appendChild(qtyTd);
+
+        const creatorTd = document.createElement('td');
+        const creatorInput = document.createElement('input');
+        creatorInput.type = 'number';
+        creatorInput.min = '0';
+        creatorInput.step = '1';
+        creatorInput.value = Number(line.creators || 0);
+        creatorInput.addEventListener('change', () => {
+          line.creators = parseFloat(creatorInput.value) || 0;
+          saveState();
+          recalc();
+        });
+        creatorTd.appendChild(creatorInput);
+        tr.appendChild(creatorTd);
+
+        const viewsTd = document.createElement('td');
+        const viewsInput = document.createElement('input');
+        viewsInput.type = 'number';
+        viewsInput.min = '0';
+        viewsInput.step = '100';
+        viewsInput.value = Number(line.viewsPerPiece || 0);
+        viewsInput.addEventListener('change', () => {
+          line.viewsPerPiece = parseFloat(viewsInput.value) || 0;
+          saveState();
+          recalc();
+        });
+        viewsTd.appendChild(viewsInput);
+        tr.appendChild(viewsTd);
+
+        const lineTotalTd = document.createElement('td');
+        lineTotalTd.textContent = formatCurrency(calculateLineTotal(line));
+        tr.appendChild(lineTotalTd);
+
+        const deleteTd = document.createElement('td');
+        if (state.campaignLines.length > 1) {
+          const removeBtn = document.createElement('button');
+          removeBtn.textContent = 'Remove';
+          removeBtn.className = 'secondary';
+          removeBtn.addEventListener('click', () => {
+            state.campaignLines.splice(index, 1);
+            saveState();
+            renderCampaign();
+            recalc();
+          });
+          deleteTd.appendChild(removeBtn);
+        }
+        tr.appendChild(deleteTd);
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('add-line').onclick = () => {
+        state.campaignLines.push(createDefaultLine());
+        saveState();
+        renderCampaign();
+        recalc();
+      };
+
+      document.getElementById('reset-state').onclick = () => {
+        if (confirm('Reset calculator to defaults?')) {
+          state = structuredClone(defaultState);
+          saveState();
+          renderGating();
+          renderCampaign();
+          bindPaidMedia();
+          bindOtherCosts();
+          bindSummaryControls();
+          recalc();
+        }
+      };
+    }
+
+    function calculateLineTotal(line) {
+      const base = (line.unitRate || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
+      if (!line.whitelist) return base;
+      const uplift = WHITELIST_UPLIFT_PCT[line.size] ?? 0.2;
+      return base * (1 + uplift);
+    }
+
+    function bindPaidMedia() {
+      const modeInputs = document.querySelectorAll('input[name="paid-mode"]');
+      modeInputs.forEach(input => {
+        input.checked = state.paidMedia.mode === input.value;
+        input.addEventListener('change', () => {
+          if (input.checked) {
+            state.paidMedia.mode = input.value;
+            saveState();
+            updatePaidRateLabel();
+            recalc();
+          }
+        });
+      });
+      const budgetInput = document.getElementById('paid-budget');
+      budgetInput.value = Number(state.paidMedia.budget || 0);
+      budgetInput.addEventListener('change', () => {
+        state.paidMedia.budget = parseFloat(budgetInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      const rateInput = document.getElementById('paid-rate');
+      rateInput.value = Number(state.paidMedia.rate || 0);
+      rateInput.addEventListener('change', () => {
+        state.paidMedia.rate = parseFloat(rateInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      updatePaidRateLabel();
+    }
+
+    function updatePaidRateLabel() {
+      const label = document.getElementById('paid-rate-label');
+      label.textContent = state.paidMedia.mode === 'cpm' ? 'CPM' : 'CPV';
+      const rateInput = document.getElementById('paid-rate');
+      rateInput.step = state.paidMedia.mode === 'cpm' ? '0.1' : '0.001';
+    }
+
+    function bindOtherCosts() {
+      const otherInput = document.getElementById('other-costs');
+      const studyInput = document.getElementById('study-costs');
+      const additionalInput = document.getElementById('additional-costs');
+      const travelCreators = document.getElementById('travel-creators');
+      const travelBudget = document.getElementById('travel-budget');
+
+      otherInput.value = Number(state.otherCosts.other || 0);
+      studyInput.value = Number(state.otherCosts.study || 0);
+      additionalInput.value = Number(state.otherCosts.additional || 0);
+      travelCreators.value = Number(state.travel.creators || 0);
+      travelBudget.value = Number(state.travel.perCreator || 0);
+
+      otherInput.addEventListener('change', () => {
+        state.otherCosts.other = parseFloat(otherInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      studyInput.addEventListener('change', () => {
+        state.otherCosts.study = parseFloat(studyInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      additionalInput.addEventListener('change', () => {
+        state.otherCosts.additional = parseFloat(additionalInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      travelCreators.addEventListener('change', () => {
+        state.travel.creators = parseFloat(travelCreators.value) || 0;
+        saveState();
+        recalc();
+      });
+      travelBudget.addEventListener('change', () => {
+        state.travel.perCreator = parseFloat(travelBudget.value) || 0;
+        saveState();
+        recalc();
+      });
+    }
+
+    function bindSummaryControls() {
+      const marginInput = document.getElementById('margin-goal');
+      marginInput.value = Number(state.marginGoal || 0);
+      marginInput.addEventListener('change', () => {
+        state.marginGoal = parseFloat(marginInput.value) || 0;
+        saveState();
+        recalc();
+      });
+    }
+
+    function applyGating() {
+      const ctx = {
+        contentMultiplier: 1,
+        otherMultiplier: 1,
+        organicViewMultiplier: 1,
+        travelRequired: false,
+        travelCovered: state.gating.brandCoverTravel,
+        otherBase: 0,
+        approvalsNeeded: new Set(),
+      };
+      GATE_RULES.forEach(rule => {
+        const value = !!state.gating[rule.id];
+        if (typeof rule.effect === 'function') {
+          rule.effect(value, ctx);
+        }
+      });
+      // clamp organic multiplier (cannot drop below 0.4 of forecast)
+      ctx.organicViewMultiplier = Math.max(0.4, ctx.organicViewMultiplier);
+      return ctx;
+    }
+
+    function recalc() {
+      const gating = applyGating();
+      const contentLines = state.campaignLines.map(line => ({
+        ...line,
+        total: calculateLineTotal(line),
+      }));
+      const contentSubtotal = contentLines.reduce((acc, line) => acc + line.total, 0);
+      const organicViewsRaw = state.campaignLines.reduce((acc, line) => {
+        const lineViews = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
+        return acc + lineViews;
+      }, 0);
+      const organicViewsAdjusted = organicViewsRaw * gating.organicViewMultiplier;
+
+      const platformViews = {};
+      state.campaignLines.forEach(line => {
+        const lineViews = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0) * gating.organicViewMultiplier;
+        if (!platformViews[line.platform]) platformViews[line.platform] = 0;
+        platformViews[line.platform] += lineViews;
+      });
+
+      const gatingAdjustedContent = contentSubtotal * gating.contentMultiplier;
+      const otherBase = (state.otherCosts.other || 0) + (state.otherCosts.study || 0) + (state.otherCosts.additional || 0) + gating.otherBase;
+      const otherTotal = otherBase * gating.otherMultiplier;
+      const travelCost = gating.travelRequired && !gating.travelCovered
+        ? (state.travel.creators || 0) * (state.travel.perCreator || 0)
+        : 0;
+
+      const paidBudget = state.paidMedia.budget || 0;
+      const paidViews = calculatePaidViews();
+      const totalCOGs = gatingAdjustedContent + otherTotal + travelCost + paidBudget;
+      const marginGoalPct = (state.marginGoal || 0) / 100;
+      const totalPrice = marginGoalPct >= 1 ? totalCOGs : totalCOGs / (1 - marginGoalPct);
+      const grossMargin = totalPrice - totalCOGs;
+      const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
+      const totalViews = organicViewsAdjusted + paidViews;
+      const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
+
+      updateSummary({
+        contentSubtotal,
+        gatingAdjustedContent,
+        organicViewsRaw,
+        organicViewsAdjusted,
+        otherTotal,
+        travelCost,
+        paidBudget,
+        paidViews,
+        totalCOGs,
+        totalPrice,
+        grossMargin,
+        totalContentPieces,
+        brandCPM,
+        totalViews,
+        platformViews,
+        approvalsNeeded: gating.approvalsNeeded,
+      });
+
+      updateLineTotals(contentLines);
+      saveState();
+    }
+
+    function calculatePaidViews() {
+      const { mode, budget, rate } = state.paidMedia;
+      if (!rate || rate <= 0) return 0;
+      if (mode === 'cpm') {
+        return (budget || 0) / rate * 1000;
+      }
+      return (budget || 0) / rate;
+    }
+
+    function updateSummary(data) {
+      const grid = document.getElementById('summary-grid');
+      grid.innerHTML = '';
+      const items = [
+        ['Total Content Pieces', data.totalContentPieces],
+        ['Organic Views (adj.)', data.organicViewsAdjusted],
+        ['Paid Views', data.paidViews],
+        ['Total Estimated Views', data.totalViews],
+        ['Content Cost (adj.)', formatCurrency(data.gatingAdjustedContent)],
+        ['Other Costs', formatCurrency(data.otherTotal)],
+        ['Travel Costs', formatCurrency(data.travelCost)],
+        ['Paid Media Budget', formatCurrency(data.paidBudget)],
+        ['Total COGs', formatCurrency(data.totalCOGs)],
+        ['Total Price', formatCurrency(data.totalPrice)],
+        ['Gross Margin', formatCurrency(data.grossMargin)],
+        ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
+      ];
+      items.forEach(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'summary-item';
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        const valueSpan = document.createElement('span');
+        valueSpan.textContent = typeof value === 'number' && !label.includes('CPM')
+          ? formatNumber(value)
+          : value;
+        row.appendChild(labelSpan);
+        row.appendChild(valueSpan);
+        grid.appendChild(row);
+      });
+
+      const status = document.getElementById('status-badge');
+      if (data.approvalsNeeded.size > 0) {
+        status.className = 'status-badge status-needs';
+        status.textContent = `Needs ${Array.from(data.approvalsNeeded).join(' & ')} Sign-off`;
+      } else {
+        status.className = 'status-badge status-ok';
+        status.textContent = 'OK — Ready';
+      }
+
+      const breakdown = document.getElementById('platform-breakdown');
+      breakdown.innerHTML = '<strong style="color:#cbd5f5; font-size:0.85rem;">Platform View Share</strong>';
+      const total = Object.values(data.platformViews).reduce((acc, v) => acc + v, 0) || 1;
+      Object.entries(data.platformViews).forEach(([platform, views]) => {
+        const row = document.createElement('div');
+        const pct = ((views / total) * 100).toFixed(1);
+        row.innerHTML = `<span>${platform}</span><span>${formatNumber(views)} (${pct}%)</span>`;
+        breakdown.appendChild(row);
+      });
+    }
+
+    function updateLineTotals(contentLines) {
+      const rows = document.querySelectorAll('#campaign-body tr');
+      contentLines.forEach((line, idx) => {
+        const cell = rows[idx]?.children?.[8];
+        if (cell) {
+          cell.textContent = formatCurrency(line.total);
+        }
+      });
+    }
+
+    function formatCurrency(value) {
+      return `$${formatNumber(value)}`;
+    }
+
+    function formatNumber(value) {
+      if (!isFinite(value)) return '0';
+      return Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    // placeholder for future EMPTY workbook parsing hook
+    function parseEmptyDump(text) {
+      console.log('Parser placeholder for EMPTY tab dump', text);
+    }
+  </script>
+</body>
+</html>
