@@ -387,7 +387,7 @@
                 <th>Creator Language</th>
                 <th>Creator Size</th>
                 <th>Whitelist</th>
-                <th>Unit Rate ($)</th>
+                <th>CPV ($)</th>
                 <th>Qty / Creator</th>
                 <th>Creators</th>
                 <th>Views per Piece</th>
@@ -481,23 +481,21 @@
     };
 
     const SIZE_MULT = {
-      // Rate multipliers are held at 1 so the CPV remains anchored to the rate card.
-      // Views scale with creator size to reflect typical audience reach by tier.
-      Icon: { rate: 1, views: 5 },
-      Mega: { rate: 1, views: 2.5 },
+      Icon: { rate: 1.636, views: 2.083 },
+      Mega: { rate: 1.273, views: 1.458 },
       Macro: { rate: 1, views: 1 },
-      HMid: { rate: 1, views: 0.6 },
-      LMid: { rate: 1, views: 0.4 },
-      Micro: { rate: 1, views: 0.2 },
+      HMid: { rate: 0.818, views: 0.5 },
+      LMid: { rate: 0.636, views: 0.333 },
+      Micro: { rate: 0.5, views: 0.188 },
     };
 
     const SIZE_FOLLOWERS = {
-      Icon: 5000000,
-      Mega: 1200000,
-      Macro: 150000,
-      HMid: 90000,
-      LMid: 60000,
-      Micro: 30000,
+      Icon: 7500000,
+      Mega: 2500000,
+      Macro: 750000,
+      HMid: 375000,
+      LMid: 175000,
+      Micro: 55000,
     };
 
     const VERTICAL_MULT = {
@@ -532,34 +530,34 @@
     const RATE_CARD = {
       YouTube: {
         deliverables: {
-          Dedicated: { baseViews: 80000, cpv: 0.12 },
-          Integrated: { baseViews: 50000, cpv: 0.1 },
-          Shorts: { baseViews: 40000, cpv: 0.07 },
-          Stream: { baseViews: 35000, cpv: 0.05 },
+          Dedicated: { baseViews: 500000, cpv: 0.09 },
+          Integrated: { baseViews: 250000, cpv: 0.128 },
+          Shorts: { baseViews: 150000, cpv: 0.12 },
+          Stream: { baseViews: 20000, cpv: 2 },
         },
       },
       Instagram: {
         deliverables: {
-          Reel: { baseViews: 35000, cpv: 0.06 },
-          Video: { baseViews: 28000, cpv: 0.05 },
-          Story: { baseViews: 20000, cpv: 0.04 },
-          Photo: { baseViews: 15000, cpv: 0.025 },
+          Reel: { baseViews: 90000, cpv: 0.133 },
+          Video: { baseViews: 80000, cpv: 0.125 },
+          Story: { baseViews: 50000, cpv: 0.14 },
+          Photo: { baseViews: 39000, cpv: 0.154 },
         },
       },
       TikTok: {
         deliverables: {
-          Video: { baseViews: 45000, cpv: 0.06 },
-          Live: { baseViews: 40000, cpv: 0.05 },
+          Video: { baseViews: 120000, cpv: 0.125 },
+          Live: { baseViews: 60000, cpv: 0.367 },
         },
       },
       Twitch: {
         deliverables: {
-          Stream: { baseViews: 30000, cpv: 0.045 },
+          Stream: { baseViews: 15000, cpv: 2.333 },
         },
       },
       Twitter: {
         deliverables: {
-          Video: { baseViews: 25000, cpv: 0.045 },
+          Video: { baseViews: 50000, cpv: 0.16 },
         },
       },
     };
@@ -769,7 +767,7 @@
         language,
         size,
         whitelist: false,
-        unitRate: defaults.rate,
+        unitRate: defaults.cpv,
         qtyPerCreator: 0,
         creators: 0,
         viewsPerPiece: defaults.views,
@@ -780,7 +778,7 @@
     function applyLineDefaults(line, options = {}) {
       const { forceViews = false } = options;
       const defaults = getRateDefaults(line.platform, line.deliverable, line.size, line.vertical, line.language);
-      line.unitRate = defaults.rate;
+      line.unitRate = defaults.cpv;
       if (forceViews || !line.manualViews) {
         line.viewsPerPiece = defaults.views;
       }
@@ -798,12 +796,12 @@
           * (verticalAdjust.views ?? 1)
           * (languageAdjust.views ?? 1),
       );
-      const cpv = (base.cpv || 0)
+      const cpvRaw = (base.cpv || 0)
         * (sizeAdjust.rate ?? 1)
         * (verticalAdjust.rate ?? 1)
         * (languageAdjust.rate ?? 1);
       return {
-        rate: Math.round(cpv * views),
+        cpv: Number.isFinite(cpvRaw) ? Number(cpvRaw.toFixed(3)) : 0,
         views,
       };
     }
@@ -1047,8 +1045,9 @@
         const unitRateInput = document.createElement('input');
         unitRateInput.type = 'number';
         unitRateInput.min = '0';
-        unitRateInput.step = '100';
-        unitRateInput.value = Number(line.unitRate || 0);
+        unitRateInput.step = '0.001';
+        const cpvValue = Number(line.unitRate || 0);
+        unitRateInput.value = Number.isFinite(cpvValue) ? cpvValue.toFixed(3) : '0.000';
         unitRateInput.disabled = true;
         unitRateTd.appendChild(unitRateInput);
         tr.appendChild(unitRateTd);
@@ -1141,7 +1140,9 @@
 
     function calculateLineTotal(line) {
       applyLineDefaults(line);
-      const perCreatorBase = (line.unitRate || 0) * (line.qtyPerCreator || 0);
+      const cpv = line.unitRate || 0;
+      const viewsPerPiece = line.viewsPerPiece || 0;
+      const perCreatorBase = cpv * viewsPerPiece * (line.qtyPerCreator || 0);
       // Mirrors EMPTY workbook calc: base rate * qty * whitelist multiplier
       const whitelistMultiplier = line.whitelist
         ? 1 + (WHITELIST_UPLIFT_PCT[line.size] ?? 0.2)
