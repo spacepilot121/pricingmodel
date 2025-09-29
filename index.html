@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Precise Influencer Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -271,6 +272,26 @@
       color: var(--muted);
     }
 
+    .chart-block {
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .chart-block h4 {
+      margin: 0 0 0.75rem;
+      font-size: 0.85rem;
+      color: #cbd5f5;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      min-height: 220px;
+    }
+
     .paid-media-mode {
       display: flex;
       gap: 1rem;
@@ -362,6 +383,8 @@
               <tr>
                 <th>Platform</th>
                 <th>Deliverable</th>
+                <th>Creator Vertical</th>
+                <th>Creator Language</th>
                 <th>Creator Size</th>
                 <th>Whitelist</th>
                 <th>Unit Rate ($)</th>
@@ -409,6 +432,18 @@
         <div id="status-badge" class="status-badge status-ok">OK — Ready</div>
         <div class="summary-grid" id="summary-grid"></div>
         <div class="platform-breakdown" id="platform-breakdown"></div>
+        <div class="chart-block">
+          <h4>Budget Split by Platform</h4>
+          <div class="chart-wrapper">
+            <canvas id="platform-budget-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-block">
+          <h4>Budget Split by Creator Size</h4>
+          <div class="chart-wrapper">
+            <canvas id="size-budget-chart"></canvas>
+          </div>
+        </div>
       </div>
     </aside>
   </main>
@@ -423,6 +458,8 @@
        The workbook exposes key multipliers near rows 44563-44613. They are consolidated below for easy edits.
     */
     const STORAGE_KEY = 'precise-influencer-calculator-v1';
+    let platformBudgetChart = null;
+    let sizeBudgetChart = null;
 
     const SIZE_MULT = {
       Icon: { rate: 1.8, views: 5 },
@@ -431,6 +468,24 @@
       HMid: { rate: 0.9, views: 1.2 },
       LMid: { rate: 0.7, views: 0.8 },
       Micro: { rate: 0.55, views: 0.45 },
+    };
+
+    const VERTICAL_MULT = {
+      General: { rate: 1, views: 1 },
+      Gaming: { rate: 1.12, views: 1.05 },
+      Beauty: { rate: 1.18, views: 1.1 },
+      Finance: { rate: 1.25, views: 0.95 },
+      Technology: { rate: 1.15, views: 1 },
+      Lifestyle: { rate: 1.05, views: 1.08 },
+    };
+
+    const LANGUAGE_MULT = {
+      English: { rate: 1, views: 1 },
+      Spanish: { rate: 0.92, views: 1.08 },
+      Portuguese: { rate: 0.88, views: 1.05 },
+      French: { rate: 0.95, views: 1.02 },
+      German: { rate: 0.97, views: 0.98 },
+      Japanese: { rate: 1.05, views: 0.9 },
     };
 
     const WHITELIST_UPLIFT_PCT = {
@@ -672,25 +727,42 @@
       const platform = Object.keys(RATE_CARD)[0];
       const deliverable = Object.keys(RATE_CARD[platform].deliverables)[0];
       const size = 'Macro';
-      const defaults = getRateDefaults(platform, deliverable, size);
+      const vertical = Object.keys(VERTICAL_MULT)[0];
+      const language = Object.keys(LANGUAGE_MULT)[0];
+      const defaults = getRateDefaults(platform, deliverable, size, vertical, language);
       return {
         platform,
         deliverable,
+        vertical,
+        language,
         size,
         whitelist: false,
         unitRate: defaults.rate,
-        qtyPerCreator: 1,
-        creators: 3,
+        qtyPerCreator: 0,
+        creators: 0,
         viewsPerPiece: defaults.views,
+        manualViews: false,
       };
     }
 
-    function getRateDefaults(platform, deliverable, size) {
+    function applyLineDefaults(line, options = {}) {
+      const { forceViews = false } = options;
+      const defaults = getRateDefaults(line.platform, line.deliverable, line.size, line.vertical, line.language);
+      line.unitRate = defaults.rate;
+      if (forceViews || !line.manualViews) {
+        line.viewsPerPiece = defaults.views;
+      }
+      return line;
+    }
+
+    function getRateDefaults(platform, deliverable, size, vertical, language) {
       const base = RATE_CARD[platform]?.deliverables?.[deliverable] || { rate: 0, views: 0 };
       const sizeAdjust = SIZE_MULT[size] || { rate: 1, views: 1 };
+      const verticalAdjust = VERTICAL_MULT[vertical] || { rate: 1, views: 1 };
+      const languageAdjust = LANGUAGE_MULT[language] || { rate: 1, views: 1 };
       return {
-        rate: Math.round(base.rate * sizeAdjust.rate),
-        views: Math.round(base.views * sizeAdjust.views),
+        rate: Math.round(base.rate * sizeAdjust.rate * verticalAdjust.rate * languageAdjust.rate),
+        views: Math.round(base.views * sizeAdjust.views * verticalAdjust.views * languageAdjust.views),
       };
     }
 
@@ -703,15 +775,15 @@
       },
       travel: {
         creators: 0,
-        perCreator: 5000,
+        perCreator: 0,
       },
       campaignLines: [createDefaultLine()],
       paidMedia: {
         mode: 'cpv',
         budget: 0,
-        rate: 0.06,
+        rate: 0,
       },
-      marginGoal: 40,
+      marginGoal: 0,
     };
 
     let state = loadState();
@@ -727,7 +799,11 @@
           gating: { ...defaultState.gating, ...parsed.gating },
           otherCosts: { ...defaultState.otherCosts, ...parsed.otherCosts },
           travel: { ...defaultState.travel, ...parsed.travel },
-          campaignLines: (parsed.campaignLines || []).map(line => ({ ...createDefaultLine(), ...line })),
+          campaignLines: (parsed.campaignLines || []).map(line => {
+            const merged = { ...createDefaultLine(), ...line };
+            merged.manualViews = !!merged.manualViews;
+            return applyLineDefaults(merged);
+          }),
           paidMedia: { ...defaultState.paidMedia, ...parsed.paidMedia },
         };
       } catch (err) {
@@ -799,6 +875,11 @@
       state.campaignLines.forEach((line, index) => {
         const tr = document.createElement('tr');
 
+        if (!line.vertical) line.vertical = Object.keys(VERTICAL_MULT)[0];
+        if (!line.language) line.language = Object.keys(LANGUAGE_MULT)[0];
+        if (typeof line.manualViews !== 'boolean') line.manualViews = false;
+        applyLineDefaults(line);
+
         const platformTd = document.createElement('td');
         const platformSelect = document.createElement('select');
         Object.keys(RATE_CARD).forEach(platform => {
@@ -814,9 +895,8 @@
           if (!deliverables.includes(line.deliverable)) {
             line.deliverable = deliverables[0];
           }
-          const defaults = getRateDefaults(line.platform, line.deliverable, line.size);
-          line.unitRate = defaults.rate;
-          line.viewsPerPiece = defaults.views;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
           renderCampaign();
           saveState();
           recalc();
@@ -836,15 +916,54 @@
         });
         deliverableSelect.addEventListener('change', () => {
           line.deliverable = deliverableSelect.value;
-          const defaults = getRateDefaults(line.platform, line.deliverable, line.size);
-          line.unitRate = defaults.rate;
-          line.viewsPerPiece = defaults.views;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
           renderCampaign();
           saveState();
           recalc();
         });
         deliverableTd.appendChild(deliverableSelect);
         tr.appendChild(deliverableTd);
+
+        const verticalTd = document.createElement('td');
+        const verticalSelect = document.createElement('select');
+        Object.keys(VERTICAL_MULT).forEach(vertical => {
+          const opt = document.createElement('option');
+          opt.value = vertical;
+          opt.textContent = vertical;
+          if (vertical === line.vertical) opt.selected = true;
+          verticalSelect.appendChild(opt);
+        });
+        verticalSelect.addEventListener('change', () => {
+          line.vertical = verticalSelect.value;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        verticalTd.appendChild(verticalSelect);
+        tr.appendChild(verticalTd);
+
+        const languageTd = document.createElement('td');
+        const languageSelect = document.createElement('select');
+        Object.keys(LANGUAGE_MULT).forEach(language => {
+          const opt = document.createElement('option');
+          opt.value = language;
+          opt.textContent = language;
+          if (language === line.language) opt.selected = true;
+          languageSelect.appendChild(opt);
+        });
+        languageSelect.addEventListener('change', () => {
+          line.language = languageSelect.value;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        languageTd.appendChild(languageSelect);
+        tr.appendChild(languageTd);
 
         const sizeTd = document.createElement('td');
         const sizeSelect = document.createElement('select');
@@ -857,9 +976,8 @@
         });
         sizeSelect.addEventListener('change', () => {
           line.size = sizeSelect.value;
-          const defaults = getRateDefaults(line.platform, line.deliverable, line.size);
-          line.unitRate = defaults.rate;
-          line.viewsPerPiece = defaults.views;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
           renderCampaign();
           saveState();
           recalc();
@@ -885,11 +1003,7 @@
         unitRateInput.min = '0';
         unitRateInput.step = '100';
         unitRateInput.value = Number(line.unitRate || 0);
-        unitRateInput.addEventListener('change', () => {
-          line.unitRate = parseFloat(unitRateInput.value) || 0;
-          saveState();
-          recalc();
-        });
+        unitRateInput.disabled = true;
         unitRateTd.appendChild(unitRateInput);
         tr.appendChild(unitRateTd);
 
@@ -929,6 +1043,7 @@
         viewsInput.value = Number(line.viewsPerPiece || 0);
         viewsInput.addEventListener('change', () => {
           line.viewsPerPiece = parseFloat(viewsInput.value) || 0;
+          line.manualViews = true;
           saveState();
           recalc();
         });
@@ -979,10 +1094,12 @@
     }
 
     function calculateLineTotal(line) {
-      const base = (line.unitRate || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
-      if (!line.whitelist) return base;
-      const uplift = WHITELIST_UPLIFT_PCT[line.size] ?? 0.2;
-      return base * (1 + uplift);
+      applyLineDefaults(line);
+      const perCreatorBase = (line.unitRate || 0) * (line.qtyPerCreator || 0);
+      const uplift = line.whitelist ? (WHITELIST_UPLIFT_PCT[line.size] ?? 0.2) : 0;
+      const cogsPerCreator = perCreatorBase * (1 + uplift);
+      line.cogsPerCreator = cogsPerCreator;
+      return cogsPerCreator * (line.creators || 0);
     }
 
     function bindPaidMedia() {
@@ -1098,7 +1215,18 @@
       const contentLines = state.campaignLines.map(line => ({
         ...line,
         total: calculateLineTotal(line),
+        cogsPerCreator: line.cogsPerCreator || 0,
       }));
+      const platformBudget = {};
+      const sizeBudget = {};
+      contentLines.forEach(line => {
+        const lineTotal = line.total || 0;
+        if (lineTotal > 0) {
+          const adjusted = lineTotal * gating.contentMultiplier;
+          platformBudget[line.platform] = (platformBudget[line.platform] || 0) + adjusted;
+          sizeBudget[line.size] = (sizeBudget[line.size] || 0) + adjusted;
+        }
+      });
       const contentSubtotal = contentLines.reduce((acc, line) => acc + line.total, 0);
       const organicViewsRaw = state.campaignLines.reduce((acc, line) => {
         const lineViews = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
@@ -1127,6 +1255,9 @@
       const totalPrice = marginGoalPct >= 1 ? totalCOGs : totalCOGs / (1 - marginGoalPct);
       const grossMargin = totalPrice - totalCOGs;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
+      const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
+      const totalCogsPerCreator = totalCreators > 0 ? totalCOGs / totalCreators : 0;
+      const pricePerCreator = totalCreators > 0 ? totalPrice / totalCreators : 0;
       const totalViews = organicViewsAdjusted + paidViews;
       const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
 
@@ -1143,12 +1274,16 @@
         totalPrice,
         grossMargin,
         totalContentPieces,
+        totalCreators,
+        totalCogsPerCreator,
+        pricePerCreator,
         brandCPM,
         totalViews,
         platformViews,
         approvalsNeeded: gating.approvalsNeeded,
       });
 
+      updateCharts(platformBudget, sizeBudget);
       updateLineTotals(contentLines);
       saveState();
     }
@@ -1167,6 +1302,7 @@
       grid.innerHTML = '';
       const items = [
         ['Total Content Pieces', data.totalContentPieces],
+        ['Total Creators', data.totalCreators],
         ['Organic Views (adj.)', data.organicViewsAdjusted],
         ['Paid Views', data.paidViews],
         ['Total Estimated Views', data.totalViews],
@@ -1175,7 +1311,9 @@
         ['Travel Costs', formatCurrency(data.travelCost)],
         ['Paid Media Budget', formatCurrency(data.paidBudget)],
         ['Total COGs', formatCurrency(data.totalCOGs)],
+        ['Total COGs / Creator', formatCurrency(data.totalCogsPerCreator)],
         ['Total Price', formatCurrency(data.totalPrice)],
+        ['Price / Creator', formatCurrency(data.pricePerCreator)],
         ['Gross Margin', formatCurrency(data.grossMargin)],
         ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
       ];
@@ -1213,10 +1351,81 @@
       });
     }
 
+    function updateCharts(platformBudget, sizeBudget) {
+      const platformCtx = document.getElementById('platform-budget-chart')?.getContext('2d');
+      const sizeCtx = document.getElementById('size-budget-chart')?.getContext('2d');
+      const platformData = prepareChartData(platformBudget);
+      const sizeData = prepareChartData(sizeBudget);
+      platformBudgetChart = renderPieChart(platformBudgetChart, platformCtx, platformData);
+      sizeBudgetChart = renderPieChart(sizeBudgetChart, sizeCtx, sizeData);
+    }
+
+    function prepareChartData(source) {
+      const entries = Object.entries(source || {}).filter(([, value]) => value > 0);
+      if (!entries.length) {
+        return { labels: ['No Data'], values: [1] };
+      }
+      entries.sort((a, b) => b[1] - a[1]);
+      const labels = entries.map(([label]) => label);
+      const values = entries.map(([, value]) => Number(value.toFixed(2)));
+      return { labels, values };
+    }
+
+    function renderPieChart(instance, ctx, data) {
+      if (!ctx) return instance;
+      const palette = ['#38bdf8', '#818cf8', '#f472b6', '#facc15', '#34d399', '#fb7185', '#fbbf24', '#a855f7'];
+      const backgroundColor = data.labels.map((_, idx) => palette[idx % palette.length]);
+      const dataset = {
+        data: data.values,
+        backgroundColor,
+        borderColor: '#0f172a',
+        borderWidth: 2,
+      };
+      if (instance) {
+        instance.data.labels = data.labels;
+        instance.data.datasets[0].data = data.values;
+        instance.data.datasets[0].backgroundColor = backgroundColor;
+        instance.update();
+        return instance;
+      }
+      return new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: data.labels,
+          datasets: [dataset],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: '#cbd5f5',
+              },
+            },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  if (context.label === 'No Data') {
+                    return 'No Data';
+                  }
+                  const value = context.raw || 0;
+                  const total = data.values.reduce((acc, v) => acc + v, 0) || 1;
+                  const pct = ((value / total) * 100).toFixed(1);
+                  return `${context.label}: $${formatNumber(value)} (${pct}%)`;
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
     function updateLineTotals(contentLines) {
       const rows = document.querySelectorAll('#campaign-body tr');
       contentLines.forEach((line, idx) => {
-        const cell = rows[idx]?.children?.[8];
+        const cell = rows[idx]?.children?.[10];
         if (cell) {
           cell.textContent = formatCurrency(line.total);
         }
