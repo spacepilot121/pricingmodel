@@ -444,6 +444,18 @@
             <canvas id="size-budget-chart"></canvas>
           </div>
         </div>
+        <div class="chart-block">
+          <h4>Estimated Views by Platform</h4>
+          <div class="chart-wrapper">
+            <canvas id="platform-view-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-block">
+          <h4>Organic vs Paid Views</h4>
+          <div class="chart-wrapper">
+            <canvas id="view-mix-chart"></canvas>
+          </div>
+        </div>
       </div>
     </aside>
   </main>
@@ -460,6 +472,13 @@
     const STORAGE_KEY = 'precise-influencer-calculator-v1';
     let platformBudgetChart = null;
     let sizeBudgetChart = null;
+    let platformViewChart = null;
+    let viewMixChart = null;
+
+    const DEFAULT_PAID_RATES = {
+      cpv: 0.03,
+      cpm: 12,
+    };
 
     const SIZE_MULT = {
       Icon: { rate: 1.636, views: 2.083 },
@@ -790,7 +809,7 @@
       paidMedia: {
         mode: 'cpv',
         budget: 0,
-        rate: 0,
+        rate: DEFAULT_PAID_RATES.cpv,
       },
       marginGoal: 0,
     };
@@ -802,6 +821,10 @@
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return structuredClone(defaultState);
         const parsed = JSON.parse(raw);
+        const mergedPaidMedia = { ...defaultState.paidMedia, ...parsed.paidMedia };
+        if (!mergedPaidMedia.rate || mergedPaidMedia.rate <= 0) {
+          mergedPaidMedia.rate = DEFAULT_PAID_RATES[mergedPaidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
+        }
         return {
           ...structuredClone(defaultState),
           ...parsed,
@@ -813,7 +836,7 @@
             merged.manualViews = !!merged.manualViews;
             return applyLineDefaults(merged);
           }),
-          paidMedia: { ...defaultState.paidMedia, ...parsed.paidMedia },
+          paidMedia: mergedPaidMedia,
         };
       } catch (err) {
         console.error('Failed to load state', err);
@@ -1105,47 +1128,66 @@
     function calculateLineTotal(line) {
       applyLineDefaults(line);
       const perCreatorBase = (line.unitRate || 0) * (line.qtyPerCreator || 0);
-      const uplift = line.whitelist ? (WHITELIST_UPLIFT_PCT[line.size] ?? 0.2) : 0;
-      const cogsPerCreator = perCreatorBase * (1 + uplift);
+      // Mirrors EMPTY workbook calc: base rate * qty * whitelist multiplier
+      const whitelistMultiplier = line.whitelist
+        ? 1 + (WHITELIST_UPLIFT_PCT[line.size] ?? 0.2)
+        : 1;
+      const cogsPerCreator = perCreatorBase * whitelistMultiplier;
       line.cogsPerCreator = cogsPerCreator;
       return cogsPerCreator * (line.creators || 0);
     }
 
     function bindPaidMedia() {
       const modeInputs = document.querySelectorAll('input[name="paid-mode"]');
+      const budgetInput = document.getElementById('paid-budget');
+      const rateInput = document.getElementById('paid-rate');
+
+      if (!state.paidMedia.rate || state.paidMedia.rate <= 0) {
+        state.paidMedia.rate = DEFAULT_PAID_RATES[state.paidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
+      }
+
       modeInputs.forEach(input => {
         input.checked = state.paidMedia.mode === input.value;
         input.addEventListener('change', () => {
           if (input.checked) {
+            const previousMode = state.paidMedia.mode;
+            const previousRate = state.paidMedia.rate;
             state.paidMedia.mode = input.value;
+            if (!previousRate || previousRate === (DEFAULT_PAID_RATES[previousMode] ?? DEFAULT_PAID_RATES.cpv)) {
+              state.paidMedia.rate = DEFAULT_PAID_RATES[state.paidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
+            }
+            rateInput.value = Number(state.paidMedia.rate || 0);
             saveState();
             updatePaidRateLabel();
             recalc();
           }
         });
       });
-      const budgetInput = document.getElementById('paid-budget');
+
       budgetInput.value = Number(state.paidMedia.budget || 0);
       budgetInput.addEventListener('change', () => {
         state.paidMedia.budget = parseFloat(budgetInput.value) || 0;
         saveState();
         recalc();
       });
-      const rateInput = document.getElementById('paid-rate');
+
       rateInput.value = Number(state.paidMedia.rate || 0);
       rateInput.addEventListener('change', () => {
         state.paidMedia.rate = parseFloat(rateInput.value) || 0;
         saveState();
         recalc();
       });
+
       updatePaidRateLabel();
     }
 
     function updatePaidRateLabel() {
       const label = document.getElementById('paid-rate-label');
-      label.textContent = state.paidMedia.mode === 'cpm' ? 'CPM' : 'CPV';
+      const isCpm = state.paidMedia.mode === 'cpm';
+      label.textContent = isCpm ? 'CPM' : 'CPV';
       const rateInput = document.getElementById('paid-rate');
-      rateInput.step = state.paidMedia.mode === 'cpm' ? '0.1' : '0.001';
+      rateInput.step = isCpm ? '0.1' : '0.001';
+      rateInput.placeholder = (DEFAULT_PAID_RATES[state.paidMedia.mode] ?? DEFAULT_PAID_RATES.cpv).toString();
     }
 
     function bindOtherCosts() {
@@ -1296,7 +1338,12 @@
         approvalsNeeded: gating.approvalsNeeded,
       });
 
-      updateCharts(platformBudget, sizeBudget);
+      const viewMix = {
+        'Organic Views': organicViewsAdjusted,
+        'Paid Views': paidViews,
+      };
+
+      updateCharts(platformBudget, sizeBudget, platformViews, viewMix);
       updateLineTotals(contentLines);
       saveState();
     }
@@ -1365,27 +1412,40 @@
       });
     }
 
-    function updateCharts(platformBudget, sizeBudget) {
+    function updateCharts(platformBudget, sizeBudget, platformViews, viewMix) {
       const platformCtx = document.getElementById('platform-budget-chart')?.getContext('2d');
       const sizeCtx = document.getElementById('size-budget-chart')?.getContext('2d');
+      const viewPlatformCtx = document.getElementById('platform-view-chart')?.getContext('2d');
+      const viewMixCtx = document.getElementById('view-mix-chart')?.getContext('2d');
+
       const platformData = prepareChartData(platformBudget);
       const sizeData = prepareChartData(sizeBudget);
+      const platformViewData = prepareChartData(platformViews, { decimals: 0 });
+      const viewMixData = prepareChartData(viewMix, { decimals: 0 });
+
       platformBudgetChart = renderPieChart(platformBudgetChart, platformCtx, platformData);
       sizeBudgetChart = renderPieChart(sizeBudgetChart, sizeCtx, sizeData);
+      platformViewChart = renderPieChart(platformViewChart, viewPlatformCtx, platformViewData, {
+        tooltipLabelFormatter: createViewTooltipFormatter('views'),
+      });
+      viewMixChart = renderPieChart(viewMixChart, viewMixCtx, viewMixData, {
+        tooltipLabelFormatter: createViewTooltipFormatter('views'),
+      });
     }
 
-    function prepareChartData(source) {
+    function prepareChartData(source, options = {}) {
+      const { decimals = 2 } = options;
       const entries = Object.entries(source || {}).filter(([, value]) => value > 0);
       if (!entries.length) {
         return { labels: ['No Data'], values: [1] };
       }
       entries.sort((a, b) => b[1] - a[1]);
       const labels = entries.map(([label]) => label);
-      const values = entries.map(([, value]) => Number(value.toFixed(2)));
+      const values = entries.map(([, value]) => Number(value.toFixed(decimals)));
       return { labels, values };
     }
 
-    function renderPieChart(instance, ctx, data) {
+    function renderPieChart(instance, ctx, data, options = {}) {
       if (!ctx) return instance;
       const palette = ['#38bdf8', '#818cf8', '#f472b6', '#facc15', '#34d399', '#fb7185', '#fbbf24', '#a855f7'];
       const backgroundColor = data.labels.map((_, idx) => palette[idx % palette.length]);
@@ -1395,6 +1455,7 @@
         borderColor: '#0f172a',
         borderWidth: 2,
       };
+      const tooltipLabelFormatter = options.tooltipLabelFormatter || defaultCurrencyTooltipFormatter;
       if (instance) {
         instance.data.labels = data.labels;
         instance.data.datasets[0].data = data.values;
@@ -1426,14 +1487,25 @@
                   }
                   const value = context.raw || 0;
                   const total = data.values.reduce((acc, v) => acc + v, 0) || 1;
-                  const pct = ((value / total) * 100).toFixed(1);
-                  return `${context.label}: $${formatNumber(value)} (${pct}%)`;
+                  return tooltipLabelFormatter(context.label, value, total);
                 },
               },
             },
           },
         },
       });
+    }
+
+    function defaultCurrencyTooltipFormatter(label, value, total) {
+      const pct = ((value / total) * 100).toFixed(1);
+      return `${label}: $${formatNumber(value)} (${pct}%)`;
+    }
+
+    function createViewTooltipFormatter(unit) {
+      return (label, value, total) => {
+        const pct = ((value / total) * 100).toFixed(1);
+        return `${label}: ${formatNumber(value)} ${unit} (${pct}%)`;
+      };
     }
 
     function updateLineTotals(contentLines) {
