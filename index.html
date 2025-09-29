@@ -462,12 +462,21 @@
     let sizeBudgetChart = null;
 
     const SIZE_MULT = {
-      Icon: { rate: 1.8, views: 5 },
-      Mega: { rate: 1.4, views: 3.5 },
-      Macro: { rate: 1.1, views: 2.4 },
-      HMid: { rate: 0.9, views: 1.2 },
-      LMid: { rate: 0.7, views: 0.8 },
-      Micro: { rate: 0.55, views: 0.45 },
+      Icon: { rate: 1.636, views: 2.083 },
+      Mega: { rate: 1.273, views: 1.458 },
+      Macro: { rate: 1, views: 1 },
+      HMid: { rate: 0.818, views: 0.5 },
+      LMid: { rate: 0.636, views: 0.333 },
+      Micro: { rate: 0.5, views: 0.188 },
+    };
+
+    const SIZE_FOLLOWERS = {
+      Icon: 7500000,
+      Mega: 2500000,
+      Macro: 750000,
+      HMid: 375000,
+      LMid: 175000,
+      Micro: 55000,
     };
 
     const VERTICAL_MULT = {
@@ -1235,10 +1244,13 @@
       const organicViewsAdjusted = organicViewsRaw * gating.organicViewMultiplier;
 
       const platformViews = {};
+      let totalEstimatedFollowers = 0;
       state.campaignLines.forEach(line => {
         const lineViews = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0) * gating.organicViewMultiplier;
         if (!platformViews[line.platform]) platformViews[line.platform] = 0;
         platformViews[line.platform] += lineViews;
+        const avgFollowers = SIZE_FOLLOWERS[line.size] || 0;
+        totalEstimatedFollowers += avgFollowers * (line.creators || 0);
       });
 
       const gatingAdjustedContent = contentSubtotal * gating.contentMultiplier;
@@ -1280,6 +1292,7 @@
         brandCPM,
         totalViews,
         platformViews,
+        totalEstimatedFollowers,
         approvalsNeeded: gating.approvalsNeeded,
       });
 
@@ -1303,6 +1316,7 @@
       const items = [
         ['Total Content Pieces', data.totalContentPieces],
         ['Total Creators', data.totalCreators],
+        ['Estimated Followers', data.totalEstimatedFollowers],
         ['Organic Views (adj.)', data.organicViewsAdjusted],
         ['Paid Views', data.paidViews],
         ['Total Estimated Views', data.totalViews],
