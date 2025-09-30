@@ -559,10 +559,12 @@
        The workbook exposes key multipliers near rows 44563-44613. They are consolidated below for easy edits.
     */
     const STORAGE_KEY = 'precise-influencer-calculator-v1';
-    let platformBudgetChart = null;
-    let sizeBudgetChart = null;
-    let platformViewChart = null;
-    let viewMixChart = null;
+    const chartStates = {
+      platformBudget: createChartState('platform-budget-chart'),
+      sizeBudget: createChartState('size-budget-chart'),
+      platformViews: createChartState('platform-view-chart'),
+      viewMix: createChartState('view-mix-chart'),
+    };
 
     const CPV_WITH_MARGIN_LABEL = 'CPV';
 
@@ -1662,22 +1664,14 @@
     }
 
     function updateCharts(platformBudget, sizeBudget, platformViews, viewMix) {
-      const platformCtx = document.getElementById('platform-budget-chart')?.getContext('2d');
-      const sizeCtx = document.getElementById('size-budget-chart')?.getContext('2d');
-      const viewPlatformCtx = document.getElementById('platform-view-chart')?.getContext('2d');
-      const viewMixCtx = document.getElementById('view-mix-chart')?.getContext('2d');
-
-      const platformData = prepareChartData(platformBudget);
-      const sizeData = prepareChartData(sizeBudget);
-      const platformViewData = prepareChartData(platformViews, { decimals: 0 });
-      const viewMixData = prepareChartData(viewMix, { decimals: 0 });
-
-      platformBudgetChart = renderPieChart(platformBudgetChart, platformCtx, platformData);
-      sizeBudgetChart = renderPieChart(sizeBudgetChart, sizeCtx, sizeData);
-      platformViewChart = renderPieChart(platformViewChart, viewPlatformCtx, platformViewData, {
+      updateChart(chartStates.platformBudget, platformBudget);
+      updateChart(chartStates.sizeBudget, sizeBudget);
+      updateChart(chartStates.platformViews, platformViews, {
+        decimals: 0,
         tooltipLabelFormatter: createViewTooltipFormatter('views'),
       });
-      viewMixChart = renderPieChart(viewMixChart, viewMixCtx, viewMixData, {
+      updateChart(chartStates.viewMix, viewMix, {
+        decimals: 0,
         tooltipLabelFormatter: createViewTooltipFormatter('views'),
       });
     }
@@ -1694,55 +1688,127 @@
       return { labels, values };
     }
 
-    function renderPieChart(instance, ctx, data, options = {}) {
-      if (!ctx) return instance;
+    function updateChart(state, source, options = {}) {
+      const ctx = document.getElementById(state.canvasId)?.getContext('2d');
+      if (!ctx) return;
+      state.ctx = ctx;
+      const data = prepareChartData(source, options);
+      state.lastData = data;
+      if (options.tooltipLabelFormatter) {
+        state.tooltipLabelFormatter = options.tooltipLabelFormatter;
+      } else if (!state.tooltipLabelFormatter) {
+        state.tooltipLabelFormatter = defaultCurrencyTooltipFormatter;
+      }
+      renderChartInstance(state, data);
+    }
+
+    function renderChartInstance(state, data) {
+      if (!state.ctx) return;
+      if (state.instance) {
+        state.instance.destroy();
+      }
+      const chartConfig = createChartConfig(state.currentType, data, state.tooltipLabelFormatter);
+      state.instance = new Chart(state.ctx, chartConfig);
+      const canvas = state.instance.canvas;
+      if (canvas) {
+        canvas.style.cursor = 'pointer';
+        const nextType = state.currentType === 'pie' ? 'bar' : 'pie';
+        canvas.title = `Click to switch to ${nextType} chart`;
+        if (!state.listenerAttached) {
+          canvas.addEventListener('click', () => toggleChartType(state));
+          state.listenerAttached = true;
+        }
+      }
+    }
+
+    function toggleChartType(state) {
+      state.currentType = state.currentType === state.defaultType ? state.alternateType : state.defaultType;
+      if (state.lastData) {
+        renderChartInstance(state, state.lastData);
+      }
+    }
+
+    function createChartConfig(type, data, tooltipLabelFormatter = defaultCurrencyTooltipFormatter) {
       const palette = ['#38bdf8', '#818cf8', '#f472b6', '#facc15', '#34d399', '#fb7185', '#fbbf24', '#a855f7'];
       const backgroundColor = data.labels.map((_, idx) => palette[idx % palette.length]);
       const dataset = {
         data: data.values,
         backgroundColor,
         borderColor: '#0f172a',
-        borderWidth: 2,
+        borderWidth: type === 'pie' ? 2 : 1,
       };
-      const tooltipLabelFormatter = options.tooltipLabelFormatter || defaultCurrencyTooltipFormatter;
-      if (instance) {
-        instance.data.labels = data.labels;
-        instance.data.datasets[0].data = data.values;
-        instance.data.datasets[0].backgroundColor = backgroundColor;
-        instance.update();
-        return instance;
-      }
-      return new Chart(ctx, {
-        type: 'pie',
-        data: {
-          labels: data.labels,
-          datasets: [dataset],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                color: '#cbd5f5',
-              },
+      const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: type === 'pie' ? 'bottom' : 'top',
+            display: type === 'pie',
+            labels: {
+              color: '#cbd5f5',
             },
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  if (context.label === 'No Data') {
-                    return 'No Data';
-                  }
-                  const value = context.raw || 0;
-                  const total = data.values.reduce((acc, v) => acc + v, 0) || 1;
-                  return tooltipLabelFormatter(context.label, value, total);
-                },
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                if (context.label === 'No Data') {
+                  return 'No Data';
+                }
+                const value = context.raw || 0;
+                const total = data.values.reduce((acc, v) => acc + v, 0) || 1;
+                return tooltipLabelFormatter(context.label, value, total);
               },
             },
           },
         },
-      });
+      };
+
+      if (type === 'bar') {
+        dataset.label = 'Value';
+        baseOptions.scales = {
+          x: {
+            beginAtZero: true,
+            ticks: {
+              color: '#cbd5f5',
+            },
+            grid: {
+              color: '#334155',
+            },
+          },
+          y: {
+            ticks: {
+              color: '#cbd5f5',
+            },
+            grid: {
+              display: false,
+              color: '#1e293b',
+            },
+          },
+        };
+      }
+
+      return {
+        type,
+        data: {
+          labels: data.labels,
+          datasets: [dataset],
+        },
+        options: baseOptions,
+      };
+    }
+
+    function createChartState(canvasId, tooltipLabelFormatter = defaultCurrencyTooltipFormatter) {
+      return {
+        canvasId,
+        instance: null,
+        ctx: null,
+        defaultType: 'pie',
+        alternateType: 'bar',
+        currentType: 'pie',
+        tooltipLabelFormatter,
+        lastData: null,
+        listenerAttached: false,
+      };
     }
 
     function defaultCurrencyTooltipFormatter(label, value, total) {
