@@ -341,7 +341,12 @@
     .chart-wrapper {
       position: relative;
       width: 100%;
-      min-height: 150px;
+      height: 240px;
+    }
+
+    .chart-wrapper canvas {
+      width: 100% !important;
+      height: 100% !important;
     }
 
     .paid-media-mode {
@@ -1664,8 +1669,16 @@
     }
 
     function updateCharts(platformBudget, sizeBudget, platformViews, viewMix) {
-      updateChart(chartStates.platformBudget, platformBudget);
-      updateChart(chartStates.sizeBudget, sizeBudget);
+      const percentageOptions = {
+        decimals: 1,
+        toPercentage: true,
+        tooltipLabelFormatter: defaultPercentTooltipFormatter,
+        datasetLabel: 'Percent of Budget',
+        valueSuffix: '%',
+        maxValue: 100,
+      };
+      updateChart(chartStates.platformBudget, platformBudget, percentageOptions);
+      updateChart(chartStates.sizeBudget, sizeBudget, percentageOptions);
       updateChart(chartStates.platformViews, platformViews, {
         decimals: 0,
         tooltipLabelFormatter: createViewTooltipFormatter('views'),
@@ -1677,14 +1690,18 @@
     }
 
     function prepareChartData(source, options = {}) {
-      const { decimals = 2 } = options;
+      const { decimals = 2, toPercentage = false } = options;
       const entries = Object.entries(source || {}).filter(([, value]) => value > 0);
       if (!entries.length) {
         return { labels: ['No Data'], values: [1] };
       }
       entries.sort((a, b) => b[1] - a[1]);
       const labels = entries.map(([label]) => label);
-      const values = entries.map(([, value]) => Number(value.toFixed(decimals)));
+      const total = entries.reduce((acc, [, value]) => acc + value, 0) || 1;
+      const values = entries.map(([, value]) => {
+        const finalValue = toPercentage ? (value / total) * 100 : value;
+        return Number(finalValue.toFixed(decimals));
+      });
       return { labels, values };
     }
 
@@ -1694,20 +1711,26 @@
       state.ctx = ctx;
       const data = prepareChartData(source, options);
       state.lastData = data;
+      state.chartOptions = options;
       if (options.tooltipLabelFormatter) {
         state.tooltipLabelFormatter = options.tooltipLabelFormatter;
       } else if (!state.tooltipLabelFormatter) {
         state.tooltipLabelFormatter = defaultCurrencyTooltipFormatter;
       }
-      renderChartInstance(state, data);
+      renderChartInstance(state, data, options);
     }
 
-    function renderChartInstance(state, data) {
+    function renderChartInstance(state, data, options = {}) {
       if (!state.ctx) return;
       if (state.instance) {
         state.instance.destroy();
       }
-      const chartConfig = createChartConfig(state.currentType, data, state.tooltipLabelFormatter);
+      const chartConfig = createChartConfig(
+        state.currentType,
+        data,
+        state.tooltipLabelFormatter,
+        options
+      );
       state.instance = new Chart(state.ctx, chartConfig);
       const canvas = state.instance.canvas;
       if (canvas) {
@@ -1724,11 +1747,16 @@
     function toggleChartType(state) {
       state.currentType = state.currentType === state.defaultType ? state.alternateType : state.defaultType;
       if (state.lastData) {
-        renderChartInstance(state, state.lastData);
+        renderChartInstance(state, state.lastData, state.chartOptions || {});
       }
     }
 
-    function createChartConfig(type, data, tooltipLabelFormatter = defaultCurrencyTooltipFormatter) {
+    function createChartConfig(
+      type,
+      data,
+      tooltipLabelFormatter = defaultCurrencyTooltipFormatter,
+      options = {}
+    ) {
       const palette = ['#38bdf8', '#818cf8', '#f472b6', '#facc15', '#34d399', '#fb7185', '#fbbf24', '#a855f7'];
       const backgroundColor = data.labels.map((_, idx) => palette[idx % palette.length]);
       const dataset = {
@@ -1736,6 +1764,7 @@
         backgroundColor,
         borderColor: '#0f172a',
         borderWidth: type === 'pie' ? 2 : 1,
+        label: options.datasetLabel || 'Value',
       };
       const baseOptions = {
         responsive: true,
@@ -1764,7 +1793,6 @@
       };
 
       if (type === 'bar') {
-        dataset.label = 'Value';
         baseOptions.scales = {
           x: {
             beginAtZero: true,
@@ -1776,8 +1804,15 @@
             },
           },
           y: {
+            beginAtZero: true,
             ticks: {
               color: '#cbd5f5',
+              callback(value) {
+                if (options.valueSuffix) {
+                  return `${value}${options.valueSuffix}`;
+                }
+                return value;
+              },
             },
             grid: {
               display: false,
@@ -1785,6 +1820,9 @@
             },
           },
         };
+        if (options.maxValue) {
+          baseOptions.scales.y.max = options.maxValue;
+        }
       }
 
       return {
@@ -1808,12 +1846,18 @@
         tooltipLabelFormatter,
         lastData: null,
         listenerAttached: false,
+        chartOptions: {},
       };
     }
 
     function defaultCurrencyTooltipFormatter(label, value, total) {
       const pct = ((value / total) * 100).toFixed(1);
       return `${label}: $${formatNumber(value)} (${pct}%)`;
+    }
+
+    function defaultPercentTooltipFormatter(label, value, total) {
+      const pct = ((value / total) * 100).toFixed(1);
+      return `${label}: ${pct}%`;
     }
 
     function createViewTooltipFormatter(unit) {
