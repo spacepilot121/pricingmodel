@@ -1539,6 +1539,8 @@
       const pricePerCreator = totalCreators > 0 ? totalPrice / totalCreators : 0;
       const totalViews = organicViewsAdjusted + paidViews;
       const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
+      const brandOrganicCPV = organicViewsAdjusted > 0 ? influencerClientCost / organicViewsAdjusted : 0;
+      const brandCombinedCPV = totalViews > 0 ? totalPrice / totalViews : 0;
       const adRateCpv = organicViewsAdjusted > 0 ? gatingAdjustedContent / organicViewsAdjusted : 0;
 
       updateSummary({
@@ -1561,6 +1563,8 @@
         totalCogsPerCreator,
         pricePerCreator,
         brandCPM,
+        brandOrganicCPV,
+        brandCombinedCPV,
         totalViews,
         platformViews,
         totalEstimatedFollowers,
@@ -1613,6 +1617,8 @@
           ['Total Creators', data.totalCreators],
           ['Min Estimated Followers', data.totalEstimatedFollowers],
           ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
+          ['Brand Organic CPV', isFinite(data.brandOrganicCPV) ? `$${data.brandOrganicCPV.toFixed(2)}` : '$0.00'],
+          ['Brand Combined CPV', isFinite(data.brandCombinedCPV) ? `$${data.brandCombinedCPV.toFixed(2)}` : '$0.00'],
         ];
         appendSummaryRows(metricsGrid, metricItems);
       }
