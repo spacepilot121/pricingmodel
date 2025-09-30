@@ -89,16 +89,26 @@
       color: #cbd5f5;
     }
 
+    #gating-section {
+      padding: 1rem;
+    }
+
+    #gating-section h2 {
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+    }
+
     .gating-grid {
       display: grid;
-      gap: 0.75rem;
+      gap: 0.6rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     }
 
     .gating-item {
       display: flex;
       align-items: flex-start;
-      gap: 0.75rem;
-      padding: 0.75rem;
+      gap: 0.6rem;
+      padding: 0.6rem 0.65rem;
       border-radius: 12px;
       border: 1px solid rgba(148, 163, 184, 0.12);
       background: rgba(15, 23, 42, 0.35);
@@ -107,11 +117,13 @@
     .gating-item label {
       flex: 1;
       font-weight: 500;
+      font-size: 0.8rem;
+      line-height: 1.35;
       cursor: pointer;
     }
 
     .approver-tag {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--muted);
     }
 
@@ -150,6 +162,15 @@
       color: inherit;
       padding: 0.4rem 0.45rem;
       font-size: 0.8rem;
+    }
+
+    .readonly-value {
+      padding: 0.4rem 0.45rem;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.5);
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
     }
 
     input[type="checkbox"] {
@@ -403,10 +424,10 @@
                 <th>Creator Size</th>
                 <th>Whitelist</th>
                 <th>CPV ($)</th>
-                <th>Qty / Creator</th>
-                <th>Creators</th>
+                <th>No. Creators</th>
+                <th>No. Content Each</th>
                 <th>Views per Piece</th>
-                <th>Line Total ($)</th>
+                <th>Total COGs</th>
                 <th></th>
               </tr>
             </thead>
@@ -866,8 +887,8 @@
           travel: { ...defaultState.travel, ...parsed.travel },
           campaignLines: (parsed.campaignLines || []).map(line => {
             const merged = { ...createDefaultLine(), ...line };
-            merged.manualViews = !!merged.manualViews;
-            return applyLineDefaults(merged);
+            merged.manualViews = false;
+            return applyLineDefaults(merged, { forceViews: true });
           }),
           paidMedia: mergedPaidMedia,
         };
@@ -942,8 +963,8 @@
 
         if (!line.vertical) line.vertical = Object.keys(VERTICAL_MULT)[0];
         if (!line.language) line.language = Object.keys(LANGUAGE_MULT)[0];
-        if (typeof line.manualViews !== 'boolean') line.manualViews = false;
-        applyLineDefaults(line);
+        line.manualViews = false;
+        applyLineDefaults(line, { forceViews: true });
 
         const platformTd = document.createElement('td');
         const platformSelect = document.createElement('select');
@@ -1073,47 +1094,39 @@
         unitRateTd.appendChild(unitRateInput);
         tr.appendChild(unitRateTd);
 
-        const qtyTd = document.createElement('td');
-        const qtyInput = document.createElement('input');
-        qtyInput.type = 'number';
-        qtyInput.min = '0';
-        qtyInput.step = '1';
-        qtyInput.value = Number(line.qtyPerCreator || 0);
-        qtyInput.addEventListener('change', () => {
-          line.qtyPerCreator = parseFloat(qtyInput.value) || 0;
+        const creatorsTd = document.createElement('td');
+        const creatorsInput = document.createElement('input');
+        creatorsInput.type = 'number';
+        creatorsInput.min = '0';
+        creatorsInput.step = '1';
+        creatorsInput.value = Number(line.creators || 0);
+        creatorsInput.addEventListener('change', () => {
+          line.creators = parseFloat(creatorsInput.value) || 0;
           saveState();
           recalc();
         });
-        qtyTd.appendChild(qtyInput);
-        tr.appendChild(qtyTd);
+        creatorsTd.appendChild(creatorsInput);
+        tr.appendChild(creatorsTd);
 
-        const creatorTd = document.createElement('td');
-        const creatorInput = document.createElement('input');
-        creatorInput.type = 'number';
-        creatorInput.min = '0';
-        creatorInput.step = '1';
-        creatorInput.value = Number(line.creators || 0);
-        creatorInput.addEventListener('change', () => {
-          line.creators = parseFloat(creatorInput.value) || 0;
+        const contentTd = document.createElement('td');
+        const contentInput = document.createElement('input');
+        contentInput.type = 'number';
+        contentInput.min = '0';
+        contentInput.step = '1';
+        contentInput.value = Number(line.qtyPerCreator || 0);
+        contentInput.addEventListener('change', () => {
+          line.qtyPerCreator = parseFloat(contentInput.value) || 0;
           saveState();
           recalc();
         });
-        creatorTd.appendChild(creatorInput);
-        tr.appendChild(creatorTd);
+        contentTd.appendChild(contentInput);
+        tr.appendChild(contentTd);
 
         const viewsTd = document.createElement('td');
-        const viewsInput = document.createElement('input');
-        viewsInput.type = 'number';
-        viewsInput.min = '0';
-        viewsInput.step = '100';
-        viewsInput.value = Number(line.viewsPerPiece || 0);
-        viewsInput.addEventListener('change', () => {
-          line.viewsPerPiece = parseFloat(viewsInput.value) || 0;
-          line.manualViews = true;
-          saveState();
-          recalc();
-        });
-        viewsTd.appendChild(viewsInput);
+        const viewsDisplay = document.createElement('div');
+        viewsDisplay.className = 'readonly-value';
+        viewsDisplay.textContent = formatNumber(line.viewsPerPiece || 0);
+        viewsTd.appendChild(viewsDisplay);
         tr.appendChild(viewsTd);
 
         const lineTotalTd = document.createElement('td');
@@ -1550,9 +1563,16 @@
     function updateLineTotals(contentLines) {
       const rows = document.querySelectorAll('#campaign-body tr');
       contentLines.forEach((line, idx) => {
-        const cell = rows[idx]?.children?.[10];
-        if (cell) {
-          cell.textContent = formatCurrency(line.total);
+        const row = rows[idx];
+        if (!row) return;
+        const viewsCell = row.children?.[9];
+        const viewDisplay = viewsCell?.querySelector('.readonly-value');
+        if (viewDisplay) {
+          viewDisplay.textContent = formatNumber(line.viewsPerPiece || 0);
+        }
+        const totalCell = row.children?.[10];
+        if (totalCell) {
+          totalCell.textContent = formatCurrency(line.total);
         }
       });
     }
