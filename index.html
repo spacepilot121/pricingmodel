@@ -432,10 +432,10 @@
                 <th>Creator Language</th>
                 <th>Creator Size</th>
                 <th>Whitelist</th>
-                <th>CPV ($)</th>
                 <th>No. Creators</th>
                 <th>No. Content Each</th>
                 <th>Views per Piece</th>
+                <th>CPV ($)</th>
                 <th>Total COGs</th>
                 <th></th>
               </tr>
@@ -452,7 +452,7 @@
       <section>
         <h2>Paid Media Options</h2>
         <div class="paid-media-mode">
-          <label><input type="radio" name="paid-mode" value="cpv" /> CPV including Margin from AdOps Mode</label>
+          <label><input type="radio" name="paid-mode" value="cpv" /> CPV</label>
           <label><input type="radio" name="paid-mode" value="cpm" /> CPM Mode</label>
         </div>
         <div class="input-group">
@@ -461,7 +461,7 @@
             <input type="number" id="paid-budget" min="0" step="100" />
           </div>
           <div class="input-row">
-            <label id="paid-rate-label" for="paid-rate">CPV including Margin from AdOps</label>
+            <label id="paid-rate-label" for="paid-rate">CPV</label>
             <input type="number" id="paid-rate" min="0" step="0.001" />
           </div>
         </div>
@@ -564,7 +564,7 @@
     let platformViewChart = null;
     let viewMixChart = null;
 
-    const CPV_WITH_MARGIN_LABEL = 'CPV including Margin from AdOps';
+    const CPV_WITH_MARGIN_LABEL = 'CPV';
 
     const DEFAULT_PAID_RATES = {
       cpv: 0.03,
@@ -1237,17 +1237,6 @@
         whitelistTd.appendChild(whitelistCheckbox);
         tr.appendChild(whitelistTd);
 
-        const unitRateTd = document.createElement('td');
-        const unitRateInput = document.createElement('input');
-        unitRateInput.type = 'number';
-        unitRateInput.min = '0';
-        unitRateInput.step = '0.001';
-        const cpvValue = Number(line.unitRate || 0);
-        unitRateInput.value = Number.isFinite(cpvValue) ? cpvValue.toFixed(3) : '0.000';
-        unitRateInput.disabled = true;
-        unitRateTd.appendChild(unitRateInput);
-        tr.appendChild(unitRateTd);
-
         const creatorsTd = document.createElement('td');
         const creatorsInput = document.createElement('input');
         creatorsInput.type = 'number';
@@ -1282,6 +1271,13 @@
         viewsDisplay.textContent = formatNumber(line.viewsPerPiece || 0);
         viewsTd.appendChild(viewsDisplay);
         tr.appendChild(viewsTd);
+
+        const unitRateTd = document.createElement('td');
+        const unitRateDisplay = document.createElement('div');
+        unitRateDisplay.className = 'readonly-value';
+        unitRateDisplay.textContent = formatCpv(line.unitRate || 0);
+        unitRateTd.appendChild(unitRateDisplay);
+        tr.appendChild(unitRateTd);
 
         const lineTotalTd = document.createElement('td');
         lineTotalTd.textContent = formatCurrency(calculateLineTotal(line));
@@ -1605,15 +1601,12 @@
       if (metricsGrid) {
         metricsGrid.innerHTML = '';
         const metricItems = [
-          ['Total Content Pieces', data.totalContentPieces],
-          ['Total Creators', data.totalCreators],
-          ['Total Estimated Views', data.totalViews],
           ['Organic Views (adj.)', data.organicViewsAdjusted],
           ['Paid Views', data.paidViews],
-          ['Estimated Followers', data.totalEstimatedFollowers],
-          ['Total COGs / Creator', formatCurrency(data.totalCogsPerCreator)],
-          ['Price / Creator', formatCurrency(data.pricePerCreator)],
-          ['Ad Rate (CPV)', formatCpv(data.adRateCpv)],
+          ['Total Estimated Views', data.totalViews],
+          ['Total Content Pieces', data.totalContentPieces],
+          ['Total Creators', data.totalCreators],
+          ['Min Estimated Followers', data.totalEstimatedFollowers],
           ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
         ];
         appendSummaryRows(metricsGrid, metricItems);
@@ -1758,10 +1751,15 @@
       contentLines.forEach((line, idx) => {
         const row = rows[idx];
         if (!row) return;
-        const viewsCell = row.children?.[9];
+        const viewsCell = row.children?.[8];
         const viewDisplay = viewsCell?.querySelector('.readonly-value');
         if (viewDisplay) {
           viewDisplay.textContent = formatNumber(line.viewsPerPiece || 0);
+        }
+        const cpvCell = row.children?.[9];
+        const cpvDisplay = cpvCell?.querySelector('.readonly-value');
+        if (cpvDisplay) {
+          cpvDisplay.textContent = formatCpv(line.unitRate || 0);
         }
         const totalCell = row.children?.[10];
         if (totalCell) {
