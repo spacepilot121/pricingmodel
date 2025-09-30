@@ -30,6 +30,7 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      font-size: 0.95rem;
     }
 
     header {
@@ -40,7 +41,7 @@
 
     header h1 {
       margin: 0 0 0.25rem;
-      font-size: 2rem;
+      font-size: 1.85rem;
       letter-spacing: 0.04em;
     }
 
@@ -55,6 +56,7 @@
       grid-template-columns: minmax(0, 1fr) 360px;
       gap: 1.5rem;
       padding: 1.5rem;
+      font-size: 0.95rem;
     }
 
     @media (max-width: 1200px) {
@@ -81,7 +83,7 @@
     section h2 {
       margin-top: 0;
       margin-bottom: 1rem;
-      font-size: 1.1rem;
+      font-size: 1rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: #cbd5f5;
@@ -116,21 +118,21 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     thead th {
       text-align: left;
       padding: 0.5rem;
       text-transform: uppercase;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       letter-spacing: 0.06em;
       color: var(--muted);
       border-bottom: 1px solid var(--border);
     }
 
     tbody td {
-      padding: 0.5rem;
+      padding: 0.45rem;
       border-bottom: 1px solid rgba(148, 163, 184, 0.08);
     }
 
@@ -146,8 +148,8 @@
       border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 8px;
       color: inherit;
-      padding: 0.45rem 0.5rem;
-      font-size: 0.85rem;
+      padding: 0.4rem 0.45rem;
+      font-size: 0.8rem;
     }
 
     input[type="checkbox"] {
@@ -208,7 +210,7 @@
       margin-top: 0;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       color: #cbd5f5;
     }
 
@@ -222,7 +224,7 @@
       justify-content: space-between;
       gap: 0.5rem;
       align-items: baseline;
-      padding: 0.65rem 0.75rem;
+      padding: 0.55rem 0.65rem;
       border-radius: 12px;
       background: rgba(15, 23, 42, 0.35);
       border: 1px solid rgba(148, 163, 184, 0.12);
@@ -237,9 +239,9 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.4rem 0.75rem;
+      padding: 0.35rem 0.7rem;
       border-radius: 999px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       font-weight: 700;
@@ -263,7 +265,7 @@
       padding-top: 1rem;
       display: grid;
       gap: 0.5rem;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
 
     .platform-breakdown div {
@@ -272,15 +274,28 @@
       color: var(--muted);
     }
 
-    .chart-block {
-      margin-top: 1.25rem;
-      padding-top: 1.25rem;
-      border-top: 1px solid rgba(148, 163, 184, 0.12);
+    .chart-section {
+      display: grid;
+      gap: 1rem;
     }
 
-    .chart-block h4 {
-      margin: 0 0 0.75rem;
-      font-size: 0.85rem;
+    .chart-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .chart-card {
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 14px;
+      padding: 1rem;
+      background: rgba(15, 23, 42, 0.45);
+      box-shadow: 0 18px 32px -28px rgba(15, 23, 42, 0.8);
+    }
+
+    .chart-card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.9rem;
       color: #cbd5f5;
       letter-spacing: 0.04em;
       text-transform: uppercase;
@@ -289,7 +304,7 @@
     .chart-wrapper {
       position: relative;
       width: 100%;
-      min-height: 220px;
+      min-height: 200px;
     }
 
     .paid-media-mode {
@@ -421,6 +436,36 @@
           </div>
         </div>
       </section>
+
+      <section class="chart-section">
+        <h2>Campaign Insights</h2>
+        <div class="chart-grid">
+          <div class="chart-card">
+            <h3>Budget Split by Platform</h3>
+            <div class="chart-wrapper">
+              <canvas id="platform-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Budget Split by Creator Size</h3>
+            <div class="chart-wrapper">
+              <canvas id="size-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Estimated Views by Platform</h3>
+            <div class="chart-wrapper">
+              <canvas id="platform-view-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Organic vs Paid Views</h3>
+            <div class="chart-wrapper">
+              <canvas id="view-mix-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
     <aside>
       <div class="summary-card">
@@ -432,30 +477,6 @@
         <div id="status-badge" class="status-badge status-ok">OK — Ready</div>
         <div class="summary-grid" id="summary-grid"></div>
         <div class="platform-breakdown" id="platform-breakdown"></div>
-        <div class="chart-block">
-          <h4>Budget Split by Platform</h4>
-          <div class="chart-wrapper">
-            <canvas id="platform-budget-chart"></canvas>
-          </div>
-        </div>
-        <div class="chart-block">
-          <h4>Budget Split by Creator Size</h4>
-          <div class="chart-wrapper">
-            <canvas id="size-budget-chart"></canvas>
-          </div>
-        </div>
-        <div class="chart-block">
-          <h4>Estimated Views by Platform</h4>
-          <div class="chart-wrapper">
-            <canvas id="platform-view-chart"></canvas>
-          </div>
-        </div>
-        <div class="chart-block">
-          <h4>Organic vs Paid Views</h4>
-          <div class="chart-wrapper">
-            <canvas id="view-mix-chart"></canvas>
-          </div>
-        </div>
       </div>
     </aside>
   </main>
