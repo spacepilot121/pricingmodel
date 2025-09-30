@@ -452,7 +452,7 @@
       <section>
         <h2>Paid Media Options</h2>
         <div class="paid-media-mode">
-          <label><input type="radio" name="paid-mode" value="cpv" /> CPV Mode</label>
+          <label><input type="radio" name="paid-mode" value="cpv" /> CPV including Margin from AdOps Mode</label>
           <label><input type="radio" name="paid-mode" value="cpm" /> CPM Mode</label>
         </div>
         <div class="input-group">
@@ -461,7 +461,7 @@
             <input type="number" id="paid-budget" min="0" step="100" />
           </div>
           <div class="input-row">
-            <label id="paid-rate-label" for="paid-rate">CPV</label>
+            <label id="paid-rate-label" for="paid-rate">CPV including Margin from AdOps</label>
             <input type="number" id="paid-rate" min="0" step="0.001" />
           </div>
         </div>
@@ -563,6 +563,8 @@
     let sizeBudgetChart = null;
     let platformViewChart = null;
     let viewMixChart = null;
+
+    const CPV_WITH_MARGIN_LABEL = 'CPV including Margin from AdOps';
 
     const DEFAULT_PAID_RATES = {
       cpv: 0.03,
@@ -1280,7 +1282,7 @@
     function updatePaidRateLabel() {
       const label = document.getElementById('paid-rate-label');
       const isCpm = state.paidMedia.mode === 'cpm';
-      label.textContent = isCpm ? 'CPM' : 'CPV';
+      label.textContent = isCpm ? 'CPM' : CPV_WITH_MARGIN_LABEL;
       const rateInput = document.getElementById('paid-rate');
       rateInput.step = isCpm ? '0.1' : '0.001';
       rateInput.placeholder = (DEFAULT_PAID_RATES[state.paidMedia.mode] ?? DEFAULT_PAID_RATES.cpv).toString();
