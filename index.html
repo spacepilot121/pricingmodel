@@ -572,21 +572,21 @@
     };
 
     const SIZE_MULT = {
-      Icon: { rate: 1.636, views: 2.083 },
-      Mega: { rate: 1.273, views: 1.458 },
+      Icon: { rate: 1.636, views: 2.5 },
+      Mega: { rate: 1.273, views: 1.5 },
       Macro: { rate: 1, views: 1 },
-      HMid: { rate: 0.818, views: 0.45 },
-      LMid: { rate: 0.636, views: 0.22 },
-      Micro: { rate: 0.5, views: 0.07 },
+      HMid: { rate: 0.818, views: 0.5 },
+      LMid: { rate: 0.636, views: 0.25 },
+      Micro: { rate: 0.5, views: 0.05 },
     };
 
     const SIZE_FOLLOWERS = {
-      Icon: 7500000,
-      Mega: 2500000,
-      Macro: 750000,
-      HMid: 375000,
-      LMid: 175000,
-      Micro: 55000,
+      Icon: 2000000,
+      Mega: 1000000,
+      Macro: 500000,
+      HMid: 250000,
+      LMid: 50000,
+      Micro: 10000,
     };
 
     const VERTICAL_MULT = {
@@ -618,32 +618,133 @@
 
     // Each deliverable stores a base macro view count and creator CPV so we can derive
     // consistent pricing across creator sizes while still allowing vertical/language uplifts.
+    // When tier-specific view goals are available, a `viewsBySize` map overrides the generic
+    // size multiplier to reflect those expectations directly.
     const RATE_CARD = {
       YouTube: {
         deliverables: {
-          Dedicated: { baseViews: 500000, cpv: 0.094 },
-          Integrated: { baseViews: 250000, cpv: 0.054 },
-          Shorts: { baseViews: 150000, cpv: 0.054 },
-          Stream: { baseViews: 20000, cpv: 0.935 },
+          Dedicated: {
+            baseViews: 200000,
+            cpv: 0.094,
+            viewsBySize: {
+              Icon: 500000,
+              Mega: 300000,
+              Macro: 200000,
+              HMid: 100000,
+              LMid: 50000,
+              Micro: 10000,
+            },
+          },
+          Integrated: {
+            baseViews: 200000,
+            cpv: 0.054,
+            viewsBySize: {
+              Icon: 500000,
+              Mega: 300000,
+              Macro: 200000,
+              HMid: 100000,
+              LMid: 50000,
+              Micro: 10000,
+            },
+          },
+          Shorts: {
+            baseViews: 200000,
+            cpv: 0.054,
+            viewsBySize: {
+              Icon: 500000,
+              Mega: 300000,
+              Macro: 200000,
+              HMid: 100000,
+              LMid: 50000,
+              Micro: 10000,
+            },
+          },
+          Stream: {
+            baseViews: 10000,
+            cpv: 0.935,
+            viewsBySize: {
+              Icon: 20000,
+              Mega: 15000,
+              Macro: 10000,
+              HMid: 5000,
+              LMid: 500,
+              Micro: 100,
+            },
+          },
         },
       },
       Instagram: {
         deliverables: {
-          Reel: { baseViews: 90000, cpv: 0.056 },
-          Video: { baseViews: 80000, cpv: 0.07 },
-          Story: { baseViews: 50000, cpv: 0.042 },
+          Reel: {
+            baseViews: 100000,
+            cpv: 0.056,
+            viewsBySize: {
+              Icon: 300000,
+              Mega: 200000,
+              Macro: 100000,
+              HMid: 50000,
+              LMid: 30000,
+              Micro: 10000,
+            },
+          },
+          Video: {
+            baseViews: 100000,
+            cpv: 0.07,
+            viewsBySize: {
+              Icon: 300000,
+              Mega: 200000,
+              Macro: 100000,
+              HMid: 50000,
+              LMid: 30000,
+              Micro: 10000,
+            },
+          },
+          Story: {
+            baseViews: 55000,
+            cpv: 0.042,
+            viewsBySize: {
+              Icon: 150000,
+              Mega: 110000,
+              Macro: 55000,
+              HMid: 20000,
+              LMid: 5000,
+              Micro: 1000,
+            },
+          },
           Photo: { baseViews: 39000, cpv: 0.049 },
         },
       },
       TikTok: {
         deliverables: {
-          Video: { baseViews: 120000, cpv: 0.056 },
+          Video: {
+            baseViews: 100000,
+            cpv: 0.056,
+            viewsBySize: {
+              Icon: 300000,
+              Mega: 200000,
+              Macro: 100000,
+              HMid: 50000,
+              LMid: 30000,
+              Micro: 10000,
+            },
+          },
           Live: { baseViews: 60000, cpv: 0.367 },
         },
       },
       Twitch: {
         deliverables: {
-          Stream: { baseViews: 15000, cpv: 0.935 },
+          Stream: {
+            baseViews: 10000,
+            cpv: 0.935,
+            viewsBySize: {
+              Icon: 20000,
+              Mega: 15000,
+              Macro: 10000,
+              HMid: 5000,
+              LMid: 500,
+              Micro: 100,
+            },
+          },
         },
       },
       Twitter: {
@@ -881,9 +982,13 @@
       const sizeAdjust = SIZE_MULT[size] || { rate: 1, views: 1 };
       const verticalAdjust = VERTICAL_MULT[vertical] || { rate: 1, views: 1 };
       const languageAdjust = LANGUAGE_MULT[language] || { rate: 1, views: 1 };
+      const baseViews = base.viewsBySize
+        ? base.viewsBySize[size] ?? base.viewsBySize.Macro ?? base.baseViews ?? 0
+        : base.baseViews || 0;
+      const sizeViewMultiplier = base.viewsBySize ? 1 : (sizeAdjust.views ?? 1);
       const views = Math.round(
-        (base.baseViews || 0)
-          * (sizeAdjust.views ?? 1)
+        baseViews
+          * sizeViewMultiplier
           * (verticalAdjust.views ?? 1)
           * (languageAdjust.views ?? 1),
       );
