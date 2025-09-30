@@ -470,7 +470,19 @@
               <span>Brand Excitement</span>
               <span class="details-slider-value" id="excitement-display">Neutral</span>
             </div>
-            <input type="range" id="detail-excitement" min="0" max="2" step="1" list="excitement-marks" />
+            <input type="range" id="detail-excitement" min="0" max="4" step="1" list="excitement-marks" />
+          </div>
+        </div>
+        <div class="details-grid" style="margin-top:0.75rem;">
+          <div class="details-field">
+            <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Margin Goal</span>
+              <span class="details-slider-value" id="margin-display">0%</span>
+            </div>
+            <div class="margin-inputs">
+              <input type="range" id="margin-goal-slider" min="0" max="90" step="1" />
+              <input type="number" id="margin-goal" min="0" max="90" step="1" />
+            </div>
           </div>
         </div>
         <datalist id="quarter-marks">
@@ -481,8 +493,10 @@
         </datalist>
         <datalist id="excitement-marks">
           <option value="0" label="Loved"></option>
-          <option value="1" label="Neutral"></option>
-          <option value="2" label="Hated"></option>
+          <option value="1" label="Liked"></option>
+          <option value="2" label="Neutral"></option>
+          <option value="3" label="Disliked"></option>
+          <option value="4" label="Hated"></option>
         </datalist>
         <div class="details-grid" style="margin-top:0.75rem;">
           <label class="details-checkbox" for="detail-rush">
@@ -608,13 +622,6 @@
     <aside>
       <div class="summary-card">
         <h3>Estimated Deliverables &amp; Commercials</h3>
-        <div class="margin-controls">
-          <label for="margin-goal" style="font-size:0.75rem; color:var(--muted);">Margin Goal (%)</label>
-          <div class="margin-inputs">
-            <input type="range" id="margin-goal-slider" min="0" max="90" step="1" />
-            <input type="number" id="margin-goal" min="0" max="90" step="1" />
-          </div>
-        </div>
         <div id="status-badge" class="status-badge status-ok">OK — Ready</div>
         <div class="summary-block">
           <p class="summary-block-title">Cost Breakdown</p>
@@ -672,12 +679,15 @@
     };
 
     const VERTICAL_MULT = {
+      Gaming: { rate: 1, views: 1.05 },
+      'Mobile Gaming': { rate: 1, views: 1.05 },
+      'Beauty/Fashion': { rate: 1, views: 1.1 },
+      Lifestyle: { rate: 1, views: 1.08 },
+      Tech: { rate: 1, views: 1 },
       General: { rate: 1, views: 1 },
-      Gaming: { rate: 1.12, views: 1.05 },
-      Beauty: { rate: 1.18, views: 1.1 },
+      Beauty: { rate: 1, views: 1.1 },
+      Technology: { rate: 1, views: 1 },
       Finance: { rate: 1.25, views: 0.95 },
-      Technology: { rate: 1.15, views: 1 },
-      Lifestyle: { rate: 1.05, views: 1.08 },
     };
 
     const LANGUAGE_MULT = {
@@ -708,6 +718,13 @@
           Dedicated: {
             baseViews: 200000,
             cpv: 0.094,
+            cpvByVertical: {
+              Gaming: 0.064,
+              'Mobile Gaming': 0.096,
+              'Beauty/Fashion': 0.128,
+              Lifestyle: 0.085,
+              Tech: 0.081,
+            },
             viewsBySize: {
               Icon: 500000,
               Mega: 300000,
@@ -720,6 +737,13 @@
           Integrated: {
             baseViews: 200000,
             cpv: 0.054,
+            cpvByVertical: {
+              Gaming: 0.032,
+              'Mobile Gaming': 0.048,
+              'Beauty/Fashion': 0.072,
+              Lifestyle: 0.049,
+              Tech: 0.049,
+            },
             viewsBySize: {
               Icon: 500000,
               Mega: 300000,
@@ -744,6 +768,13 @@
           Stream: {
             baseViews: 10000,
             cpv: 0.935,
+            cpvByVertical: {
+              Gaming: 0.85,
+              'Mobile Gaming': 1.275,
+              'Beauty/Fashion': 0.85,
+              Lifestyle: 0.85,
+              Tech: 0.85,
+            },
             viewsBySize: {
               Icon: 20000,
               Mega: 15000,
@@ -760,6 +791,13 @@
           Reel: {
             baseViews: 100000,
             cpv: 0.056,
+            cpvByVertical: {
+              Gaming: 0.055,
+              'Mobile Gaming': 0.083,
+              'Beauty/Fashion': 0.072,
+              Lifestyle: 0.064,
+              Tech: 0.072,
+            },
             viewsBySize: {
               Icon: 300000,
               Mega: 200000,
@@ -772,6 +810,13 @@
           Video: {
             baseViews: 100000,
             cpv: 0.056,
+            cpvByVertical: {
+              Gaming: 0.055,
+              'Mobile Gaming': 0.083,
+              'Beauty/Fashion': 0.072,
+              Lifestyle: 0.064,
+              Tech: 0.072,
+            },
             viewsBySize: {
               Icon: 300000,
               Mega: 200000,
@@ -784,6 +829,13 @@
           Story: {
             baseViews: 55000,
             cpv: 0.042,
+            cpvByVertical: {
+              Gaming: 0.03,
+              'Mobile Gaming': 0.045,
+              'Beauty/Fashion': 0.045,
+              Lifestyle: 0.038,
+              Tech: 0.038,
+            },
             viewsBySize: {
               Icon: 150000,
               Mega: 110000,
@@ -793,7 +845,17 @@
               Micro: 1000,
             },
           },
-          Photo: { baseViews: 39000, cpv: 0.049 },
+          Photo: {
+            baseViews: 39000,
+            cpv: 0.049,
+            cpvByVertical: {
+              Gaming: 0.039,
+              'Mobile Gaming': 0.058,
+              'Beauty/Fashion': 0.051,
+              Lifestyle: 0.045,
+              Tech: 0.051,
+            },
+          },
         },
       },
       TikTok: {
@@ -801,6 +863,13 @@
           Video: {
             baseViews: 100000,
             cpv: 0.056,
+            cpvByVertical: {
+              Gaming: 0.043,
+              'Mobile Gaming': 0.064,
+              'Beauty/Fashion': 0.058,
+              Lifestyle: 0.051,
+              Tech: 0.055,
+            },
             viewsBySize: {
               Icon: 300000,
               Mega: 200000,
@@ -818,6 +887,13 @@
           Stream: {
             baseViews: 10000,
             cpv: 0.935,
+            cpvByVertical: {
+              Gaming: 0.85,
+              'Mobile Gaming': 1.275,
+              'Beauty/Fashion': 0.85,
+              Lifestyle: 0.85,
+              Tech: 0.85,
+            },
             viewsBySize: {
               Icon: 20000,
               Mega: 15000,
@@ -831,7 +907,17 @@
       },
       Twitter: {
         deliverables: {
-          Video: { baseViews: 50000, cpv: 0.042 },
+          Video: {
+            baseViews: 50000,
+            cpv: 0.042,
+            cpvByVertical: {
+              Gaming: 0.03,
+              'Mobile Gaming': 0.045,
+              'Beauty/Fashion': 0.045,
+              Lifestyle: 0.038,
+              Tech: 0.038,
+            },
+          },
         },
       },
     };
@@ -839,7 +925,9 @@
     const QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
     const BRAND_EXCITEMENT = [
       { label: 'Loved', multiplier: 0.85 },
+      { label: 'Liked', multiplier: 0.93 },
       { label: 'Neutral', multiplier: 1 },
+      { label: 'Disliked', multiplier: 1.08 },
       { label: 'Hated', multiplier: 1.15 },
     ];
 
@@ -890,10 +978,15 @@
           * (verticalAdjust.views ?? 1)
           * (languageAdjust.views ?? 1),
       );
-      const cpvRaw = (base.cpv || 0)
+      const cpvOverride = base.cpvByVertical?.[vertical];
+      const hasOverride = Number.isFinite(cpvOverride);
+      const cpvBase = hasOverride ? Number(cpvOverride) : (base.cpv || 0);
+      let cpvRaw = cpvBase
         * (sizeAdjust.rate ?? 1)
-        * (verticalAdjust.rate ?? 1)
         * (languageAdjust.rate ?? 1);
+      if (!hasOverride) {
+        cpvRaw *= (verticalAdjust.rate ?? 1);
+      }
       return {
         cpv: Number.isFinite(cpvRaw) ? Number(cpvRaw.toFixed(3)) : 0,
         views,
@@ -1333,6 +1426,7 @@
         : 1;
       const cogsPerCreator = perCreatorBase * whitelistMultiplier;
       line.cogsPerCreator = cogsPerCreator;
+      line.cpvWithWhitelist = cpv * whitelistMultiplier;
       return cogsPerCreator * (line.creators || 0);
     }
 
@@ -1432,12 +1526,16 @@
     function bindSummaryControls() {
       const marginInput = document.getElementById('margin-goal');
       const marginSlider = document.getElementById('margin-goal-slider');
+      const marginDisplay = document.getElementById('margin-display');
       const currentMargin = Number(state.marginGoal || 0);
       if (marginInput) {
         marginInput.value = currentMargin;
       }
       if (marginSlider) {
         marginSlider.value = currentMargin;
+      }
+      if (marginDisplay) {
+        marginDisplay.textContent = `${currentMargin}%`;
       }
 
       function updateMargin(value) {
@@ -1449,6 +1547,10 @@
         if (marginSlider) {
           marginSlider.value = sanitized;
         }
+        if (marginDisplay) {
+          marginDisplay.textContent = `${sanitized}%`;
+        }
+        saveState();
         recalc();
       }
 
@@ -1504,6 +1606,7 @@
           ...line,
           total,
           cogsPerCreator: line.cogsPerCreator || 0,
+          cpvWithWhitelist: Number.isFinite(line.cpvWithWhitelist) ? line.cpvWithWhitelist : line.unitRate || 0,
         };
       });
       const platformBudget = {};
@@ -1550,6 +1653,11 @@
       const totalPrice = marginGoalPct >= 1 ? totalCOGs : totalCOGs / (1 - marginGoalPct);
       const grossMargin = totalPrice - totalCOGs;
       const priceMultiplier = totalCOGs > 0 ? totalPrice / totalCOGs : 1;
+      contentLines.forEach(line => {
+        const baseCpv = Number.isFinite(line.cpvWithWhitelist) ? line.cpvWithWhitelist : line.unitRate || 0;
+        const effectiveCpv = baseCpv * (modifiers.feeMultiplier ?? 1) * priceMultiplier;
+        line.effectiveCpv = Number.isFinite(effectiveCpv) ? effectiveCpv : 0;
+      });
       const influencerClientCost = feeAdjustedContent * priceMultiplier;
       const influencerMargin = influencerClientCost - feeAdjustedContent;
       const paidMediaWithMargin = paidBudget * priceMultiplier;
@@ -1903,7 +2011,10 @@
         const cpvCell = row.children?.[9];
         const cpvDisplay = cpvCell?.querySelector('.readonly-value');
         if (cpvDisplay) {
-          cpvDisplay.textContent = formatCpv(line.unitRate || 0);
+          const cpvValue = Number.isFinite(line.effectiveCpv)
+            ? line.effectiveCpv
+            : line.unitRate || 0;
+          cpvDisplay.textContent = formatCpv(cpvValue);
         }
         const totalCell = row.children?.[10];
         if (totalCell) {
