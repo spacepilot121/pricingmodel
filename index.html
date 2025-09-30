@@ -662,12 +662,12 @@
     };
 
     const SIZE_MULT = {
-      Icon: { rate: 1.636, views: 2.5 },
-      Mega: { rate: 1.273, views: 1.5 },
-      Macro: { rate: 1, views: 1 },
-      HMid: { rate: 0.818, views: 0.5 },
-      LMid: { rate: 0.636, views: 0.25 },
-      Micro: { rate: 0.5, views: 0.05 },
+      Icon: { views: 2.5 },
+      Mega: { views: 1.5 },
+      Macro: { views: 1 },
+      HMid: { views: 0.5 },
+      LMid: { views: 0.25 },
+      Micro: { views: 0.05 },
     };
 
     const SIZE_FOLLOWERS = {
@@ -711,6 +711,7 @@
 
     // Each deliverable stores a base macro view count and creator CPV so we can derive
     // consistent pricing across creator sizes while still allowing vertical/language uplifts.
+    // Size only impacts view expectations—pricing comes from the base rate plus other multipliers.
     // When tier-specific view goals are available, a `viewsBySize` map overrides the generic
     // size multiplier to reflect those expectations directly.
     const RATE_CARD = {
@@ -966,7 +967,7 @@
 
     function getRateDefaults(platform, deliverable, size, vertical, language) {
       const base = RATE_CARD[platform]?.deliverables?.[deliverable] || { baseViews: 0, cpv: 0 };
-      const sizeAdjust = SIZE_MULT[size] || { rate: 1, views: 1 };
+      const sizeAdjust = SIZE_MULT[size] || { views: 1 };
       const verticalAdjust = VERTICAL_MULT[vertical] || { rate: 1, views: 1 };
       const languageAdjust = LANGUAGE_MULT[language] || { rate: 1, views: 1 };
       const baseViews = base.viewsBySize
@@ -983,7 +984,6 @@
       const hasOverride = Number.isFinite(cpvOverride);
       const cpvBase = hasOverride ? Number(cpvOverride) : (base.cpv || 0);
       let cpvRaw = cpvBase
-        * (sizeAdjust.rate ?? 1)
         * (languageAdjust.rate ?? 1);
       if (!hasOverride) {
         cpvRaw *= (verticalAdjust.rate ?? 1);
