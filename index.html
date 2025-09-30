@@ -607,11 +607,11 @@
 
     const LANGUAGE_MULT = {
       English: { rate: 1, views: 1 },
-      Spanish: { rate: 0.92, views: 1.08 },
-      Portuguese: { rate: 0.88, views: 1.05 },
-      French: { rate: 0.95, views: 1.02 },
-      German: { rate: 0.97, views: 0.98 },
-      Japanese: { rate: 1.05, views: 0.9 },
+      French: { rate: 1.3, views: 1 },
+      German: { rate: 1.3, views: 1 },
+      Italian: { rate: 1.3, views: 1 },
+      Spanish: { rate: 0.8, views: 1 },
+      Portuguese: { rate: 0.8, views: 1 },
     };
 
     const WHITELIST_UPLIFT_PCT = {
@@ -696,7 +696,7 @@
           },
           Video: {
             baseViews: 100000,
-            cpv: 0.07,
+            cpv: 0.056,
             viewsBySize: {
               Icon: 300000,
               Mega: 200000,
@@ -1122,8 +1122,14 @@
       state.campaignLines.forEach((line, index) => {
         const tr = document.createElement('tr');
 
-        if (!line.vertical) line.vertical = Object.keys(VERTICAL_MULT)[0];
-        if (!line.language) line.language = Object.keys(LANGUAGE_MULT)[0];
+        const verticalOptions = Object.keys(VERTICAL_MULT);
+        if (!verticalOptions.includes(line.vertical)) {
+          line.vertical = verticalOptions[0];
+        }
+        const languageOptions = Object.keys(LANGUAGE_MULT);
+        if (!languageOptions.includes(line.language)) {
+          line.language = languageOptions[0];
+        }
         line.manualViews = false;
         applyLineDefaults(line, { forceViews: true });
 
@@ -1491,11 +1497,14 @@
 
     function recalc() {
       const gating = applyGating();
-      const contentLines = state.campaignLines.map(line => ({
-        ...line,
-        total: calculateLineTotal(line),
-        cogsPerCreator: line.cogsPerCreator || 0,
-      }));
+      const contentLines = state.campaignLines.map(line => {
+        const total = calculateLineTotal(line);
+        return {
+          ...line,
+          total,
+          cogsPerCreator: line.cogsPerCreator || 0,
+        };
+      });
       const platformBudget = {};
       const sizeBudget = {};
       contentLines.forEach(line => {
