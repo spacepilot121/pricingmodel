@@ -1529,6 +1529,10 @@
       const marginGoalPct = (state.marginGoal || 0) / 100;
       const totalPrice = marginGoalPct >= 1 ? totalCOGs : totalCOGs / (1 - marginGoalPct);
       const grossMargin = totalPrice - totalCOGs;
+      const priceMultiplier = totalCOGs > 0 ? totalPrice / totalCOGs : 1;
+      const influencerClientCost = gatingAdjustedContent * priceMultiplier;
+      const influencerMargin = influencerClientCost - gatingAdjustedContent;
+      const paidMediaWithMargin = paidBudget * priceMultiplier;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
       const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
       const totalCogsPerCreator = totalCreators > 0 ? totalCOGs / totalCreators : 0;
@@ -1545,6 +1549,9 @@
         otherTotal,
         travelCost,
         paidBudget,
+        influencerClientCost,
+        influencerMargin,
+        paidMediaWithMargin,
         paidViews,
         totalCOGs,
         totalPrice,
@@ -1587,13 +1594,11 @@
       if (costGrid) {
         costGrid.innerHTML = '';
         const costItems = [
-          ['Content / Influencer COGs', formatCurrency(data.gatingAdjustedContent)],
-          ['Paid Media Budget', formatCurrency(data.paidBudget)],
-          ['Other COGs', formatCurrency(data.otherTotal)],
-          ['Travel COGs', formatCurrency(data.travelCost)],
           ['Total COGs', formatCurrency(data.totalCOGs)],
-          ['Total Price', formatCurrency(data.totalPrice)],
-          ['Gross Margin', formatCurrency(data.grossMargin)],
+          ['Influencer Margin', formatCurrency(data.influencerMargin)],
+          ['Total Influencer Cost to Client', formatCurrency(data.influencerClientCost)],
+          ['Paid Media Budget (Incl. Margin)', formatCurrency(data.paidMediaWithMargin)],
+          ['Total Campaign Budget', formatCurrency(data.totalPrice)],
         ];
         appendSummaryRows(costGrid, costItems);
       }
