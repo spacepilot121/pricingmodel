@@ -93,38 +93,59 @@
       color: #cbd5f5;
     }
 
-    #gating-section h2 {
+    #campaign-details h2 {
       font-size: 0.85rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
     }
 
-    .gating-grid {
+    .details-grid {
       display: grid;
-      gap: 0.45rem;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.65rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
 
-    .gating-item {
+    .details-field {
       display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-      padding: 0.45rem 0.55rem;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.65rem 0.75rem;
       border-radius: 10px;
       border: 1px solid rgba(148, 163, 184, 0.12);
       background: rgba(15, 23, 42, 0.35);
     }
 
-    .gating-item label {
-      flex: 1;
-      font-weight: 500;
+    .details-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .details-field input[type="text"],
+    .details-field input[type="range"] {
+      width: 100%;
+    }
+
+    .details-slider-value {
       font-size: 0.8rem;
-      line-height: 1.35;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .details-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: rgba(15, 23, 42, 0.35);
+      font-size: 0.8rem;
       cursor: pointer;
     }
 
-    .approver-tag {
-      font-size: 0.7rem;
-      color: var(--muted);
+    .details-checkbox span {
+      flex: 1;
     }
 
     table {
@@ -420,9 +441,63 @@
   </header>
   <main>
     <div>
-      <section id="gating-section">
-        <h2>Gating Questions</h2>
-        <div class="gating-grid" id="gating-grid"></div>
+      <section id="campaign-details">
+        <h2>Campaign Details</h2>
+        <div class="details-grid">
+          <label class="details-field" for="detail-brand">
+            <span class="details-label">Brand</span>
+            <input type="text" id="detail-brand" placeholder="e.g., Acme Co." />
+          </label>
+          <label class="details-field" for="detail-campaign">
+            <span class="details-label">Campaign Name</span>
+            <input type="text" id="detail-campaign" placeholder="Launch Campaign" />
+          </label>
+          <label class="details-field" for="detail-budget">
+            <span class="details-label">Target Budget</span>
+            <input type="text" id="detail-budget" placeholder="$250,000" />
+          </label>
+        </div>
+        <div class="details-grid" style="margin-top:0.75rem;">
+          <div class="details-field">
+            <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Quarter</span>
+              <span class="details-slider-value" id="quarter-display">Q1</span>
+            </div>
+            <input type="range" id="detail-quarter" min="1" max="4" step="1" list="quarter-marks" />
+          </div>
+          <div class="details-field">
+            <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Brand Excitement</span>
+              <span class="details-slider-value" id="excitement-display">Neutral</span>
+            </div>
+            <input type="range" id="detail-excitement" min="0" max="2" step="1" list="excitement-marks" />
+          </div>
+        </div>
+        <datalist id="quarter-marks">
+          <option value="1" label="Q1"></option>
+          <option value="2" label="Q2"></option>
+          <option value="3" label="Q3"></option>
+          <option value="4" label="Q4"></option>
+        </datalist>
+        <datalist id="excitement-marks">
+          <option value="0" label="Loved"></option>
+          <option value="1" label="Neutral"></option>
+          <option value="2" label="Hated"></option>
+        </datalist>
+        <div class="details-grid" style="margin-top:0.75rem;">
+          <label class="details-checkbox" for="detail-rush">
+            <input type="checkbox" id="detail-rush" />
+            <span>Rush Fee (adds 15%)</span>
+          </label>
+          <label class="details-checkbox" for="detail-travel">
+            <input type="checkbox" id="detail-travel" />
+            <span>Travel Needed (adds 20%)</span>
+          </label>
+          <label class="details-checkbox" for="detail-niche">
+            <input type="checkbox" id="detail-niche" />
+            <span>Niche Creators Needed (adds 20%)</span>
+          </label>
+        </div>
       </section>
 
       <section>
@@ -761,195 +836,11 @@
       },
     };
 
-    const GATE_RULES = [
-      {
-        id: 'listApproved',
-        label: 'Will the brand approve a list 4x the views/content pieces required?',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.contentMultiplier += 0.1; // fallback for list scrubbing overhead
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'timelineAdequate',
-        label: 'Will the execution team have at least 6 weeks to complete the campaign (list creation, outreach, negotiations, content live, etc.)?',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.otherMultiplier += 0.1; // rush fee uplift from EMPTY buffer logic
-            ctx.organicViewMultiplier -= 0.05; // rushed work underperforms slightly
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'withinQ1Q3',
-        label: 'Will the campaign happen within Q1 - Q3?',
-        approver: null,
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.contentMultiplier += 0.15; // Q4 buffer (K61 = 0.15)
-          }
-        },
-      },
-      {
-        id: 'brandFit',
-        label: 'Will the creators want to partner with this brand (i.e. nothing too spammy, sketchy, gambling, sex toys, etc.)?',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.contentMultiplier += 0.2;
-            ctx.organicViewMultiplier -= 0.1; // lower organic reach when brand is risky
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'messagingSimple',
-        label: 'Will the brand messaging be simple (no more than 3 talking points)?',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.contentMultiplier += 0.08;
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'creatorControl',
-        label: 'Will the creators have control of their content and can integrate the brand how they want?',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.organicViewMultiplier -= 0.08;
-            ctx.contentMultiplier += 0.05;
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'postingWindow',
-        label: 'Will the creators have a posting window of at least a week (i.e. not on a specific launch day, but a day within a week)',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.otherMultiplier += 0.05;
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'creationTime',
-        label: 'Will the creators have at least 3 weeks to create their content?',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.contentMultiplier += 0.05;
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'legalClear',
-        label: 'Will the content/creator strategy not have any potential legal issues (i.e. giveaways, travel, renting cars, purchasing large gifts, etc.)',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.otherMultiplier += 0.12; // legal handling uplift
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
-      {
-        id: 'brandCoverTravel',
-        label: 'Will brand cover creator travel (if applicable)? If not, allocate $5k per creator in Travel Budget.',
-        approver: null,
-        default: true,
-        effect(value, ctx) {
-          ctx.travelCovered = value;
-        },
-      },
-      {
-        id: 'brandExclusivity',
-        label: 'Will the brand want brand exclusivity on the creator\'s channel for 3 months?',
-        approver: null,
-        default: false,
-        effect(value, ctx) {
-          if (value) {
-            ctx.contentMultiplier += 0.2; // Exclusivity Multiplier (K58)
-          }
-        },
-      },
-      {
-        id: 'travelNeeded',
-        label: 'Will the creator need to travel to an event?',
-        approver: null,
-        default: false,
-        effect(value, ctx) {
-          ctx.travelRequired = value;
-          if (value && !ctx.travelCovered) {
-            ctx.otherMultiplier += 0.02; // handling overhead
-          }
-        },
-      },
-      {
-        id: 'nicheGroup',
-        label: 'Will the creators be a niche group (i.e. skinfluencers, bakers in Atlanta, etc.)',
-        approver: 'Mark',
-        default: false,
-        effect(value, ctx) {
-          if (value) {
-            ctx.contentMultiplier += 0.2; // Niche multiplier (K59)
-            ctx.approvalsNeeded.add('Mark');
-          }
-        },
-      },
-      {
-        id: 'brandLiftStudy',
-        label: 'Does the brand want an organic brand lift study?',
-        approver: null,
-        default: false,
-        effect(value, ctx) {
-          if (value) {
-            ctx.otherBase += 12000; // placeholder for study vendor cost
-          }
-        },
-      },
-      {
-        id: 'salesStudy',
-        label: 'Does the brand want a sales measurement study?',
-        approver: null,
-        default: false,
-        effect(value, ctx) {
-          if (value) {
-            ctx.otherBase += 15000;
-          }
-        },
-      },
-      {
-        id: 'awarenessOnly',
-        label: 'Will the main KPI for the campaign be just awareness?',
-        approver: 'Director',
-        default: true,
-        effect(value, ctx) {
-          if (!value) {
-            ctx.contentMultiplier += 0.05; // non-awareness adds extra deliverable pressure
-            ctx.approvalsNeeded.add('Director');
-          }
-        },
-      },
+    const QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const BRAND_EXCITEMENT = [
+      { label: 'Loved', multiplier: 0.85 },
+      { label: 'Neutral', multiplier: 1 },
+      { label: 'Hated', multiplier: 1.15 },
     ];
 
     function createDefaultLine() {
@@ -1010,7 +901,16 @@
     }
 
     const defaultState = {
-      gating: Object.fromEntries(GATE_RULES.map(rule => [rule.id, rule.default])),
+      details: {
+        brand: '',
+        campaignName: '',
+        budget: '',
+        quarter: 1,
+        brandExcitement: 1,
+        rush: false,
+        travelNeeded: false,
+        nicheCreators: false,
+      },
       otherCosts: {
         other: 0,
         study: 0,
@@ -1040,13 +940,17 @@
         if (!mergedPaidMedia.rate || mergedPaidMedia.rate <= 0) {
           mergedPaidMedia.rate = DEFAULT_PAID_RATES[mergedPaidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
         }
+        const base = structuredClone(defaultState);
+        const sourceLines = Array.isArray(parsed.campaignLines) && parsed.campaignLines.length
+          ? parsed.campaignLines
+          : base.campaignLines;
         return {
-          ...structuredClone(defaultState),
-          ...parsed,
-          gating: { ...defaultState.gating, ...parsed.gating },
-          otherCosts: { ...defaultState.otherCosts, ...parsed.otherCosts },
-          travel: { ...defaultState.travel, ...parsed.travel },
-          campaignLines: (parsed.campaignLines || []).map(line => {
+          ...base,
+          marginGoal: parsed.marginGoal ?? base.marginGoal,
+          details: { ...base.details, ...(parsed.details || {}) },
+          otherCosts: { ...base.otherCosts, ...(parsed.otherCosts || {}) },
+          travel: { ...base.travel, ...(parsed.travel || {}) },
+          campaignLines: sourceLines.map(line => {
             const merged = { ...createDefaultLine(), ...line };
             merged.manualViews = false;
             return applyLineDefaults(merged, { forceViews: true });
@@ -1064,7 +968,7 @@
     }
 
     function init() {
-      renderGating();
+      bindCampaignDetails();
       renderCampaign();
       bindPaidMedia();
       bindOtherCosts();
@@ -1072,48 +976,131 @@
       recalc();
     }
 
-    function renderGating() {
-      const grid = document.getElementById('gating-grid');
-      grid.innerHTML = '';
-      GATE_RULES.forEach(rule => {
-        const row = document.createElement('div');
-        row.className = 'gating-item';
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = !!state.gating[rule.id];
-        checkbox.id = rule.id;
-        checkbox.addEventListener('change', () => {
-          state.gating[rule.id] = checkbox.checked;
-          saveState();
-          recalc();
-          if (rule.id === 'travelNeeded' || rule.id === 'brandCoverTravel') {
-            toggleTravelControls();
-          }
-        });
-        const label = document.createElement('label');
-        label.htmlFor = rule.id;
-        label.textContent = rule.label;
-        if (rule.approver) {
-          const tag = document.createElement('div');
-          tag.className = 'approver-tag';
-          tag.textContent = `Approver: ${rule.approver}`;
-          label.appendChild(document.createElement('br'));
-          label.appendChild(tag);
-        }
-        row.appendChild(checkbox);
-        row.appendChild(label);
-        grid.appendChild(row);
+    function bindCampaignDetails() {
+      const brandInput = document.getElementById('detail-brand');
+      const campaignInput = document.getElementById('detail-campaign');
+      const budgetInput = document.getElementById('detail-budget');
+      const quarterInput = document.getElementById('detail-quarter');
+      const excitementInput = document.getElementById('detail-excitement');
+      const rushInput = document.getElementById('detail-rush');
+      const travelInput = document.getElementById('detail-travel');
+      const nicheInput = document.getElementById('detail-niche');
+
+      if (!brandInput) return;
+
+      brandInput.addEventListener('input', () => {
+        state.details.brand = brandInput.value;
+        saveState();
+        recalc();
       });
-      toggleTravelControls();
+
+      campaignInput.addEventListener('input', () => {
+        state.details.campaignName = campaignInput.value;
+        saveState();
+        recalc();
+      });
+
+      budgetInput.addEventListener('input', () => {
+        state.details.budget = budgetInput.value;
+        saveState();
+        recalc();
+      });
+
+      quarterInput.addEventListener('input', () => {
+        const value = Math.min(Math.max(Number(quarterInput.value) || 1, 1), QUARTER_LABELS.length);
+        state.details.quarter = value;
+        updateQuarterDisplay(value);
+        saveState();
+        recalc();
+      });
+
+      excitementInput.addEventListener('input', () => {
+        const maxIndex = BRAND_EXCITEMENT.length - 1;
+        const value = Math.min(Math.max(Number(excitementInput.value) || 0, 0), maxIndex);
+        state.details.brandExcitement = value;
+        updateExcitementDisplay(value);
+        saveState();
+        recalc();
+      });
+
+      rushInput.addEventListener('change', () => {
+        state.details.rush = rushInput.checked;
+        saveState();
+        recalc();
+      });
+
+      travelInput.addEventListener('change', () => {
+        state.details.travelNeeded = travelInput.checked;
+        saveState();
+        updateTravelControls();
+        recalc();
+      });
+
+      nicheInput.addEventListener('change', () => {
+        state.details.nicheCreators = nicheInput.checked;
+        saveState();
+        recalc();
+      });
+
+      syncCampaignDetailsInputs();
     }
 
-    function toggleTravelControls() {
-      const travelBlock = document.getElementById('travel-controls');
-      if (state.gating.travelNeeded) {
-        travelBlock.style.display = 'grid';
-      } else {
-        travelBlock.style.display = 'none';
+    function updateQuarterDisplay(value) {
+      const display = document.getElementById('quarter-display');
+      const index = Math.min(Math.max(Number(value) || 1, 1), QUARTER_LABELS.length) - 1;
+      if (display) {
+        display.textContent = QUARTER_LABELS[index] ?? `Q${index + 1}`;
       }
+    }
+
+    function updateExcitementDisplay(value) {
+      const display = document.getElementById('excitement-display');
+      const index = Math.min(Math.max(Number(value) || 0, 0), BRAND_EXCITEMENT.length - 1);
+      if (display) {
+        display.textContent = BRAND_EXCITEMENT[index]?.label ?? 'Neutral';
+      }
+    }
+
+    function syncCampaignDetailsInputs() {
+      const { details } = state;
+      const brandInput = document.getElementById('detail-brand');
+      const campaignInput = document.getElementById('detail-campaign');
+      const budgetInput = document.getElementById('detail-budget');
+      const quarterInput = document.getElementById('detail-quarter');
+      const excitementInput = document.getElementById('detail-excitement');
+      const rushInput = document.getElementById('detail-rush');
+      const travelInput = document.getElementById('detail-travel');
+      const nicheInput = document.getElementById('detail-niche');
+
+      if (!brandInput) return;
+
+      brandInput.value = details.brand || '';
+      campaignInput.value = details.campaignName || '';
+      budgetInput.value = details.budget || '';
+      const rawQuarter = Number(details.quarter);
+      const quarterValue = Math.min(
+        Math.max(Number.isFinite(rawQuarter) && rawQuarter >= 1 ? rawQuarter : 1, 1),
+        QUARTER_LABELS.length,
+      );
+      quarterInput.value = String(quarterValue);
+      updateQuarterDisplay(quarterValue);
+      const rawExcitement = Number(details.brandExcitement);
+      const excitementValue = Math.min(
+        Math.max(Number.isFinite(rawExcitement) ? rawExcitement : 1, 0),
+        BRAND_EXCITEMENT.length - 1,
+      );
+      excitementInput.value = String(excitementValue);
+      updateExcitementDisplay(excitementValue);
+      rushInput.checked = !!details.rush;
+      travelInput.checked = !!details.travelNeeded;
+      nicheInput.checked = !!details.nicheCreators;
+      updateTravelControls();
+    }
+
+    function updateTravelControls() {
+      const travelBlock = document.getElementById('travel-controls');
+      if (!travelBlock) return;
+      travelBlock.style.display = state.details.travelNeeded ? 'grid' : 'none';
     }
 
     function renderCampaign() {
@@ -1325,7 +1312,7 @@
         if (confirm('Reset calculator to defaults?')) {
           state = structuredClone(defaultState);
           saveState();
-          renderGating();
+          syncCampaignDetailsInputs();
           renderCampaign();
           bindPaidMedia();
           bindOtherCosts();
@@ -1474,29 +1461,43 @@
       });
     }
 
-    function applyGating() {
-      const ctx = {
-        contentMultiplier: 1,
-        otherMultiplier: 1,
+    function calculateModifiers() {
+      const details = state.details || defaultState.details;
+      const rawQuarter = Number(details.quarter);
+      const quarterIndex = Math.min(
+        Math.max(Number.isFinite(rawQuarter) && rawQuarter >= 1 ? rawQuarter : 1, 1),
+        QUARTER_LABELS.length,
+      );
+      const rawExcitement = Number(details.brandExcitement);
+      const excitementIndex = Math.min(
+        Math.max(Number.isFinite(rawExcitement) ? rawExcitement : 1, 0),
+        BRAND_EXCITEMENT.length - 1,
+      );
+      let feeMultiplier = 1;
+      if (quarterIndex === 4) {
+        feeMultiplier *= 1.15;
+      }
+      feeMultiplier *= BRAND_EXCITEMENT[excitementIndex]?.multiplier ?? 1;
+      if (details.rush) {
+        feeMultiplier *= 1.15;
+      }
+      if (details.travelNeeded) {
+        feeMultiplier *= 1.2;
+      }
+      if (details.nicheCreators) {
+        feeMultiplier *= 1.2;
+      }
+      return {
+        feeMultiplier,
         organicViewMultiplier: 1,
-        travelRequired: false,
-        travelCovered: state.gating.brandCoverTravel,
-        otherBase: 0,
-        approvalsNeeded: new Set(),
+        travelRequired: !!details.travelNeeded,
+        quarterIndex,
+        excitementIndex,
       };
-      GATE_RULES.forEach(rule => {
-        const value = !!state.gating[rule.id];
-        if (typeof rule.effect === 'function') {
-          rule.effect(value, ctx);
-        }
-      });
-      // clamp organic multiplier (cannot drop below 0.4 of forecast)
-      ctx.organicViewMultiplier = Math.max(0.4, ctx.organicViewMultiplier);
-      return ctx;
     }
 
     function recalc() {
-      const gating = applyGating();
+      const modifiers = calculateModifiers();
       const contentLines = state.campaignLines.map(line => {
         const total = calculateLineTotal(line);
         return {
@@ -1510,7 +1511,7 @@
       contentLines.forEach(line => {
         const lineTotal = line.total || 0;
         if (lineTotal > 0) {
-          const adjusted = lineTotal * gating.contentMultiplier;
+          const adjusted = lineTotal * modifiers.feeMultiplier;
           platformBudget[line.platform] = (platformBudget[line.platform] || 0) + adjusted;
           sizeBudget[line.size] = (sizeBudget[line.size] || 0) + adjusted;
         }
@@ -1520,34 +1521,37 @@
         const lineViews = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
         return acc + lineViews;
       }, 0);
-      const organicViewsAdjusted = organicViewsRaw * gating.organicViewMultiplier;
+      const organicViewsAdjusted = organicViewsRaw * modifiers.organicViewMultiplier;
 
       const platformViews = {};
       let totalEstimatedFollowers = 0;
       state.campaignLines.forEach(line => {
-        const lineViews = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0) * gating.organicViewMultiplier;
+        const lineViews = (line.viewsPerPiece || 0)
+          * (line.qtyPerCreator || 0)
+          * (line.creators || 0)
+          * modifiers.organicViewMultiplier;
         if (!platformViews[line.platform]) platformViews[line.platform] = 0;
         platformViews[line.platform] += lineViews;
         const avgFollowers = SIZE_FOLLOWERS[line.size] || 0;
         totalEstimatedFollowers += avgFollowers * (line.creators || 0);
       });
 
-      const gatingAdjustedContent = contentSubtotal * gating.contentMultiplier;
-      const otherBase = (state.otherCosts.other || 0) + (state.otherCosts.study || 0) + (state.otherCosts.additional || 0) + gating.otherBase;
-      const otherTotal = otherBase * gating.otherMultiplier;
-      const travelCost = gating.travelRequired && !gating.travelCovered
+      const feeAdjustedContent = contentSubtotal * modifiers.feeMultiplier;
+      const otherBase = (state.otherCosts.other || 0) + (state.otherCosts.study || 0) + (state.otherCosts.additional || 0);
+      const otherTotal = otherBase;
+      const travelCost = modifiers.travelRequired
         ? (state.travel.creators || 0) * (state.travel.perCreator || 0)
         : 0;
 
       const paidBudget = state.paidMedia.budget || 0;
       const paidViews = calculatePaidViews();
-      const totalCOGs = gatingAdjustedContent + otherTotal + travelCost + paidBudget;
+      const totalCOGs = feeAdjustedContent + otherTotal + travelCost + paidBudget;
       const marginGoalPct = (state.marginGoal || 0) / 100;
       const totalPrice = marginGoalPct >= 1 ? totalCOGs : totalCOGs / (1 - marginGoalPct);
       const grossMargin = totalPrice - totalCOGs;
       const priceMultiplier = totalCOGs > 0 ? totalPrice / totalCOGs : 1;
-      const influencerClientCost = gatingAdjustedContent * priceMultiplier;
-      const influencerMargin = influencerClientCost - gatingAdjustedContent;
+      const influencerClientCost = feeAdjustedContent * priceMultiplier;
+      const influencerMargin = influencerClientCost - feeAdjustedContent;
       const paidMediaWithMargin = paidBudget * priceMultiplier;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
       const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
@@ -1557,11 +1561,11 @@
       const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
       const brandOrganicCPV = organicViewsAdjusted > 0 ? influencerClientCost / organicViewsAdjusted : 0;
       const brandCombinedCPV = totalViews > 0 ? totalPrice / totalViews : 0;
-      const adRateCpv = organicViewsAdjusted > 0 ? gatingAdjustedContent / organicViewsAdjusted : 0;
+      const adRateCpv = organicViewsAdjusted > 0 ? feeAdjustedContent / organicViewsAdjusted : 0;
 
       updateSummary({
         contentSubtotal,
-        gatingAdjustedContent,
+        feeAdjustedContent,
         organicViewsRaw,
         organicViewsAdjusted,
         otherTotal,
@@ -1585,7 +1589,8 @@
         platformViews,
         totalEstimatedFollowers,
         adRateCpv,
-        approvalsNeeded: gating.approvalsNeeded,
+        modifiers,
+        details: state.details,
       });
 
       const viewMix = {
@@ -1640,12 +1645,21 @@
       }
 
       const status = document.getElementById('status-badge');
-      if (data.approvalsNeeded.size > 0) {
-        status.className = 'status-badge status-needs';
-        status.textContent = `Needs ${Array.from(data.approvalsNeeded).join(' & ')} Sign-off`;
-      } else {
+      if (status) {
         status.className = 'status-badge status-ok';
-        status.textContent = 'OK — Ready';
+        const details = data.details || {};
+        const brand = (details.brand || '').trim();
+        const campaign = (details.campaignName || '').trim();
+        const budget = (details.budget || '').trim();
+        const quarterLabel = QUARTER_LABELS[(data.modifiers?.quarterIndex ?? 1) - 1] ?? 'Q1';
+        const excitementLabel = BRAND_EXCITEMENT[data.modifiers?.excitementIndex ?? 1]?.label ?? 'Neutral';
+        const meta = [];
+        if (brand) meta.push(brand);
+        if (campaign) meta.push(campaign);
+        if (budget) meta.push(`Budget ${budget}`);
+        meta.push(`Quarter ${quarterLabel}`);
+        meta.push(`Excitement ${excitementLabel}`);
+        status.textContent = meta.join(' • ');
       }
 
       const breakdown = document.getElementById('platform-breakdown');
