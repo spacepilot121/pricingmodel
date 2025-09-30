@@ -19,7 +19,7 @@
     }
 
     html {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     * {
@@ -30,11 +30,11 @@
       margin: 0;
       background: var(--bg);
       color: #e2e8f0;
-      line-height: 1.4;
+      line-height: 1.35;
       display: flex;
       flex-direction: column;
       min-height: 100vh;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     header {
@@ -58,9 +58,9 @@
       flex: 1;
       display: grid;
       grid-template-columns: minmax(0, 1fr) 360px;
-      gap: 1.5rem;
-      padding: 1.5rem;
-      font-size: 0.9rem;
+      gap: 1.1rem;
+      padding: 1.1rem;
+      font-size: 0.85rem;
     }
 
     @media (max-width: 1200px) {
@@ -79,41 +79,37 @@
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 1.25rem;
-      margin-bottom: 1.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
       box-shadow: 0 24px 48px -32px rgba(15, 23, 42, 0.8);
     }
 
     section h2 {
       margin-top: 0;
-      margin-bottom: 1rem;
+      margin-bottom: 0.65rem;
       font-size: 1rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: #cbd5f5;
     }
 
-    #gating-section {
-      padding: 1rem;
-    }
-
     #gating-section h2 {
-      font-size: 0.9rem;
-      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
     }
 
     .gating-grid {
       display: grid;
-      gap: 0.6rem;
+      gap: 0.45rem;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     }
 
     .gating-item {
       display: flex;
       align-items: flex-start;
-      gap: 0.6rem;
-      padding: 0.6rem 0.65rem;
-      border-radius: 12px;
+      gap: 0.5rem;
+      padding: 0.45rem 0.55rem;
+      border-radius: 10px;
       border: 1px solid rgba(148, 163, 184, 0.12);
       background: rgba(15, 23, 42, 0.35);
     }
@@ -139,7 +135,7 @@
 
     thead th {
       text-align: left;
-      padding: 0.5rem;
+      padding: 0.4rem;
       text-transform: uppercase;
       font-size: 0.7rem;
       letter-spacing: 0.06em;
@@ -148,7 +144,7 @@
     }
 
     tbody td {
-      padding: 0.45rem;
+      padding: 0.35rem 0.4rem;
       border-bottom: 1px solid rgba(148, 163, 184, 0.08);
     }
 
@@ -160,19 +156,19 @@
     input[type="number"],
     input[type="text"] {
       width: 100%;
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 6px;
       color: inherit;
-      padding: 0.4rem 0.45rem;
+      padding: 0.35rem 0.4rem;
       font-size: 0.8rem;
     }
 
     .readonly-value {
-      padding: 0.4rem 0.45rem;
-      border-radius: 8px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(15, 23, 42, 0.5);
+      padding: 0.25rem 0;
+      border-radius: 0;
+      border: none;
+      background: transparent;
       font-size: 0.8rem;
       font-variant-numeric: tabular-nums;
     }
@@ -185,7 +181,7 @@
     }
 
     .table-actions {
-      margin-top: 1rem;
+      margin-top: 0.75rem;
       display: flex;
       justify-content: space-between;
       flex-wrap: wrap;
@@ -218,7 +214,7 @@
       top: 1.5rem;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.75rem;
       height: calc(100vh - 3rem);
     }
 
@@ -226,9 +222,12 @@
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 1.25rem;
+      padding: 1rem;
       overflow-y: auto;
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
     }
 
     .summary-card h3 {
@@ -241,7 +240,7 @@
 
     .summary-grid {
       display: grid;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
 
     .summary-item {
@@ -249,10 +248,10 @@
       justify-content: space-between;
       gap: 0.5rem;
       align-items: baseline;
-      padding: 0.55rem 0.65rem;
-      border-radius: 12px;
-      background: rgba(15, 23, 42, 0.35);
-      border: 1px solid rgba(148, 163, 184, 0.12);
+      padding: 0.4rem 0.5rem;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.3);
+      border: 1px solid rgba(148, 163, 184, 0.1);
     }
 
     .summary-item span:last-child {
@@ -284,10 +283,23 @@
       border: 1px solid rgba(248, 113, 113, 0.35);
     }
 
+    .summary-block-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .summary-block {
+      display: grid;
+      gap: 0.5rem;
+    }
+
     .platform-breakdown {
-      margin-top: 1rem;
+      margin-top: 0.75rem;
       border-top: 1px solid rgba(148, 163, 184, 0.12);
-      padding-top: 1rem;
+      padding-top: 0.75rem;
       display: grid;
       gap: 0.5rem;
       font-size: 0.8rem;
@@ -301,26 +313,26 @@
 
     .chart-section {
       display: grid;
-      gap: 1rem;
+      gap: 0.75rem;
     }
 
     .chart-grid {
       display: grid;
-      gap: 1rem;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     }
 
     .chart-card {
       border: 1px solid rgba(148, 163, 184, 0.12);
-      border-radius: 14px;
-      padding: 1rem;
+      border-radius: 12px;
+      padding: 0.75rem;
       background: rgba(15, 23, 42, 0.45);
       box-shadow: 0 18px 32px -28px rgba(15, 23, 42, 0.8);
     }
 
     .chart-card h3 {
-      margin: 0 0 0.5rem;
-      font-size: 0.9rem;
+      margin: 0 0 0.4rem;
+      font-size: 0.85rem;
       color: #cbd5f5;
       letter-spacing: 0.04em;
       text-transform: uppercase;
@@ -329,7 +341,7 @@
     .chart-wrapper {
       position: relative;
       width: 100%;
-      min-height: 200px;
+      min-height: 150px;
     }
 
     .paid-media-mode {
@@ -347,18 +359,39 @@
 
     .input-group {
       display: grid;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+
+    .margin-controls {
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    .margin-inputs {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .margin-inputs input[type="range"] {
+      width: 100%;
+    }
+
+    .margin-inputs input[type="number"] {
+      width: 4rem;
+      justify-self: end;
     }
 
     .input-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
 
     .input-row label {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--muted);
     }
 
@@ -385,34 +418,6 @@
       <section id="gating-section">
         <h2>Gating Questions</h2>
         <div class="gating-grid" id="gating-grid"></div>
-      </section>
-
-      <section>
-        <h2>Travel & Additional Costs</h2>
-        <div class="input-group">
-          <div class="input-row">
-            <label for="other-costs">Other Costs</label>
-            <input type="number" id="other-costs" min="0" step="100" />
-          </div>
-          <div class="input-row">
-            <label for="study-costs">Study Costs</label>
-            <input type="number" id="study-costs" min="0" step="100" />
-          </div>
-          <div class="input-row">
-            <label for="additional-costs">Additional Costs</label>
-            <input type="number" id="additional-costs" min="0" step="100" />
-          </div>
-        </div>
-        <div id="travel-controls" class="input-group" style="display:none; margin-top:1rem;">
-          <div class="input-row">
-            <label for="travel-creators">Traveling Creators</label>
-            <input type="number" id="travel-creators" min="0" step="1" />
-          </div>
-          <div class="input-row">
-            <label for="travel-budget">Travel Budget / Creator</label>
-            <input type="number" id="travel-budget" min="0" step="100" />
-          </div>
-        </div>
       </section>
 
       <section>
@@ -462,6 +467,34 @@
         </div>
       </section>
 
+      <section>
+        <h2>Travel &amp; Additional Costs</h2>
+        <div class="input-group">
+          <div class="input-row">
+            <label for="other-costs">Other Costs</label>
+            <input type="number" id="other-costs" min="0" step="100" />
+          </div>
+          <div class="input-row">
+            <label for="study-costs">Study Costs</label>
+            <input type="number" id="study-costs" min="0" step="100" />
+          </div>
+          <div class="input-row">
+            <label for="additional-costs">Additional Costs</label>
+            <input type="number" id="additional-costs" min="0" step="100" />
+          </div>
+        </div>
+        <div id="travel-controls" class="input-group" style="display:none; margin-top:0.5rem;">
+          <div class="input-row">
+            <label for="travel-creators">Traveling Creators</label>
+            <input type="number" id="travel-creators" min="0" step="1" />
+          </div>
+          <div class="input-row">
+            <label for="travel-budget">Travel Budget / Creator</label>
+            <input type="number" id="travel-budget" min="0" step="100" />
+          </div>
+        </div>
+      </section>
+
       <section class="chart-section">
         <h2>Campaign Insights</h2>
         <div class="chart-grid">
@@ -495,12 +528,22 @@
     <aside>
       <div class="summary-card">
         <h3>Estimated Deliverables &amp; Commercials</h3>
-        <div style="margin-bottom: 1rem;">
-          <label for="margin-goal" style="display:block; font-size:0.8rem; color:var(--muted); margin-bottom:0.35rem;">Margin Goal (%)</label>
-          <input type="number" id="margin-goal" min="0" max="90" step="1" />
+        <div class="margin-controls">
+          <label for="margin-goal" style="font-size:0.75rem; color:var(--muted);">Margin Goal (%)</label>
+          <div class="margin-inputs">
+            <input type="range" id="margin-goal-slider" min="0" max="90" step="1" />
+            <input type="number" id="margin-goal" min="0" max="90" step="1" />
+          </div>
         </div>
         <div id="status-badge" class="status-badge status-ok">OK — Ready</div>
-        <div class="summary-grid" id="summary-grid"></div>
+        <div class="summary-block">
+          <p class="summary-block-title">Cost Breakdown</p>
+          <div class="summary-grid" id="cost-summary"></div>
+        </div>
+        <div class="summary-block">
+          <p class="summary-block-title">Delivery Metrics</p>
+          <div class="summary-grid" id="summary-grid"></div>
+        </div>
         <div class="platform-breakdown" id="platform-breakdown"></div>
       </div>
     </aside>
@@ -1285,11 +1328,33 @@
 
     function bindSummaryControls() {
       const marginInput = document.getElementById('margin-goal');
-      marginInput.value = Number(state.marginGoal || 0);
-      marginInput.addEventListener('change', () => {
-        state.marginGoal = parseFloat(marginInput.value) || 0;
-        saveState();
+      const marginSlider = document.getElementById('margin-goal-slider');
+      const currentMargin = Number(state.marginGoal || 0);
+      if (marginInput) {
+        marginInput.value = currentMargin;
+      }
+      if (marginSlider) {
+        marginSlider.value = currentMargin;
+      }
+
+      function updateMargin(value) {
+        const sanitized = Math.min(90, Math.max(0, Number(value) || 0));
+        state.marginGoal = sanitized;
+        if (marginInput) {
+          marginInput.value = sanitized;
+        }
+        if (marginSlider) {
+          marginSlider.value = sanitized;
+        }
         recalc();
+      }
+
+      marginInput?.addEventListener('change', () => {
+        updateMargin(marginInput.value);
+      });
+
+      marginSlider?.addEventListener('input', () => {
+        updateMargin(marginSlider.value);
       });
     }
 
@@ -1413,40 +1478,39 @@
     }
 
     function updateSummary(data) {
-      const grid = document.getElementById('summary-grid');
-      grid.innerHTML = '';
-      const items = [
-        ['Total Content Pieces', data.totalContentPieces],
-        ['Total Creators', data.totalCreators],
-        ['Estimated Followers', data.totalEstimatedFollowers],
-        ['Organic Views (adj.)', data.organicViewsAdjusted],
-        ['Paid Views', data.paidViews],
-        ['Total Estimated Views', data.totalViews],
-        ['Content Cost (adj.)', formatCurrency(data.gatingAdjustedContent)],
-        ['Other Costs', formatCurrency(data.otherTotal)],
-        ['Travel Costs', formatCurrency(data.travelCost)],
-        ['Paid Media Budget', formatCurrency(data.paidBudget)],
-        ['Total COGs', formatCurrency(data.totalCOGs)],
-        ['Total COGs / Creator', formatCurrency(data.totalCogsPerCreator)],
-        ['Total Price', formatCurrency(data.totalPrice)],
-        ['Price / Creator', formatCurrency(data.pricePerCreator)],
-        ['Gross Margin', formatCurrency(data.grossMargin)],
-        ['Ad Rate (CPV)', formatCpv(data.adRateCpv)],
-        ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
-      ];
-      items.forEach(([label, value]) => {
-        const row = document.createElement('div');
-        row.className = 'summary-item';
-        const labelSpan = document.createElement('span');
-        labelSpan.textContent = label;
-        const valueSpan = document.createElement('span');
-        valueSpan.textContent = typeof value === 'number' && !label.includes('CPM')
-          ? formatNumber(value)
-          : value;
-        row.appendChild(labelSpan);
-        row.appendChild(valueSpan);
-        grid.appendChild(row);
-      });
+      const costGrid = document.getElementById('cost-summary');
+      const metricsGrid = document.getElementById('summary-grid');
+
+      if (costGrid) {
+        costGrid.innerHTML = '';
+        const costItems = [
+          ['Content / Influencer COGs', formatCurrency(data.gatingAdjustedContent)],
+          ['Paid Media Budget', formatCurrency(data.paidBudget)],
+          ['Other COGs', formatCurrency(data.otherTotal)],
+          ['Travel COGs', formatCurrency(data.travelCost)],
+          ['Total COGs', formatCurrency(data.totalCOGs)],
+          ['Total Price', formatCurrency(data.totalPrice)],
+          ['Gross Margin', formatCurrency(data.grossMargin)],
+        ];
+        appendSummaryRows(costGrid, costItems);
+      }
+
+      if (metricsGrid) {
+        metricsGrid.innerHTML = '';
+        const metricItems = [
+          ['Total Content Pieces', data.totalContentPieces],
+          ['Total Creators', data.totalCreators],
+          ['Total Estimated Views', data.totalViews],
+          ['Organic Views (adj.)', data.organicViewsAdjusted],
+          ['Paid Views', data.paidViews],
+          ['Estimated Followers', data.totalEstimatedFollowers],
+          ['Total COGs / Creator', formatCurrency(data.totalCogsPerCreator)],
+          ['Price / Creator', formatCurrency(data.pricePerCreator)],
+          ['Ad Rate (CPV)', formatCpv(data.adRateCpv)],
+          ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
+        ];
+        appendSummaryRows(metricsGrid, metricItems);
+      }
 
       const status = document.getElementById('status-badge');
       if (data.approvalsNeeded.size > 0) {
@@ -1465,6 +1529,24 @@
         const pct = ((views / total) * 100).toFixed(1);
         row.innerHTML = `<span>${platform}</span><span>${formatNumber(views)} (${pct}%)</span>`;
         breakdown.appendChild(row);
+      });
+    }
+
+    function appendSummaryRows(container, items) {
+      items.forEach(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'summary-item';
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        const valueSpan = document.createElement('span');
+        if (typeof value === 'number' && !label.toLowerCase().includes('cpm')) {
+          valueSpan.textContent = formatNumber(value);
+        } else {
+          valueSpan.textContent = value;
+        }
+        row.appendChild(labelSpan);
+        row.appendChild(valueSpan);
+        container.appendChild(row);
       });
     }
 
