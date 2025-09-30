@@ -1367,7 +1367,7 @@
       const pricePerCreator = totalCreators > 0 ? totalPrice / totalCreators : 0;
       const totalViews = organicViewsAdjusted + paidViews;
       const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
-      const adRateCpv = organicViewsAdjusted > 0 ? gatingAdjustedContent / organicViewsAdjusted : 0;
+      const organicCpv = organicViewsAdjusted > 0 ? gatingAdjustedContent / organicViewsAdjusted : 0;
 
       updateSummary({
         contentSubtotal,
@@ -1389,7 +1389,7 @@
         totalViews,
         platformViews,
         totalEstimatedFollowers,
-        adRateCpv,
+        organicCpv,
         approvalsNeeded: gating.approvalsNeeded,
       });
 
@@ -1431,7 +1431,7 @@
         ['Total Price', formatCurrency(data.totalPrice)],
         ['Price / Creator', formatCurrency(data.pricePerCreator)],
         ['Gross Margin', formatCurrency(data.grossMargin)],
-        ['Ad Rate (CPV)', formatCpv(data.adRateCpv)],
+        ['Organic CPV', formatCpv(data.organicCpv)],
         ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
       ];
       items.forEach(([label, value]) => {
