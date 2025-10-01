@@ -209,6 +209,17 @@
       gap: 0.75rem;
     }
 
+    .section-pair {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-pair > section {
+      margin-bottom: 0;
+    }
+
     button {
       background: var(--accent);
       color: #0f172a;
@@ -544,51 +555,53 @@
         </div>
       </section>
 
-      <section>
-        <h2>Paid Media Options</h2>
-        <div class="paid-media-mode">
-          <label><input type="radio" name="paid-mode" value="cpv" /> CPV</label>
-          <label><input type="radio" name="paid-mode" value="cpm" /> CPM Mode</label>
-        </div>
-        <div class="input-group">
-          <div class="input-row">
-            <label for="paid-budget">Paid Media Budget</label>
-            <input type="number" id="paid-budget" min="0" step="100" />
+      <div class="section-pair">
+        <section>
+          <h2>Paid Media Options</h2>
+          <div class="paid-media-mode">
+            <label><input type="radio" name="paid-mode" value="cpv" /> CPV</label>
+            <label><input type="radio" name="paid-mode" value="cpm" /> CPM Mode</label>
           </div>
-          <div class="input-row">
-            <label id="paid-rate-label" for="paid-rate">Client CPV</label>
-            <input type="number" id="paid-rate" min="0" step="0.001" />
+          <div class="input-group">
+            <div class="input-row">
+              <label for="paid-budget">Paid Media Budget</label>
+              <input type="number" id="paid-budget" min="0" step="100" />
+            </div>
+            <div class="input-row">
+              <label id="paid-rate-label" for="paid-rate">Client CPV</label>
+              <input type="number" id="paid-rate" min="0" step="0.001" />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section>
-        <h2>Travel &amp; Additional Costs</h2>
-        <div class="input-group">
-          <div class="input-row">
-            <label for="other-costs">Other Costs</label>
-            <input type="number" id="other-costs" min="0" step="100" />
+        <section>
+          <h2>Travel &amp; Additional Costs</h2>
+          <div class="input-group">
+            <div class="input-row">
+              <label for="other-costs">Other Costs</label>
+              <input type="number" id="other-costs" min="0" step="100" />
+            </div>
+            <div class="input-row">
+              <label for="study-costs">Study Costs</label>
+              <input type="number" id="study-costs" min="0" step="100" />
+            </div>
+            <div class="input-row">
+              <label for="additional-costs">Additional Costs</label>
+              <input type="number" id="additional-costs" min="0" step="100" />
+            </div>
           </div>
-          <div class="input-row">
-            <label for="study-costs">Study Costs</label>
-            <input type="number" id="study-costs" min="0" step="100" />
+          <div id="travel-controls" class="input-group" style="display:none; margin-top:0.5rem;">
+            <div class="input-row">
+              <label for="travel-creators">Traveling Creators</label>
+              <input type="number" id="travel-creators" min="0" step="1" />
+            </div>
+            <div class="input-row">
+              <label for="travel-budget">Travel Budget / Creator</label>
+              <input type="number" id="travel-budget" min="0" step="100" />
+            </div>
           </div>
-          <div class="input-row">
-            <label for="additional-costs">Additional Costs</label>
-            <input type="number" id="additional-costs" min="0" step="100" />
-          </div>
-        </div>
-        <div id="travel-controls" class="input-group" style="display:none; margin-top:0.5rem;">
-          <div class="input-row">
-            <label for="travel-creators">Traveling Creators</label>
-            <input type="number" id="travel-creators" min="0" step="1" />
-          </div>
-          <div class="input-row">
-            <label for="travel-budget">Travel Budget / Creator</label>
-            <input type="number" id="travel-budget" min="0" step="100" />
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <section class="chart-section">
         <h2>Campaign Insights</h2>
@@ -685,10 +698,6 @@
       'Beauty/Fashion': { rate: 1, views: 1.1 },
       Lifestyle: { rate: 1, views: 1.08 },
       Tech: { rate: 1, views: 1 },
-      General: { rate: 1, views: 1 },
-      Beauty: { rate: 1, views: 1.1 },
-      Technology: { rate: 1, views: 1 },
-      Finance: { rate: 1.25, views: 0.95 },
     };
 
     const LANGUAGE_MULT = {
