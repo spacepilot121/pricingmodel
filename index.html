@@ -14,6 +14,7 @@
       --muted: #94a3b8;
       --danger: #f87171;
       --success: #34d399;
+      --warning: #facc15;
       --border: #334155;
       font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -326,6 +327,56 @@
     .summary-block {
       display: grid;
       gap: 0.5rem;
+    }
+
+    .budget-status-card {
+      border-radius: 12px;
+      padding: 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(148, 163, 184, 0.08);
+      display: grid;
+      gap: 0.35rem;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .budget-status-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .budget-status-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .budget-status-subtext {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .budget-status-good {
+      border-color: rgba(52, 211, 153, 0.4);
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--success);
+    }
+
+    .budget-status-over {
+      border-color: rgba(248, 113, 113, 0.4);
+      background: rgba(248, 113, 113, 0.12);
+      color: var(--danger);
+    }
+
+    .budget-status-under {
+      border-color: rgba(250, 204, 21, 0.4);
+      background: rgba(250, 204, 21, 0.12);
+      color: var(--warning);
+    }
+
+    .budget-status-neutral {
+      color: #cbd5f5;
     }
 
     .platform-breakdown {
@@ -682,6 +733,11 @@
         <div class="summary-block">
           <p class="summary-block-title">Cost Breakdown</p>
           <div class="summary-grid" id="cost-summary"></div>
+          <div id="budget-status" class="budget-status-card budget-status-neutral">
+            <div class="budget-status-title">Budget Status</div>
+            <div class="budget-status-value">No target budget set</div>
+            <div class="budget-status-subtext">Enter a target budget in campaign details to compare.</div>
+          </div>
         </div>
         <div class="summary-block">
           <p class="summary-block-title">Delivery Metrics</p>
@@ -1822,6 +1878,7 @@
     function updateSummary(data) {
       const costGrid = document.getElementById('cost-summary');
       const metricsGrid = document.getElementById('summary-grid');
+      const budgetStatusCard = document.getElementById('budget-status');
 
       if (costGrid) {
         costGrid.innerHTML = '';
@@ -1849,6 +1906,47 @@
           ['Brand Combined CPV', isFinite(data.brandCombinedCPV) ? `$${data.brandCombinedCPV.toFixed(2)}` : '$0.00'],
         ];
         appendSummaryRows(metricsGrid, metricItems);
+      }
+
+      if (budgetStatusCard) {
+        const targetBudget = parseCurrencyInput(data.details?.budget);
+        const valueEl = budgetStatusCard.querySelector('.budget-status-value');
+        const titleEl = budgetStatusCard.querySelector('.budget-status-title');
+        const subtextEl = budgetStatusCard.querySelector('.budget-status-subtext');
+
+        if (targetBudget > 0) {
+          const difference = targetBudget - data.totalPrice;
+          const differenceAbs = Math.abs(difference);
+          const tolerance = Math.max(1, targetBudget * 0.001);
+          const differenceRatio = targetBudget ? difference / targetBudget : 0;
+          const targetVsEstimate = `Target ${formatCurrency(targetBudget)} vs Est. ${formatCurrency(data.totalPrice)}`;
+          if (data.totalPrice > targetBudget && differenceAbs > tolerance) {
+            budgetStatusCard.className = 'budget-status-card budget-status-over';
+            if (titleEl) titleEl.textContent = 'Over Budget';
+            if (valueEl) valueEl.textContent = `${formatCurrency(differenceAbs)} over target`;
+          } else if (differenceRatio >= 0.1) {
+            budgetStatusCard.className = 'budget-status-card budget-status-under';
+            if (titleEl) titleEl.textContent = 'Significantly Under Budget';
+            if (valueEl) valueEl.textContent = `${formatCurrency(difference)} remaining`;
+          } else if (Math.abs(difference) <= tolerance) {
+            budgetStatusCard.className = 'budget-status-card budget-status-good';
+            if (titleEl) titleEl.textContent = 'On Budget';
+            if (valueEl) valueEl.textContent = 'Spending matches the target.';
+          } else {
+            budgetStatusCard.className = 'budget-status-card budget-status-good';
+            if (titleEl) titleEl.textContent = 'In Budget';
+            if (valueEl) valueEl.textContent = `${formatCurrency(difference)} remaining`;
+          }
+
+          if (subtextEl) {
+            subtextEl.textContent = targetVsEstimate;
+          }
+        } else {
+          budgetStatusCard.className = 'budget-status-card budget-status-neutral';
+          if (titleEl) titleEl.textContent = 'Budget Status';
+          if (valueEl) valueEl.textContent = 'No target budget set';
+          if (subtextEl) subtextEl.textContent = 'Enter a target budget in campaign details to compare.';
+        }
       }
 
       const status = document.getElementById('status-badge');
@@ -1896,6 +1994,14 @@
         row.appendChild(valueSpan);
         container.appendChild(row);
       });
+    }
+
+    function parseCurrencyInput(value) {
+      if (value === null || value === undefined) return 0;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const sanitized = String(value).replace(/[^0-9.-]+/g, '');
+      const parsed = parseFloat(sanitized);
+      return Number.isFinite(parsed) ? parsed : 0;
     }
 
     function updateCharts(
