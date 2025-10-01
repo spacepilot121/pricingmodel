@@ -613,9 +613,21 @@
             </div>
           </div>
           <div class="chart-card">
+            <h3>Budget Split by Language</h3>
+            <div class="chart-wrapper">
+              <canvas id="language-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
             <h3>Budget Split by Creator Size</h3>
             <div class="chart-wrapper">
               <canvas id="size-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Budget Split by Creator Vertical</h3>
+            <div class="chart-wrapper">
+              <canvas id="vertical-budget-chart"></canvas>
             </div>
           </div>
           <div class="chart-card">
@@ -625,9 +637,21 @@
             </div>
           </div>
           <div class="chart-card">
+            <h3>Content Pieces by Creator Size</h3>
+            <div class="chart-wrapper">
+              <canvas id="size-content-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
             <h3>Organic vs Paid Views</h3>
             <div class="chart-wrapper">
               <canvas id="view-mix-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Organic Influencer Cost vs Paid Media Budget</h3>
+            <div class="chart-wrapper">
+              <canvas id="investment-mix-chart"></canvas>
             </div>
           </div>
         </div>
@@ -665,7 +689,14 @@
       sizeBudget: createChartState('size-budget-chart'),
       platformViews: createChartState('platform-view-chart'),
       viewMix: createChartState('view-mix-chart'),
+      languageBudget: createChartState('language-budget-chart'),
+      verticalBudget: createChartState('vertical-budget-chart'),
+      sizeContent: createChartState('size-content-chart', createCountTooltipFormatter('pieces')),
+      investmentMix: createChartState('investment-mix-chart'),
     };
+    chartStates.sizeContent.defaultType = 'bar';
+    chartStates.sizeContent.alternateType = 'pie';
+    chartStates.sizeContent.currentType = 'bar';
 
     const CPV_WITH_MARGIN_LABEL = 'Client CPV';
 
@@ -1633,12 +1664,19 @@
       });
       const platformBudget = {};
       const sizeBudget = {};
+      const languageBudget = {};
+      const verticalBudget = {};
+      const sizeContentPieces = {};
       contentLines.forEach(line => {
         const lineTotal = line.total || 0;
         if (lineTotal > 0) {
           const adjusted = lineTotal * modifiers.feeMultiplier;
+          const languageKey = line.language || 'Unspecified';
+          const verticalKey = line.vertical || 'Unspecified';
           platformBudget[line.platform] = (platformBudget[line.platform] || 0) + adjusted;
           sizeBudget[line.size] = (sizeBudget[line.size] || 0) + adjusted;
+          languageBudget[languageKey] = (languageBudget[languageKey] || 0) + adjusted;
+          verticalBudget[verticalKey] = (verticalBudget[verticalKey] || 0) + adjusted;
         }
       });
       const contentSubtotal = contentLines.reduce((acc, line) => acc + line.total, 0);
@@ -1659,6 +1697,11 @@
         platformViews[line.platform] += lineViews;
         const avgFollowers = SIZE_FOLLOWERS[line.size] || 0;
         totalEstimatedFollowers += avgFollowers * (line.creators || 0);
+        const pieces = (line.qtyPerCreator || 0) * (line.creators || 0);
+        if (pieces > 0) {
+          const sizeKey = line.size || 'Unspecified';
+          sizeContentPieces[sizeKey] = (sizeContentPieces[sizeKey] || 0) + pieces;
+        }
       });
 
       const feeAdjustedContent = contentSubtotal * modifiers.feeMultiplier;
@@ -1730,7 +1773,21 @@
         'Paid Views': paidViews,
       };
 
-      updateCharts(platformBudget, sizeBudget, platformViews, viewMix);
+      const investmentMix = {
+        'Influencer Cost to Client': influencerClientCost,
+        'Paid Media Budget (Incl. Margin)': paidMediaWithMargin,
+      };
+
+      updateCharts(
+        platformBudget,
+        sizeBudget,
+        platformViews,
+        viewMix,
+        investmentMix,
+        sizeContentPieces,
+        verticalBudget,
+        languageBudget,
+      );
       updateLineTotals(contentLines);
       saveState();
     }
@@ -1823,7 +1880,16 @@
       });
     }
 
-    function updateCharts(platformBudget, sizeBudget, platformViews, viewMix) {
+    function updateCharts(
+      platformBudget,
+      sizeBudget,
+      platformViews,
+      viewMix,
+      investmentMix,
+      contentPiecesBySize,
+      verticalBudget,
+      languageBudget,
+    ) {
       const percentageOptions = {
         decimals: 1,
         toPercentage: true,
@@ -1833,15 +1899,23 @@
         maxValue: 100,
       };
       updateChart(chartStates.platformBudget, platformBudget, percentageOptions);
+      updateChart(chartStates.languageBudget, languageBudget, percentageOptions);
       updateChart(chartStates.sizeBudget, sizeBudget, percentageOptions);
+      updateChart(chartStates.verticalBudget, verticalBudget, percentageOptions);
       updateChart(chartStates.platformViews, platformViews, {
         decimals: 0,
         tooltipLabelFormatter: createViewTooltipFormatter('views'),
+      });
+      updateChart(chartStates.sizeContent, contentPiecesBySize, {
+        decimals: 0,
+        tooltipLabelFormatter: createCountTooltipFormatter('pieces'),
+        datasetLabel: 'Content Pieces',
       });
       updateChart(chartStates.viewMix, viewMix, {
         decimals: 0,
         tooltipLabelFormatter: createViewTooltipFormatter('views'),
       });
+      updateChart(chartStates.investmentMix, investmentMix);
     }
 
     function prepareChartData(source, options = {}) {
@@ -2019,6 +2093,14 @@
       return (label, value, total) => {
         const pct = ((value / total) * 100).toFixed(1);
         return `${label}: ${formatNumber(value)} ${unit} (${pct}%)`;
+      };
+    }
+
+    function createCountTooltipFormatter(unit) {
+      return (label, value, total) => {
+        const pct = ((value / total) * 100).toFixed(1);
+        const unitLabel = unit ? ` ${unit}` : '';
+        return `${label}: ${formatNumber(value)}${unitLabel} (${pct}%)`;
       };
     }
 
