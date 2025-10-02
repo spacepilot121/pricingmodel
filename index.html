@@ -1802,8 +1802,9 @@
         const effectiveCpv = line.cogsCpv * priceMultiplier;
         line.effectiveCpv = Number.isFinite(effectiveCpv) ? effectiveCpv : 0;
       });
-      const influencerClientCost = feeAdjustedContent * priceMultiplier;
-      const influencerMargin = influencerClientCost - feeAdjustedContent;
+      const influencerCogs = feeAdjustedContent;
+      const influencerMargin = influencerCogs * Math.max(priceMultiplier - 1, 0);
+      const influencerClientCost = influencerCogs + influencerMargin;
       const paidMediaWithMargin = paidBudget;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
       const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
@@ -1825,6 +1826,7 @@
         paidBudget,
         influencerClientCost,
         influencerMargin,
+        influencerCogs,
         paidMediaWithMargin,
         paidViews,
         totalCOGs,
@@ -1887,6 +1889,7 @@
         costGrid.innerHTML = '';
         const costItems = [
           ['Total COGs', formatCurrency(data.totalCOGs)],
+          ['Total Influencer COGs', formatCurrency(data.influencerCogs)],
           ['Influencer Margin', formatCurrency(data.influencerMargin)],
           ['Total Influencer Cost to Client', formatCurrency(data.influencerClientCost)],
           ['Paid Media Budget (Including Margin)', formatCurrency(data.paidMediaWithMargin)],
