@@ -633,11 +633,11 @@
           </div>
           <div class="input-group">
             <div class="input-row">
-              <label for="paid-budget">Paid Media Budget</label>
+              <label for="paid-budget">Paid Media Budget (Including Margin)</label>
               <input type="number" id="paid-budget" min="0" step="100" />
             </div>
             <div class="input-row">
-              <label id="paid-rate-label" for="paid-rate">Client CPV</label>
+              <label id="paid-rate-label" for="paid-rate">Client CPV (Including Margin)</label>
               <input type="number" id="paid-rate" min="0" step="0.001" />
             </div>
           </div>
@@ -772,7 +772,7 @@
     chartStates.sizeContent.alternateType = 'pie';
     chartStates.sizeContent.currentType = 'bar';
 
-    const CPV_WITH_MARGIN_LABEL = 'Client CPV';
+    const CPV_WITH_MARGIN_LABEL = 'Client CPV (Including Margin)';
 
     const DEFAULT_PAID_RATES = {
       cpv: 0.03,
@@ -1787,11 +1787,14 @@
 
       const paidBudget = state.paidMedia.budget || 0;
       const paidViews = calculatePaidViews();
-      const totalCOGs = feeAdjustedContent + otherTotal + travelCost + paidBudget;
+      const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
+      const totalCOGs = baseCOGs + paidBudget;
       const marginGoalPct = (state.marginGoal || 0) / 100;
-      const totalPrice = marginGoalPct >= 1 ? totalCOGs : totalCOGs / (1 - marginGoalPct);
+      const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
+      const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
+      const totalPrice = totalPriceExcludingPaid + paidBudget;
       const grossMargin = totalPrice - totalCOGs;
-      const priceMultiplier = totalCOGs > 0 ? totalPrice / totalCOGs : 1;
+      const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
       contentLines.forEach(line => {
         const baseCpv = Number.isFinite(line.cpvWithWhitelist) ? line.cpvWithWhitelist : line.unitRate || 0;
         const cogsCpv = baseCpv * (modifiers.feeMultiplier ?? 1);
@@ -1801,7 +1804,7 @@
       });
       const influencerClientCost = feeAdjustedContent * priceMultiplier;
       const influencerMargin = influencerClientCost - feeAdjustedContent;
-      const paidMediaWithMargin = paidBudget * priceMultiplier;
+      const paidMediaWithMargin = paidBudget;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
       const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
       const totalCogsPerCreator = totalCreators > 0 ? totalCOGs / totalCreators : 0;
@@ -1849,7 +1852,7 @@
 
       const investmentMix = {
         'Influencer Cost to Client': influencerClientCost,
-        'Paid Media Budget (Incl. Margin)': paidMediaWithMargin,
+        'Paid Media Budget (Including Margin)': paidMediaWithMargin,
       };
 
       updateCharts(
@@ -1886,7 +1889,7 @@
           ['Total COGs', formatCurrency(data.totalCOGs)],
           ['Influencer Margin', formatCurrency(data.influencerMargin)],
           ['Total Influencer Cost to Client', formatCurrency(data.influencerClientCost)],
-          ['Paid Media Budget (Incl. Margin)', formatCurrency(data.paidMediaWithMargin)],
+          ['Paid Media Budget (Including Margin)', formatCurrency(data.paidMediaWithMargin)],
           ['Total Campaign Budget', formatCurrency(data.totalPrice)],
         ];
         appendSummaryRows(costGrid, costItems);
