@@ -244,6 +244,15 @@
       color: #cbd5f5;
     }
 
+    button.danger {
+      background: rgba(248, 113, 113, 0.18);
+      color: var(--danger);
+    }
+
+    button.danger:hover {
+      box-shadow: 0 12px 18px -12px rgba(248, 113, 113, 0.65);
+    }
+
     aside {
       position: sticky;
       top: 1.5rem;
@@ -591,6 +600,28 @@
       color: #e2e8f0;
       display: block;
       font-size: 0.9rem;
+    }
+
+    .campaign-card-flags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+    }
+
+    .campaign-flag {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 0.25rem 0.6rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: rgba(148, 163, 184, 0.12);
+    }
+
+    .campaign-flag-urgent {
+      color: var(--danger);
+      border-color: rgba(248, 113, 113, 0.45);
+      background: rgba(248, 113, 113, 0.15);
     }
 
     .campaign-card-actions {
@@ -1402,12 +1433,31 @@
       const detailsName = (data.details?.campaignName || '').trim();
       const finalName = nameOverride ?? (detailsName || 'Untitled Campaign');
       const summary = calculateCampaignSummaryFromData(data);
+      const brand = (data.details?.brand || '').trim();
+      const rawQuarter = Number(data.details?.quarter);
+      const quarterIndex = Number.isFinite(rawQuarter)
+        ? Math.min(Math.max(Math.floor(rawQuarter), 1), QUARTER_LABELS.length)
+        : null;
+      const quarterLabel = quarterIndex
+        ? QUARTER_LABELS[quarterIndex - 1] ?? `Q${quarterIndex}`
+        : null;
+      const deliverableCount = Array.isArray(data.campaignLines) ? data.campaignLines.length : 0;
+      const rush = !!data.details?.rush;
+      const travelNeeded = !!data.details?.travelNeeded;
+      const nicheCreators = !!data.details?.nicheCreators;
       return {
         id: id ?? createId(),
         name: finalName,
         budget: parseCurrencyInput(data.details?.budget),
         totalCreators: summary.totalCreators,
         estimatedViews: summary.totalViews,
+        brand,
+        quarter: quarterIndex,
+        quarterLabel,
+        deliverableCount,
+        rush,
+        travelNeeded,
+        nicheCreators,
         data,
       };
     }
@@ -2708,21 +2758,48 @@
       }
     }
 
-    function CampaignCard({ campaign, onEdit, onDuplicate }) {
+    function CampaignCard({ campaign, onEdit, onDuplicate, onDelete }) {
       const budgetDisplay = campaign.budget > 0 ? formatCurrency(campaign.budget) : 'Not set';
       const creatorLabel = formatNumber(campaign.totalCreators || 0);
       const viewLabel = formatNumber(Math.round(campaign.estimatedViews || 0));
+      const brandLabel = campaign.brand || 'Brand TBD';
+      const quarterLabel = campaign.quarterLabel || 'Timing TBD';
+      const deliverables = campaign.deliverableCount || 0;
+      const deliverableDisplay = formatNumber(deliverables);
+      const deliverableLabel = deliverables === 1 ? 'Deliverable' : 'Deliverables';
+      const flags = [];
+      if (campaign.rush) {
+        flags.push({ key: 'rush', label: 'Rush timeline', urgent: true });
+      }
+      if (campaign.travelNeeded) {
+        flags.push({ key: 'travel', label: 'Travel required' });
+      }
+      if (campaign.nicheCreators) {
+        flags.push({ key: 'niche', label: 'Niche creators' });
+      }
       return h('div', { className: 'campaign-card' },
         h('div', null,
           h('h3', null, campaign.name || 'Untitled Campaign'),
           h('div', { className: 'campaign-card-meta' },
+            h('span', null, h('strong', null, brandLabel), 'Brand'),
+            h('span', null, h('strong', null, quarterLabel), 'Timeline'),
+            h('span', null, h('strong', null, deliverableDisplay), deliverableLabel),
             h('span', null, h('strong', null, budgetDisplay), 'Target Budget'),
             h('span', null, h('strong', null, creatorLabel), 'Creators'),
             h('span', null, h('strong', null, viewLabel), 'Estimated Views'),
           ),
+          flags.length
+            ? h('div', { className: 'campaign-card-flags' }, flags.map(flag =>
+                h('span', {
+                  key: flag.key,
+                  className: flag.urgent ? 'campaign-flag campaign-flag-urgent' : 'campaign-flag',
+                }, flag.label),
+              ))
+            : null,
         ),
         h('div', { className: 'campaign-card-actions' },
           h('button', { onClick: () => onEdit(campaign.id) }, 'Edit'),
+          h('button', { className: 'danger', onClick: () => onDelete(campaign.id) }, 'Delete'),
           h('button', { className: 'secondary', onClick: () => onDuplicate(campaign.id) }, 'Duplicate'),
         ),
       );
@@ -2732,6 +2809,7 @@
       campaigns,
       onEdit,
       onDuplicate,
+      onDelete,
       onCreate,
       templates,
       selectedTemplateId,
@@ -2757,7 +2835,7 @@
         ),
         campaigns.length
           ? h('div', { className: 'campaign-list' }, campaigns.map(campaign =>
-              h(CampaignCard, { key: campaign.id, campaign, onEdit, onDuplicate }),
+              h(CampaignCard, { key: campaign.id, campaign, onEdit, onDuplicate, onDelete }),
             ))
           : h('p', { className: 'campaign-dashboard-empty' }, 'No campaigns yet. Create a new campaign to get started.'),
       );
@@ -2938,6 +3016,12 @@
         }
       }, []);
 
+      const handleDeleteCampaign = useCallback(id => {
+        setCampaigns(prev => prev.filter(campaign => campaign.id !== id));
+        setActiveCampaignId(previous => (previous === id ? null : previous));
+        setView(previous => (previous === 'editor' && activeCampaignId === id ? 'dashboard' : previous));
+      }, [activeCampaignId]);
+
       const handleBackToDashboard = useCallback(() => {
         setView('dashboard');
         setActiveCampaignId(null);
@@ -2974,6 +3058,7 @@
             campaigns,
             onEdit: handleEditCampaign,
             onDuplicate: handleDuplicateCampaign,
+            onDelete: handleDeleteCampaign,
             onCreate: handleCreateCampaign,
             templates,
             selectedTemplateId,
