@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>P.I.C — Precise. Influencer. Calculator.</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -501,6 +503,112 @@
       color: var(--muted);
     }
 
+    #campaign-app {
+      padding: 1.1rem;
+    }
+
+    .campaign-app {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 24px 48px -32px rgba(15, 23, 42, 0.8);
+    }
+
+    .campaign-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .campaign-toolbar h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .campaign-toolbar p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .campaign-toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .campaign-toolbar select {
+      width: auto;
+      min-width: 180px;
+    }
+
+    .campaign-dashboard-empty {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 1rem;
+    }
+
+    .campaign-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .campaign-card {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 12px;
+      padding: 0.9rem;
+      background: rgba(15, 23, 42, 0.55);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .campaign-card h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .campaign-card-meta {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .campaign-card-meta span strong {
+      color: #e2e8f0;
+      display: block;
+      font-size: 0.9rem;
+    }
+
+    .campaign-card-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .campaign-card-actions button {
+      min-width: 88px;
+    }
+
+    body.dashboard-active main,
+    body.dashboard-active footer {
+      display: none;
+    }
+
     footer {
       padding: 1rem 2rem;
       text-align: center;
@@ -519,6 +627,7 @@
     <h1>P.I.C</h1>
     <p>Precise. Influencer. Calculator.</p>
   </header>
+  <div id="campaign-app"></div>
   <main>
     <div>
       <section id="campaign-details">
@@ -757,7 +866,88 @@
        =============================
        The workbook exposes key multipliers near rows 44563-44613. They are consolidated below for easy edits.
     */
-    const STORAGE_KEY = 'precise-influencer-calculator-v1';
+    const LEGACY_STORAGE_KEY = 'precise-influencer-calculator-v1';
+    const CAMPAIGN_STORAGE_KEY = 'pic-campaigns-v2';
+    const TEMPLATE_STORAGE_KEY = 'pic-templates-v1';
+    let persistActiveCampaign = () => {};
+    // Generate a reasonably unique id when structuredClone is unavailable.
+    function createId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      return `pic-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    // Read saved campaigns from localStorage and normalise their structure.
+    function loadCampaigns() {
+      try {
+        const raw = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(entry => createCampaignRecord(entry.data ?? entry, entry.id, entry.name));
+      } catch (err) {
+        console.error('Failed to load campaigns', err);
+        return [];
+      }
+    }
+
+    // Persist the current campaign collection for dashboard use.
+    function saveCampaigns(campaigns) {
+      try {
+        localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(campaigns));
+      } catch (err) {
+        console.error('Failed to save campaigns', err);
+      }
+    }
+
+    // Restore saved templates from localStorage.
+    function loadTemplates() {
+      try {
+        const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(template => ({
+          id: template.id ?? createId(),
+          name: template.name ?? 'Template',
+          deliverables: Array.isArray(template.deliverables) ? template.deliverables : [],
+        }));
+      } catch (err) {
+        console.error('Failed to load templates', err);
+        return [];
+      }
+    }
+
+    // Persist reusable deliverable templates locally.
+    function saveTemplates(templates) {
+      try {
+        localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+      } catch (err) {
+        console.error('Failed to save templates', err);
+      }
+    }
+
+    // Prefer campaign collection storage but fall back to legacy single-state save.
+    function bootstrapCampaigns() {
+      const stored = loadCampaigns();
+      if (stored.length) {
+        return stored;
+      }
+      try {
+        const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (!legacyRaw) return [];
+        const parsed = JSON.parse(legacyRaw);
+        const record = createCampaignRecord(parsed);
+        const seeded = [record];
+        saveCampaigns(seeded);
+        return seeded;
+      } catch (err) {
+        console.error('Failed to import legacy campaign', err);
+        return [];
+      }
+    }
+
     const chartStates = {
       platformBudget: createChartState('platform-budget-chart'),
       sizeBudget: createChartState('size-budget-chart'),
@@ -1139,40 +1329,144 @@
 
     let state = loadState();
 
-    function loadState() {
+    // Merge raw persisted data with calculator defaults to keep structures stable.
+    function normalizeCampaignState(source) {
+      const base = structuredClone(defaultState);
+      if (!source || typeof source !== 'object') {
+        return base;
+      }
+      const parsed = structuredClone(source);
+      const mergedPaidMedia = { ...base.paidMedia, ...(parsed.paidMedia || {}) };
+      if (!mergedPaidMedia.rate || mergedPaidMedia.rate <= 0) {
+        mergedPaidMedia.rate = DEFAULT_PAID_RATES[mergedPaidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
+      }
+      const sourceLines = Array.isArray(parsed.campaignLines) && parsed.campaignLines.length
+        ? parsed.campaignLines
+        : base.campaignLines;
+      const normalizedLines = sourceLines.map(line => {
+        const merged = { ...createDefaultLine(), ...structuredClone(line) };
+        merged.manualViews = false;
+        return applyLineDefaults(merged, { forceViews: true });
+      });
+      return {
+        ...base,
+        marginGoal: parsed.marginGoal ?? base.marginGoal,
+        details: { ...base.details, ...(parsed.details || {}) },
+        otherCosts: { ...base.otherCosts, ...(parsed.otherCosts || {}) },
+        travel: { ...base.travel, ...(parsed.travel || {}) },
+        campaignLines: normalizedLines,
+        paidMedia: mergedPaidMedia,
+      };
+    }
+
+    // Load the active calculator state, defaulting to legacy storage when available.
+    function loadState(rawSource) {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        if (rawSource) {
+          return normalizeCampaignState(rawSource);
+        }
+        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
         if (!raw) return structuredClone(defaultState);
         const parsed = JSON.parse(raw);
-        const mergedPaidMedia = { ...defaultState.paidMedia, ...parsed.paidMedia };
-        if (!mergedPaidMedia.rate || mergedPaidMedia.rate <= 0) {
-          mergedPaidMedia.rate = DEFAULT_PAID_RATES[mergedPaidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
-        }
-        const base = structuredClone(defaultState);
-        const sourceLines = Array.isArray(parsed.campaignLines) && parsed.campaignLines.length
-          ? parsed.campaignLines
-          : base.campaignLines;
-        return {
-          ...base,
-          marginGoal: parsed.marginGoal ?? base.marginGoal,
-          details: { ...base.details, ...(parsed.details || {}) },
-          otherCosts: { ...base.otherCosts, ...(parsed.otherCosts || {}) },
-          travel: { ...base.travel, ...(parsed.travel || {}) },
-          campaignLines: sourceLines.map(line => {
-            const merged = { ...createDefaultLine(), ...line };
-            merged.manualViews = false;
-            return applyLineDefaults(merged, { forceViews: true });
-          }),
-          paidMedia: mergedPaidMedia,
-        };
+        return normalizeCampaignState(parsed);
       } catch (err) {
         console.error('Failed to load state', err);
         return structuredClone(defaultState);
       }
     }
 
+    // Derive summary metrics used for dashboard previews.
+    function calculateCampaignSummaryFromData(campaignState) {
+      const modifiers = calculateModifiers(campaignState);
+      const organicViewsRaw = (campaignState.campaignLines || []).reduce((acc, line) => {
+        const views = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
+        return acc + views;
+      }, 0);
+      const organicViewsAdjusted = organicViewsRaw * (modifiers.organicViewMultiplier ?? 1);
+      const paidViews = calculatePaidViews(campaignState.paidMedia);
+      const totalViews = organicViewsAdjusted + paidViews;
+      const totalCreators = (campaignState.campaignLines || []).reduce(
+        (acc, line) => acc + (line.creators || 0),
+        0,
+      );
+      return { totalViews, totalCreators };
+    }
+
+    // Convert a raw calculator state into a dashboard-ready campaign record.
+    function createCampaignRecord(rawState, id, nameOverride) {
+      const normalized = normalizeCampaignState(rawState || {});
+      const data = structuredClone(normalized);
+      if (nameOverride) {
+        data.details.campaignName = nameOverride;
+      }
+      const detailsName = (data.details?.campaignName || '').trim();
+      const finalName = nameOverride ?? (detailsName || 'Untitled Campaign');
+      const summary = calculateCampaignSummaryFromData(data);
+      return {
+        id: id ?? createId(),
+        name: finalName,
+        budget: parseCurrencyInput(data.details?.budget),
+        totalCreators: summary.totalCreators,
+        estimatedViews: summary.totalViews,
+        data,
+      };
+    }
+
+    // Pick only the deliverable fields that a template should remember.
+    function sanitizeTemplateLines(sourceState) {
+      const lines = sourceState?.campaignLines || [];
+      return lines.map(line => ({
+        platform: line.platform,
+        deliverable: line.deliverable,
+        vertical: line.vertical,
+        language: line.language,
+        size: line.size,
+        whitelist: !!line.whitelist,
+        creators: Number(line.creators || 0),
+        qtyPerCreator: Number(line.qtyPerCreator || 0),
+        viewsPerPiece: Number(line.viewsPerPiece || 0),
+        unitRate: Number(line.unitRate || 0),
+      }));
+    }
+
+    // Apply a template payload to a fresh calculator state instance.
+    function applyTemplateToState(stateData, template) {
+      if (!template) return stateData;
+      const deliverables = Array.isArray(template.deliverables) && template.deliverables.length
+        ? template.deliverables
+        : [createDefaultLine()];
+      stateData.campaignLines = deliverables.map(line => {
+        const merged = { ...createDefaultLine(), ...structuredClone(line) };
+        merged.manualViews = false;
+        return applyLineDefaults(merged, { forceViews: true });
+      });
+      return stateData;
+    }
+
+    // Push a campaign payload into the DOM-driven editor experience.
+    function hydrateActiveCampaign(rawState) {
+      state = loadState(rawState);
+      syncCampaignDetailsInputs();
+      renderCampaign();
+      syncPaidMediaInputs();
+      syncOtherCostInputs();
+      syncMarginControls();
+      recalc();
+    }
+
     function saveState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      try {
+        localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(state));
+      } catch (err) {
+        console.error('Failed to persist legacy state', err);
+      }
+      if (typeof persistActiveCampaign === 'function') {
+        try {
+          persistActiveCampaign(structuredClone(state));
+        } catch (err) {
+          console.error('Failed to sync campaign collection', err);
+        }
+      }
     }
 
     function init() {
@@ -1601,6 +1895,22 @@
       updatePaidRateLabel();
     }
 
+    function syncPaidMediaInputs() {
+      const modeInputs = document.querySelectorAll('input[name="paid-mode"]');
+      modeInputs.forEach(input => {
+        input.checked = state.paidMedia.mode === input.value;
+      });
+      const budgetInput = document.getElementById('paid-budget');
+      if (budgetInput) {
+        budgetInput.value = Number(state.paidMedia.budget || 0);
+      }
+      const rateInput = document.getElementById('paid-rate');
+      if (rateInput) {
+        rateInput.value = Number(state.paidMedia.rate || 0);
+      }
+      updatePaidRateLabel();
+    }
+
     function updatePaidRateLabel() {
       const label = document.getElementById('paid-rate-label');
       const isCpm = state.paidMedia.mode === 'cpm';
@@ -1650,7 +1960,31 @@
       });
     }
 
-    function bindSummaryControls() {
+    function syncOtherCostInputs() {
+      const otherInput = document.getElementById('other-costs');
+      if (otherInput) {
+        otherInput.value = Number(state.otherCosts.other || 0);
+      }
+      const studyInput = document.getElementById('study-costs');
+      if (studyInput) {
+        studyInput.value = Number(state.otherCosts.study || 0);
+      }
+      const additionalInput = document.getElementById('additional-costs');
+      if (additionalInput) {
+        additionalInput.value = Number(state.otherCosts.additional || 0);
+      }
+      const travelCreators = document.getElementById('travel-creators');
+      if (travelCreators) {
+        travelCreators.value = Number(state.travel.creators || 0);
+      }
+      const travelBudget = document.getElementById('travel-budget');
+      if (travelBudget) {
+        travelBudget.value = Number(state.travel.perCreator || 0);
+      }
+      updateTravelControls();
+    }
+
+    function syncMarginControls() {
       const marginInput = document.getElementById('margin-goal');
       const marginSlider = document.getElementById('margin-goal-slider');
       const marginDisplay = document.getElementById('margin-display');
@@ -1664,6 +1998,13 @@
       if (marginDisplay) {
         marginDisplay.textContent = `${currentMargin}%`;
       }
+    }
+
+    function bindSummaryControls() {
+      const marginInput = document.getElementById('margin-goal');
+      const marginSlider = document.getElementById('margin-goal-slider');
+      const marginDisplay = document.getElementById('margin-display');
+      syncMarginControls();
 
       function updateMargin(value) {
         const sanitized = Math.min(90, Math.max(0, Number(value) || 0));
@@ -1690,8 +2031,8 @@
       });
     }
 
-    function calculateModifiers() {
-      const details = state.details || defaultState.details;
+    function calculateModifiers(targetState = state) {
+      const details = targetState?.details || defaultState.details;
       const rawQuarter = Number(details.quarter);
       const quarterIndex = Math.min(
         Math.max(Number.isFinite(rawQuarter) && rawQuarter >= 1 ? rawQuarter : 1, 1),
@@ -1786,7 +2127,7 @@
         : 0;
 
       const paidBudget = state.paidMedia.budget || 0;
-      const paidViews = calculatePaidViews();
+      const paidViews = calculatePaidViews(state.paidMedia);
       const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
       const totalCOGs = baseCOGs + paidBudget;
       const marginGoalPct = (state.marginGoal || 0) / 100;
@@ -1871,8 +2212,9 @@
       saveState();
     }
 
-    function calculatePaidViews() {
-      const { mode, budget, rate } = state.paidMedia;
+    function calculatePaidViews(sourcePaidMedia = state.paidMedia) {
+      const media = sourcePaidMedia || {};
+      const { mode, budget, rate } = media;
       if (!rate || rate <= 0) return 0;
       if (mode === 'cpm') {
         return (budget || 0) / rate * 1000;
@@ -2285,7 +2627,381 @@
       return Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    const hasReact = typeof React !== 'undefined' && typeof ReactDOM !== 'undefined';
+    const { useState, useEffect, useMemo, useCallback, useRef } = hasReact ? React : {};
+    const h = hasReact ? React.createElement : () => null;
+    const BASE_PATH = deriveBasePath();
+
+    function deriveBasePath() {
+      const path = window.location.pathname || '';
+      if (/\/campaigns\/?$/.test(path)) {
+        return path.replace(/\/campaigns\/?$/, '');
+      }
+      if (/\/campaign\/[^/]+\/?$/.test(path)) {
+        return path.replace(/\/campaign\/[^/]+\/?$/, '');
+      }
+      if (path.endsWith('/index.html')) {
+        return path.slice(0, -'/index.html'.length);
+      }
+      return path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path;
+    }
+
+    function buildRoutePath(segment) {
+      const base = BASE_PATH && BASE_PATH !== '/' ? BASE_PATH.replace(/\/$/, '') : '';
+      if (!segment) {
+        return base || '/';
+      }
+      const normalizedSegment = segment.startsWith('/') ? segment : `/${segment}`;
+      const composed = `${base}${normalizedSegment}`;
+      return composed || normalizedSegment;
+    }
+
+    function parseRoute(campaignList) {
+      const list = Array.isArray(campaignList) ? campaignList : [];
+      const hash = window.location.hash || '';
+      if (hash === '#/campaigns') {
+        return { view: 'dashboard', id: null };
+      }
+      const hashMatch = hash.match(/^#\/campaign\/([^/]+)/);
+      if (hashMatch) {
+        const hashId = decodeURIComponent(hashMatch[1]);
+        if (list.some(campaign => campaign.id === hashId)) {
+          return { view: 'editor', id: hashId };
+        }
+      }
+      const path = window.location.pathname || '';
+      if (/\/campaigns\/?$/.test(path)) {
+        return { view: 'dashboard', id: null };
+      }
+      const pathMatch = path.match(/\/campaign\/([^/]+)\/?$/);
+      if (pathMatch) {
+        const pathId = decodeURIComponent(pathMatch[1]);
+        if (list.some(campaign => campaign.id === pathId)) {
+          return { view: 'editor', id: pathId };
+        }
+      }
+      const fallbackId = list[0]?.id ?? null;
+      return { view: fallbackId ? 'editor' : 'dashboard', id: fallbackId };
+    }
+
+    function updateRoute(view, campaignId) {
+      const targetHash = view === 'dashboard'
+        ? '#/campaigns'
+        : campaignId
+          ? `#/campaign/${campaignId}`
+          : '#/campaigns';
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+      }
+      const segment = view === 'dashboard'
+        ? 'campaigns'
+        : campaignId
+          ? `campaign/${encodeURIComponent(campaignId)}`
+          : 'campaigns';
+      const targetPath = buildRoutePath(segment);
+      const currentPath = window.location.pathname || '';
+      const state = { view, id: campaignId };
+      if (currentPath !== targetPath) {
+        history.pushState(state, '', targetPath);
+      } else {
+        history.replaceState(state, '', targetPath);
+      }
+    }
+
+    function CampaignCard({ campaign, onEdit, onDuplicate }) {
+      const budgetDisplay = campaign.budget > 0 ? formatCurrency(campaign.budget) : 'Not set';
+      const creatorLabel = formatNumber(campaign.totalCreators || 0);
+      const viewLabel = formatNumber(Math.round(campaign.estimatedViews || 0));
+      return h('div', { className: 'campaign-card' },
+        h('div', null,
+          h('h3', null, campaign.name || 'Untitled Campaign'),
+          h('div', { className: 'campaign-card-meta' },
+            h('span', null, h('strong', null, budgetDisplay), 'Target Budget'),
+            h('span', null, h('strong', null, creatorLabel), 'Creators'),
+            h('span', null, h('strong', null, viewLabel), 'Estimated Views'),
+          ),
+        ),
+        h('div', { className: 'campaign-card-actions' },
+          h('button', { onClick: () => onEdit(campaign.id) }, 'Edit'),
+          h('button', { className: 'secondary', onClick: () => onDuplicate(campaign.id) }, 'Duplicate'),
+        ),
+      );
+    }
+
+    function CampaignDashboard({
+      campaigns,
+      onEdit,
+      onDuplicate,
+      onCreate,
+      templates,
+      selectedTemplateId,
+      onTemplateChange,
+    }) {
+      const options = [
+        h('option', { key: 'blank', value: '' }, 'Start from template (optional)'),
+        ...templates.map(template => h('option', { key: template.id, value: template.id }, template.name)),
+      ];
+      return h('div', { className: 'campaign-app' },
+        h('div', { className: 'campaign-toolbar' },
+          h('div', null,
+            h('h2', null, 'Campaigns'),
+            h('p', null, 'Manage saved campaigns, duplicate work, or start something new.'),
+          ),
+          h('div', { className: 'campaign-toolbar-actions' },
+            h('select', {
+              value: selectedTemplateId,
+              onChange: event => onTemplateChange(event.target.value),
+            }, options),
+            h('button', { onClick: onCreate }, 'New Campaign'),
+          ),
+        ),
+        campaigns.length
+          ? h('div', { className: 'campaign-list' }, campaigns.map(campaign =>
+              h(CampaignCard, { key: campaign.id, campaign, onEdit, onDuplicate }),
+            ))
+          : h('p', { className: 'campaign-dashboard-empty' }, 'No campaigns yet. Create a new campaign to get started.'),
+      );
+    }
+
+    function EditorToolbar({ campaign, onBack, onSaveTemplate }) {
+      const contextLabel = campaign ? `Editing ${campaign.name}` : 'Select a campaign to begin.';
+      return h('div', { className: 'campaign-app' },
+        h('div', { className: 'campaign-toolbar' },
+          h('div', null,
+            h('h2', null, 'Campaign Editor'),
+            h('p', null, contextLabel),
+          ),
+          h('div', { className: 'campaign-toolbar-actions' },
+            h('button', { className: 'secondary', onClick: onBack }, 'Back to Campaigns'),
+            h('button', { onClick: onSaveTemplate }, 'Save as Template'),
+          ),
+        ),
+      );
+    }
+
+    function CampaignApp() {
+      const initialRef = useRef(null);
+      if (!initialRef.current) {
+        const initialCampaigns = bootstrapCampaigns();
+        const initialRoute = parseRoute(initialCampaigns);
+        const initialView = initialCampaigns.length ? initialRoute.view : 'dashboard';
+        const initialActiveId = initialView === 'editor'
+          && initialRoute.id
+          && initialCampaigns.some(campaign => campaign.id === initialRoute.id)
+          ? initialRoute.id
+          : initialCampaigns[0]?.id ?? null;
+        initialRef.current = {
+          campaigns: initialCampaigns,
+          view: initialView,
+          activeId: initialActiveId,
+        };
+      }
+
+      const initialData = initialRef.current;
+      const [campaigns, setCampaigns] = useState(initialData.campaigns);
+      const [view, setView] = useState(initialData.view);
+      const [activeCampaignId, setActiveCampaignId] = useState(initialData.activeId);
+      const [templates, setTemplates] = useState(() => loadTemplates());
+      const [selectedTemplateId, setSelectedTemplateId] = useState('');
+      const campaignsRef = useRef(campaigns);
+
+      useEffect(() => {
+        campaignsRef.current = campaigns;
+      }, [campaigns]);
+
+      useEffect(() => {
+        saveCampaigns(campaigns);
+      }, [campaigns]);
+
+      useEffect(() => {
+        saveTemplates(templates);
+      }, [templates]);
+
+      useEffect(() => {
+        document.body.classList.toggle('dashboard-active', view === 'dashboard');
+      }, [view]);
+
+      useEffect(() => {
+        if (!activeCampaignId) {
+          persistActiveCampaign = () => {};
+          return () => {
+            persistActiveCampaign = () => {};
+          };
+        }
+        persistActiveCampaign = updatedState => {
+          setCampaigns(prev => {
+            if (!prev.some(campaign => campaign.id === activeCampaignId)) {
+              return prev;
+            }
+            return prev.map(campaign =>
+              campaign.id === activeCampaignId
+                ? createCampaignRecord(updatedState, activeCampaignId)
+                : campaign,
+            );
+          });
+        };
+        return () => {
+          persistActiveCampaign = () => {};
+        };
+      }, [activeCampaignId]);
+
+      useEffect(() => {
+        if (campaigns.length === 0 && view !== 'dashboard') {
+          setView('dashboard');
+          setActiveCampaignId(null);
+        } else if (
+          view === 'editor'
+          && activeCampaignId
+          && !campaigns.some(campaign => campaign.id === activeCampaignId)
+        ) {
+          const fallback = campaigns[0]?.id ?? null;
+          setActiveCampaignId(fallback);
+          if (!fallback) {
+            setView('dashboard');
+          }
+        }
+      }, [campaigns, view, activeCampaignId]);
+
+      useEffect(() => {
+        if (view !== 'editor' || !activeCampaignId) return;
+        const active = campaignsRef.current.find(campaign => campaign.id === activeCampaignId);
+        if (active) {
+          hydrateActiveCampaign(active.data);
+        }
+      }, [view, activeCampaignId]);
+
+      useEffect(() => {
+        updateRoute(view, activeCampaignId);
+      }, [view, activeCampaignId]);
+
+      useEffect(() => {
+        const handleNavigation = () => {
+          const route = parseRoute(campaignsRef.current);
+          setView(previous => (previous === route.view ? previous : route.view));
+          setActiveCampaignId(previous => {
+            if (route.view !== 'editor') {
+              return null;
+            }
+            const desiredId = route.id ?? campaignsRef.current[0]?.id ?? null;
+            return previous === desiredId ? previous : desiredId;
+          });
+        };
+        window.addEventListener('popstate', handleNavigation);
+        window.addEventListener('hashchange', handleNavigation);
+        return () => {
+          window.removeEventListener('popstate', handleNavigation);
+          window.removeEventListener('hashchange', handleNavigation);
+        };
+      }, []);
+
+      const activeCampaign = useMemo(
+        () => campaigns.find(campaign => campaign.id === activeCampaignId) || null,
+        [campaigns, activeCampaignId],
+      );
+
+      const handleTemplateChange = useCallback(value => {
+        setSelectedTemplateId(value);
+      }, []);
+
+      const handleCreateCampaign = useCallback(() => {
+        const template = templates.find(item => item.id === selectedTemplateId);
+        const seededState = applyTemplateToState(structuredClone(defaultState), template);
+        const label = template ? `${template.name} Campaign` : undefined;
+        const record = createCampaignRecord(seededState, createId(), label);
+        setCampaigns(prev => [...prev, record]);
+        setActiveCampaignId(record.id);
+        setView('editor');
+      }, [templates, selectedTemplateId]);
+
+      const handleEditCampaign = useCallback(id => {
+        setActiveCampaignId(id);
+        setView('editor');
+      }, []);
+
+      const handleDuplicateCampaign = useCallback(id => {
+        let duplicate = null;
+        setCampaigns(prev => {
+          const source = prev.find(campaign => campaign.id === id);
+          if (!source) {
+            return prev;
+          }
+          duplicate = createCampaignRecord(
+            source.data,
+            createId(),
+            `Copy of ${source.name || 'Campaign'}`,
+          );
+          return [...prev, duplicate];
+        });
+        if (duplicate) {
+          setActiveCampaignId(duplicate.id);
+          setView('editor');
+        }
+      }, []);
+
+      const handleBackToDashboard = useCallback(() => {
+        setView('dashboard');
+        setActiveCampaignId(null);
+      }, []);
+
+      const handleSaveTemplate = useCallback(() => {
+        const lines = sanitizeTemplateLines(state);
+        const defaultName = state.details?.campaignName
+          ? `${state.details.campaignName} Template`
+          : 'New Template';
+        const entered = prompt('Template name', defaultName);
+        if (!entered) return;
+        const trimmed = entered.trim();
+        if (!trimmed) return;
+        let newTemplateId = null;
+        setTemplates(prev => {
+          const existing = prev.find(template => template.name.toLowerCase() === trimmed.toLowerCase());
+          const payload = {
+            id: existing?.id ?? createId(),
+            name: trimmed,
+            deliverables: lines,
+          };
+          newTemplateId = payload.id;
+          if (existing) {
+            return prev.map(template => (template.id === existing.id ? payload : template));
+          }
+          return [...prev, payload];
+        });
+        setSelectedTemplateId(newTemplateId);
+      }, []);
+
+      return view === 'dashboard'
+        ? h(CampaignDashboard, {
+            campaigns,
+            onEdit: handleEditCampaign,
+            onDuplicate: handleDuplicateCampaign,
+            onCreate: handleCreateCampaign,
+            templates,
+            selectedTemplateId,
+            onTemplateChange: handleTemplateChange,
+          })
+        : h(React.Fragment, null,
+            h(EditorToolbar, {
+              campaign: activeCampaign,
+              onBack: handleBackToDashboard,
+              onSaveTemplate: handleSaveTemplate,
+            }),
+          );
+    }
+
+    function mountCampaignApp() {
+      if (!hasReact) return;
+      const container = document.getElementById('campaign-app');
+      if (!container) return;
+      if (!container.__picRoot) {
+        container.__picRoot = ReactDOM.createRoot(container);
+      }
+      container.__picRoot.render(h(CampaignApp));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+      mountCampaignApp();
+    });
 
     // placeholder for future EMPTY workbook parsing hook
     function parseEmptyDump(text) {
