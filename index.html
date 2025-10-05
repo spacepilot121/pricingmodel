@@ -868,6 +868,140 @@
       font-size: 0.8rem;
       margin-top: 0.25rem;
     }
+
+    .pricing-menu-viewbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .pricing-menu-view-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .pricing-menu-tab {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 0.3rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .pricing-menu-tab.active {
+      background: var(--accent);
+      color: #0f172a;
+    }
+
+    .matrix-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .matrix-controls label {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .matrix-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .matrix-title {
+      margin: 0;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .matrix-card {
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .matrix-head {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .matrix-scroller {
+      overflow: auto;
+    }
+
+    .matrix-table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      border-right: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    .matrix-table th {
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.8);
+      color: #cbd5f5;
+      text-align: left;
+    }
+
+    .matrix-row-header {
+      position: static;
+      background: transparent;
+      color: #cbd5f5;
+      text-align: left;
+    }
+
+    .matrix-format {
+      color: #cbd5f5;
+      font-weight: 600;
+    }
+
+    .matrix-sub {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .matrix-cell {
+      line-height: 1.2;
+    }
+
+    .matrix-cpv {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .matrix-views {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
   </style>
 </head>
 <body>
@@ -3351,8 +3485,96 @@
       }
     }
 
+    function PricingMatrixControls({ language, onChangeLanguage }) {
+      const selectId = 'pricing-matrix-country';
+      const languages = useMemo(() => Object.keys(LANGUAGE_MULT), []);
+      return h('div', { className: 'matrix-controls' },
+        h('label', { htmlFor: selectId }, 'Country'),
+        h('select', {
+          id: selectId,
+          value: language,
+          onChange: event => {
+            if (typeof onChangeLanguage === 'function') {
+              onChangeLanguage(event.target.value);
+            }
+          },
+        },
+        languages.map(option => h('option', { key: option, value: option }, option)),
+        ),
+      );
+    }
+
+    function PricingMatrixTable({ vertical, formats, language }) {
+      const sizes = ['Icon', 'Mega', 'Macro', 'HMid', 'LMid', 'Micro'];
+      return h('table', {
+        className: 'matrix-table',
+        'aria-label': `Pricing matrix — ${vertical}`,
+      },
+        h('thead', null,
+          h('tr', null,
+            h('th', { key: 'corner' }, ''),
+            formats.map(format => h('th', { key: format.key },
+              h('div', { className: 'matrix-format' }, format.platform),
+              h('div', { className: 'matrix-sub' }, format.deliverable),
+            )),
+          ),
+        ),
+        h('tbody', null,
+          sizes.map(size => h('tr', { key: `${vertical}-${size}` },
+            h('th', { scope: 'row', className: 'matrix-row-header' },
+              h('span', { className: 'matrix-format' }, size),
+            ),
+            formats.map(format => {
+              const defaults = getRateDefaults(format.platform, format.deliverable, size, vertical, language);
+              const cpvDisplay = `$${Number(defaults.cpv || 0).toFixed(3)}`;
+              const viewsDisplay = `${Math.round(defaults.views || 0).toLocaleString('en-US')} views`;
+              return h('td', { key: `${size}-${format.key}`, className: 'matrix-cell' },
+                h('div', { className: 'matrix-cpv' }, `CPV ${cpvDisplay}`),
+                h('div', { className: 'matrix-views' }, viewsDisplay),
+              );
+            }),
+          )),
+        ),
+      );
+    }
+
+    function PricingMatrixDeck() {
+      const [language, setLanguage] = useState('English');
+      const formats = useMemo(() => {
+        const ordered = [];
+        const platforms = Object.keys(RATE_CARD).sort();
+        platforms.forEach(platform => {
+          const deliverables = Object.keys(RATE_CARD[platform]?.deliverables || {}).sort();
+          deliverables.forEach(deliverable => {
+            ordered.push({
+              key: `${platform}-${deliverable}`,
+              platform,
+              deliverable,
+            });
+          });
+        });
+        return ordered;
+      }, []);
+      const verticals = useMemo(() => Object.keys(VERTICAL_MULT), []);
+
+      return h('div', null,
+        h(PricingMatrixControls, { language, onChangeLanguage: setLanguage }),
+        h('div', { className: 'matrix-grid' },
+          verticals.map(vertical => h('div', { key: vertical, className: 'matrix-card' },
+            h('div', { className: 'matrix-head' },
+              h('h5', { className: 'matrix-title' }, vertical),
+            ),
+            h('div', { className: 'matrix-scroller' },
+              h(PricingMatrixTable, { vertical, formats, language }),
+            ),
+          )),
+        ),
+      );
+    }
+
     function PricingVariablesMenu({ open, onClose }) {
       const [showAdvanced, setShowAdvanced] = useState(false);
+      const [viewMode, setViewMode] = useState('tables');
 
       useEffect(() => {
         if (!open) return undefined;
@@ -3368,6 +3590,7 @@
       useEffect(() => {
         if (!open) {
           setShowAdvanced(false);
+          setViewMode('tables');
         }
       }, [open]);
 
@@ -3601,6 +3824,28 @@
         ),
       ];
 
+      const listViewContent = [
+        h('div', { className: 'pricing-menu-toggle', key: 'advanced-toggle' },
+          h('p', { className: 'pricing-menu-description' },
+            'Review baseline values or expand to inspect advanced adjustments.',
+          ),
+          h('label', null,
+            h('input', {
+              type: 'checkbox',
+              checked: showAdvanced,
+              onChange: event => setShowAdvanced(event.target.checked),
+            }),
+            'Show advanced variables',
+          ),
+        ),
+        ...commonSections,
+        ...(showAdvanced ? advancedSections : []),
+      ];
+
+      const tablesViewContent = [
+        h(PricingMatrixDeck, { key: 'matrix-view' }),
+      ];
+
       return h('div', {
         className: 'pricing-menu-backdrop',
         onClick: () => { if (typeof onClose === 'function') onClose(); },
@@ -3623,21 +3868,22 @@
               onClick: () => { if (typeof onClose === 'function') onClose(); },
             }, 'Close'),
           ),
-          h('div', { className: 'pricing-menu-toggle' },
+          h('div', { className: 'pricing-menu-viewbar' },
             h('p', { className: 'pricing-menu-description' },
-              'Review baseline values or expand to inspect advanced adjustments.',
+              'Switch between the reference list and the new pricing matrices.',
             ),
-            h('label', null,
-              h('input', {
-                type: 'checkbox',
-                checked: showAdvanced,
-                onChange: event => setShowAdvanced(event.target.checked),
-              }),
-              'Show advanced variables',
+            h('div', { className: 'pricing-menu-view-tabs', role: 'tablist' },
+              ['tables', 'list'].map(mode => h('button', {
+                key: mode,
+                type: 'button',
+                className: `pricing-menu-tab${viewMode === mode ? ' active' : ''}`,
+                onClick: () => setViewMode(mode),
+                role: 'tab',
+                'aria-selected': viewMode === mode,
+              }, mode === 'tables' ? 'Tables' : 'List')),
             ),
           ),
-          ...commonSections,
-          ...(showAdvanced ? advancedSections : []),
+          ...(viewMode === 'tables' ? tablesViewContent : listViewContent),
         ),
       );
     }
