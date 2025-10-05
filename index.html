@@ -583,6 +583,11 @@
       gap: 0.75rem;
     }
 
+    .campaign-card > div:first-child {
+      flex: 1 1 420px;
+      min-width: 260px;
+    }
+
     .campaign-card h3 {
       margin: 0;
       font-size: 1rem;
@@ -633,6 +638,36 @@
 
     .campaign-card-actions button {
       min-width: 88px;
+    }
+
+    .campaign-card-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.6rem;
+      margin-top: 0.75rem;
+    }
+
+    .campaign-card-stat {
+      padding: 0.6rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .campaign-card-stat span {
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .campaign-card-stat strong {
+      font-size: 0.95rem;
+      color: #e2e8f0;
+      font-weight: 600;
     }
 
     body.dashboard-active main,
@@ -1408,19 +1443,70 @@
 
     // Derive summary metrics used for dashboard previews.
     function calculateCampaignSummaryFromData(campaignState) {
-      const modifiers = calculateModifiers(campaignState);
-      const organicViewsRaw = (campaignState.campaignLines || []).reduce((acc, line) => {
+      const normalized = normalizeCampaignState(campaignState || {});
+      const modifiers = calculateModifiers(normalized);
+      const lines = (normalized.campaignLines || []).map(sourceLine => {
+        const workingLine = structuredClone(sourceLine);
+        const total = calculateLineTotal(workingLine);
+        return { ...workingLine, total };
+      });
+
+      const contentSubtotal = lines.reduce((acc, line) => acc + (line.total || 0), 0);
+      const organicViewsRaw = lines.reduce((acc, line) => {
         const views = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
         return acc + views;
       }, 0);
       const organicViewsAdjusted = organicViewsRaw * (modifiers.organicViewMultiplier ?? 1);
-      const paidViews = calculatePaidViews(campaignState.paidMedia);
+      const paidBudget = normalized.paidMedia?.budget || 0;
+      const paidViews = calculatePaidViews(normalized.paidMedia);
+      const otherCosts = normalized.otherCosts || {};
+      const otherTotal = (otherCosts.other || 0) + (otherCosts.study || 0) + (otherCosts.additional || 0);
+      const travelCost = modifiers.travelRequired
+        ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
+        : 0;
+      const feeAdjustedContent = contentSubtotal * (modifiers.feeMultiplier ?? 1);
+      const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
+      const totalCOGs = baseCOGs + paidBudget;
+      const marginGoalPct = (normalized.marginGoal || 0) / 100;
+      const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
+      const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
+      const totalPrice = totalPriceExcludingPaid + paidBudget;
+      const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
+      const influencerCogs = feeAdjustedContent;
+      const influencerMargin = influencerCogs * Math.max(priceMultiplier - 1, 0);
+      const influencerClientCost = influencerCogs + influencerMargin;
+      const grossMargin = totalPrice - totalCOGs;
       const totalViews = organicViewsAdjusted + paidViews;
-      const totalCreators = (campaignState.campaignLines || []).reduce(
-        (acc, line) => acc + (line.creators || 0),
+      const totalCreators = lines.reduce((acc, line) => acc + (line.creators || 0), 0);
+      const totalContentPieces = lines.reduce(
+        (acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0),
         0,
       );
-      return { totalViews, totalCreators };
+      const totalEstimatedFollowers = lines.reduce((acc, line) => {
+        const averageFollowers = SIZE_FOLLOWERS[line.size] || 0;
+        return acc + averageFollowers * (line.creators || 0);
+      }, 0);
+      const pricePerCreator = totalCreators > 0 ? totalPrice / totalCreators : 0;
+      const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
+      const brandOrganicCPV = organicViewsAdjusted > 0 ? influencerClientCost / organicViewsAdjusted : 0;
+      const brandCombinedCPV = totalViews > 0 ? totalPrice / totalViews : 0;
+
+      return {
+        totalViews,
+        totalCreators,
+        organicViewsAdjusted,
+        paidViews,
+        totalContentPieces,
+        totalEstimatedFollowers,
+        totalPrice,
+        paidBudget,
+        influencerClientCost,
+        grossMargin,
+        pricePerCreator,
+        brandCPM,
+        brandOrganicCPV,
+        brandCombinedCPV,
+      };
     }
 
     // Convert a raw calculator state into a dashboard-ready campaign record.
@@ -1451,6 +1537,14 @@
         budget: parseCurrencyInput(data.details?.budget),
         totalCreators: summary.totalCreators,
         estimatedViews: summary.totalViews,
+        organicViews: summary.organicViewsAdjusted,
+        paidViews: summary.paidViews,
+        estimatedBudget: summary.totalPrice,
+        paidMediaBudget: summary.paidBudget,
+        influencerSpend: summary.influencerClientCost,
+        grossMargin: summary.grossMargin,
+        contentPieces: summary.totalContentPieces,
+        estimatedFollowers: summary.totalEstimatedFollowers,
         brand,
         quarter: quarterIndex,
         quarterLabel,
@@ -1458,6 +1552,7 @@
         rush,
         travelNeeded,
         nicheCreators,
+        summary,
         data,
       };
     }
@@ -2767,6 +2862,34 @@
       const deliverables = campaign.deliverableCount || 0;
       const deliverableDisplay = formatNumber(deliverables);
       const deliverableLabel = deliverables === 1 ? 'Deliverable' : 'Deliverables';
+      const estimatedBudgetLabel = campaign.estimatedBudget > 0
+        ? formatCurrency(campaign.estimatedBudget)
+        : 'TBD';
+      const influencerSpendLabel = campaign.influencerSpend > 0
+        ? formatCurrency(campaign.influencerSpend)
+        : 'TBD';
+      const paidMediaLabel = campaign.paidMediaBudget > 0
+        ? formatCurrency(campaign.paidMediaBudget)
+        : 'None';
+      const grossMarginLabel = formatCurrency(campaign.grossMargin || 0);
+      const organicViewsLabel = formatNumber(Math.round(campaign.organicViews || 0));
+      const paidViewsLabel = formatNumber(Math.round(campaign.paidViews || 0));
+      const contentPiecesLabel = formatNumber(Math.round(campaign.contentPieces || 0));
+      const followerLabel = campaign.estimatedFollowers > 0
+        ? formatNumber(Math.round(campaign.estimatedFollowers))
+        : null;
+      const summaryItems = [
+        { key: 'est-budget', label: 'Est. Budget', value: estimatedBudgetLabel },
+        { key: 'paid-media', label: 'Paid Media', value: paidMediaLabel },
+        { key: 'influencer-spend', label: 'Influencer Spend', value: influencerSpendLabel },
+        { key: 'gross-margin', label: 'Gross Margin', value: grossMarginLabel },
+        { key: 'organic-views', label: 'Organic Views', value: organicViewsLabel },
+        { key: 'paid-views', label: 'Paid Views', value: paidViewsLabel },
+        { key: 'content-pieces', label: 'Content Pieces', value: contentPiecesLabel },
+      ];
+      if (followerLabel) {
+        summaryItems.push({ key: 'followers', label: 'Est. Followers', value: followerLabel });
+      }
       const flags = [];
       if (campaign.rush) {
         flags.push({ key: 'rush', label: 'Rush timeline', urgent: true });
@@ -2788,6 +2911,16 @@
             h('span', null, h('strong', null, creatorLabel), 'Creators'),
             h('span', null, h('strong', null, viewLabel), 'Estimated Views'),
           ),
+          summaryItems.length
+            ? h('div', { className: 'campaign-card-summary' },
+                summaryItems.map(item => (
+                  h('div', { key: item.key, className: 'campaign-card-stat' },
+                    h('span', null, item.label),
+                    h('strong', null, item.value),
+                  )
+                )),
+              )
+            : null,
           flags.length
             ? h('div', { className: 'campaign-card-flags' }, flags.map(flag =>
                 h('span', {
@@ -2799,7 +2932,15 @@
         ),
         h('div', { className: 'campaign-card-actions' },
           h('button', { onClick: () => onEdit(campaign.id) }, 'Edit'),
-          h('button', { className: 'danger', onClick: () => onDelete(campaign.id) }, 'Delete'),
+          h('button', {
+            className: 'danger',
+            onClick: () => {
+              const label = campaign.name ? `"${campaign.name}"` : 'this campaign';
+              if (window.confirm(`Delete ${label}? This action cannot be undone.`)) {
+                onDelete(campaign.id);
+              }
+            },
+          }, 'Delete'),
           h('button', { className: 'secondary', onClick: () => onDuplicate(campaign.id) }, 'Duplicate'),
         ),
       );
