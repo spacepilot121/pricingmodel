@@ -253,6 +253,86 @@
       box-shadow: 0 12px 18px -12px rgba(248, 113, 113, 0.65);
     }
 
+    .pricing-menu-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 999;
+    }
+
+    .pricing-menu {
+      width: min(900px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 1.5rem;
+      display: grid;
+      gap: 1rem;
+      box-shadow: 0 32px 64px -40px rgba(15, 23, 42, 0.9);
+    }
+
+    .pricing-menu header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0;
+      background: transparent;
+      border: none;
+    }
+
+    .pricing-menu h3 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .pricing-section {
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 12px;
+      padding: 1rem;
+      display: grid;
+      gap: 0.75rem;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .pricing-section h4 {
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .pricing-grid {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .pricing-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .pricing-row span:last-child {
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+
+    .pricing-note {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
     aside {
       position: sticky;
       top: 1.5rem;
@@ -998,6 +1078,21 @@
     const DEFAULT_PAID_RATES = {
       cpv: 0.03,
       cpm: 12,
+    };
+
+    const pricingVariables = {
+      rateCard: JSON.parse(JSON.stringify(RATE_CARD)),
+      sizeMultipliers: JSON.parse(JSON.stringify(SIZE_MULT)),
+      sizeFollowers: JSON.parse(JSON.stringify(SIZE_FOLLOWERS)),
+      verticalMultipliers: JSON.parse(JSON.stringify(VERTICAL_MULT)),
+      languageMultipliers: JSON.parse(JSON.stringify(LANGUAGE_MULT)),
+      whitelistUplift: JSON.parse(JSON.stringify(WHITELIST_UPLIFT_PCT)),
+      brandExcitement: JSON.parse(JSON.stringify(BRAND_EXCITEMENT)),
+      defaultPaidRates: JSON.parse(JSON.stringify(DEFAULT_PAID_RATES)),
+      rushFeePercentage: 0.15,
+      travelFeePercentage: 0.2,
+      nicheFeePercentage: 0.2,
+      q4FeePercentage: 0.15,
     };
 
     const SIZE_MULT = {
@@ -2677,9 +2772,386 @@
       return Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
     }
 
+    function cloneValue(value) {
+      if (typeof structuredClone === 'function') {
+        try {
+          return structuredClone(value);
+        } catch (err) {
+          console.warn('structuredClone failed, falling back to JSON clone', err);
+        }
+      }
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function toCsvNumber(value, decimals = 2) {
+      if (!Number.isFinite(value)) return '0';
+      return Number(value).toFixed(decimals);
+    }
+
+    function sanitizeCsvValue(value) {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) return '0';
+        return String(value);
+      }
+      const str = String(value);
+      if (/[",\n]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }
+
+    function buildCsv(rows) {
+      return rows.map(row => row.map(sanitizeCsvValue).join(',')).join('\n');
+    }
+
+    function createCampaignFileName(name) {
+      const fallback = 'pic-campaign';
+      if (!name) return `${fallback}.csv`;
+      const safe = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      return `${safe || fallback}.csv`;
+    }
+
+    function triggerCsvDownload(filename, csvContent) {
+      if (!csvContent) return;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    }
+
+    // Collate campaign selections into a CSV export for quick sharing.
+    function exportCampaignToCSV(campaignRecord) {
+      const sourceRecord = campaignRecord || null;
+      const campaignName = sourceRecord?.name || state?.details?.campaignName || 'Campaign';
+      const brandName = sourceRecord?.brand || state?.details?.brand || '';
+      const rawState = sourceRecord?.data ? cloneValue(sourceRecord.data) : cloneValue(state);
+      const normalized = normalizeCampaignState(rawState);
+      const summaryRecord = createCampaignRecord(normalized, sourceRecord?.id, campaignName);
+      const modifiers = calculateModifiers(normalized);
+      const marginGoalPct = (normalized.marginGoal || 0) / 100;
+      const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
+      const headers = [
+        'Campaign',
+        'Brand',
+        'Platform',
+        'Deliverable',
+        'Vertical',
+        'Language',
+        'Creator Size',
+        'Creators',
+        'Content Each',
+        'Total Content Pieces',
+        'Views per Piece',
+        'Estimated Views',
+        'COGS CPV ($)',
+        'Client CPV ($)',
+        'Total COGS ($)',
+        'Client Total ($)',
+        'Client CPM ($)',
+      ];
+      const rows = [headers];
+      let totalEstimatedViews = 0;
+      let totalCogs = 0;
+      let totalClient = 0;
+      let totalCreators = 0;
+      let totalPieces = 0;
+      (normalized.campaignLines || []).forEach(line => {
+        const working = { ...createDefaultLine(), ...cloneValue(line) };
+        applyLineDefaults(working, { forceViews: true });
+        const lineTotal = calculateLineTotal(working);
+        const cogsTotal = lineTotal * (modifiers.feeMultiplier ?? 1);
+        const clientTotal = cogsTotal * markupMultiplier;
+        const creators = Number(working.creators || 0);
+        const contentEach = Number(working.qtyPerCreator || 0);
+        const totalContent = creators * contentEach;
+        const baseViewsPerPiece = Number(working.viewsPerPiece || 0);
+        const estimatedViews = baseViewsPerPiece * totalContent * (modifiers.organicViewMultiplier ?? 1);
+        const cpvBase = Number.isFinite(working.cpvWithWhitelist)
+          ? working.cpvWithWhitelist
+          : working.unitRate || 0;
+        const cogsCpv = cpvBase * (modifiers.feeMultiplier ?? 1);
+        const clientCpv = cogsCpv * markupMultiplier;
+        const clientCpm = estimatedViews > 0 ? (clientTotal / estimatedViews) * 1000 : 0;
+        totalEstimatedViews += estimatedViews;
+        totalCogs += cogsTotal;
+        totalClient += clientTotal;
+        totalCreators += creators;
+        totalPieces += totalContent;
+        rows.push([
+          summaryRecord.name,
+          brandName,
+          working.platform,
+          working.deliverable,
+          working.vertical,
+          working.language,
+          working.size,
+          String(creators),
+          String(contentEach),
+          String(totalContent),
+          String(baseViewsPerPiece),
+          String(Math.round(estimatedViews)),
+          toCsvNumber(cogsCpv, 3),
+          toCsvNumber(clientCpv, 3),
+          toCsvNumber(cogsTotal, 2),
+          toCsvNumber(clientTotal, 2),
+          toCsvNumber(clientCpm, 2),
+        ]);
+      });
+      if (rows.length === 1) {
+        rows.push([
+          summaryRecord.name,
+          brandName,
+          '—',
+          '—',
+          '—',
+          '—',
+          '—',
+          '0',
+          '0',
+          '0',
+          '0',
+          '0',
+          '0',
+          '0',
+          '0',
+          '0',
+          '0',
+        ]);
+      }
+      const totalCpvCogs = totalEstimatedViews > 0 ? totalCogs / totalEstimatedViews : 0;
+      const totalCpvClient = totalEstimatedViews > 0 ? totalClient / totalEstimatedViews : 0;
+      const totalCpmClient = totalEstimatedViews > 0 ? (totalClient / totalEstimatedViews) * 1000 : 0;
+      rows.push([
+        `${summaryRecord.name} (Total)`,
+        brandName,
+        'All',
+        'All',
+        '—',
+        '—',
+        'All Sizes',
+        String(totalCreators),
+        '',
+        String(totalPieces),
+        '',
+        String(Math.round(totalEstimatedViews)),
+        toCsvNumber(totalCpvCogs, 3),
+        toCsvNumber(totalCpvClient, 3),
+        toCsvNumber(totalCogs, 2),
+        toCsvNumber(totalClient, 2),
+        toCsvNumber(totalCpmClient, 2),
+      ]);
+      const csvContent = buildCsv(rows);
+      triggerCsvDownload(createCampaignFileName(summaryRecord.name), csvContent);
+    }
+
     const hasReact = typeof React !== 'undefined' && typeof ReactDOM !== 'undefined';
     const { useState, useEffect, useMemo, useCallback, useRef } = hasReact ? React : {};
     const h = hasReact ? React.createElement : () => null;
+
+    function PricingVariablesMenu({ onClose }) {
+      const [showAdvanced, setShowAdvanced] = useState(false);
+
+      const platformRows = useMemo(() => {
+        const entries = [];
+        Object.entries(pricingVariables.rateCard).forEach(([platform, detail]) => {
+          Object.entries(detail.deliverables || {}).forEach(([deliverable, spec]) => {
+            const viewsBySize = spec.viewsBySize
+              ? Object.entries(spec.viewsBySize)
+                  .map(([size, value]) => `${size}: ${formatNumber(value)}`)
+                  .join(' | ')
+              : `Macro baseline: ${formatNumber(spec.baseViews || 0)}`;
+            const verticalRates = spec.cpvByVertical
+              ? Object.entries(spec.cpvByVertical)
+                  .map(([key, value]) => `${key}: $${Number(value).toFixed(3)}`)
+                  .join(' | ')
+              : null;
+            entries.push({
+              key: `${platform}-${deliverable}`,
+              label: `${platform} • ${deliverable}`,
+              cpv: Number(spec.cpv || 0),
+              baseViews: spec.baseViews || 0,
+              viewsBySize,
+              verticalRates,
+            });
+          });
+        });
+        return entries;
+      }, []);
+
+      const sizeRows = useMemo(() => (
+        Object.entries(pricingVariables.sizeMultipliers).map(([size, value]) => ({
+          key: size,
+          label: size,
+          multiplier: value.views || 1,
+          followers: pricingVariables.sizeFollowers[size] || null,
+        }))
+      ), []);
+
+      const verticalRows = useMemo(() => (
+        Object.entries(pricingVariables.verticalMultipliers).map(([vertical, value]) => ({
+          key: vertical,
+          rate: value.rate || 1,
+          views: value.views || 1,
+        }))
+      ), []);
+
+      const languageRows = useMemo(() => (
+        Object.entries(pricingVariables.languageMultipliers).map(([language, value]) => ({
+          key: language,
+          rate: value.rate || 1,
+          views: value.views || 1,
+        }))
+      ), []);
+
+      const whitelistRows = useMemo(() => (
+        Object.entries(pricingVariables.whitelistUplift).map(([size, pct]) => ({
+          key: size,
+          pct,
+        }))
+      ), []);
+
+      const excitementRows = useMemo(() => (
+        pricingVariables.brandExcitement.map(entry => ({
+          key: entry.label,
+          label: entry.label,
+          multiplier: entry.multiplier,
+        }))
+      ), []);
+
+      const paidMediaRows = useMemo(() => (
+        Object.entries(pricingVariables.defaultPaidRates).map(([mode, value]) => ({
+          key: mode,
+          value,
+        }))
+      ), []);
+
+      const handleOverlayClick = event => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      };
+
+      return h('div', { className: 'pricing-menu-overlay', onClick: handleOverlayClick },
+        h('div', { className: 'pricing-menu', role: 'dialog', 'aria-modal': 'true' },
+          h('header', null,
+            h('h3', null, 'Pricing Variables'),
+            h('div', { className: 'campaign-toolbar-actions' },
+              h('button', {
+                type: 'button',
+                className: 'secondary',
+                onClick: () => setShowAdvanced(prev => !prev),
+              }, showAdvanced ? 'Hide advanced' : 'Show advanced'),
+              h('button', { type: 'button', className: 'secondary', onClick: onClose }, 'Close'),
+            ),
+          ),
+          h('div', { className: 'pricing-section' },
+            h('h4', null, 'Platform deliverables'),
+            h('div', { className: 'pricing-grid' },
+              platformRows.map(row => h('div', { key: row.key, className: 'pricing-grid' },
+                h('div', { className: 'pricing-row' },
+                  h('span', null, row.label),
+                  h('span', null, `$${row.cpv.toFixed(3)} CPV`),
+                ),
+                h('div', { className: 'pricing-note' }, row.viewsBySize),
+                row.verticalRates
+                  ? h('div', { className: 'pricing-note' }, `Vertical CPV overrides: ${row.verticalRates}`)
+                  : null,
+              )),
+            ),
+          ),
+          h('div', { className: 'pricing-section' },
+            h('h4', null, 'Creator size assumptions'),
+            h('div', { className: 'pricing-grid' },
+              sizeRows.map(row => h('div', { key: row.key, className: 'pricing-row' },
+                h('span', null, row.label),
+                h('span', null, `x${row.multiplier.toFixed(2)} views${row.followers ? ` • ≥ ${formatNumber(row.followers)} followers` : ''}`),
+              )),
+            ),
+          ),
+          h('div', { className: 'pricing-section' },
+            h('h4', null, 'Vertical & language multipliers'),
+            h('div', { className: 'pricing-grid' },
+              verticalRows.map(row => h('div', { key: `vertical-${row.key}`, className: 'pricing-row' },
+                h('span', null, `${row.key} vertical`),
+                h('span', null, `${row.rate.toFixed(2)}x rate • ${row.views.toFixed(2)}x views`),
+              )),
+              languageRows.map(row => h('div', { key: `language-${row.key}`, className: 'pricing-row' },
+                h('span', null, `${row.key} language`),
+                h('span', null, `${row.rate.toFixed(2)}x rate • ${row.views.toFixed(2)}x views`),
+              )),
+            ),
+          ),
+          h('div', { className: 'pricing-section' },
+            h('h4', null, 'Paid media defaults'),
+            h('div', { className: 'pricing-grid' },
+              paidMediaRows.map(row => h('div', { key: row.key, className: 'pricing-row' },
+                h('span', null, row.key.toUpperCase()),
+                h('span', null, `$${Number(row.value).toFixed(row.key === 'cpm' ? 2 : 3)}`),
+              )),
+            ),
+          ),
+          showAdvanced
+            ? h('div', { className: 'pricing-section' },
+                h('h4', null, 'Advanced adjustments'),
+                h('div', { className: 'pricing-grid' },
+                  h('div', { className: 'pricing-row' },
+                    h('span', null, 'Rush fee'),
+                    h('span', null, `+${(pricingVariables.rushFeePercentage * 100).toFixed(0)}%`),
+                  ),
+                  h('div', { className: 'pricing-row' },
+                    h('span', null, 'Travel fee'),
+                    h('span', null, `+${(pricingVariables.travelFeePercentage * 100).toFixed(0)}%`),
+                  ),
+                  h('div', { className: 'pricing-row' },
+                    h('span', null, 'Niche creator premium'),
+                    h('span', null, `+${(pricingVariables.nicheFeePercentage * 100).toFixed(0)}%`),
+                  ),
+                  h('div', { className: 'pricing-row' },
+                    h('span', null, 'Q4 uplift'),
+                    h('span', null, `+${(pricingVariables.q4FeePercentage * 100).toFixed(0)}%`),
+                  ),
+                  excitementRows.map(row => h('div', { key: `excitement-${row.key}`, className: 'pricing-row' },
+                    h('span', null, `Brand excitement — ${row.label}`),
+                    h('span', null, `${row.multiplier.toFixed(2)}x fee multiplier`),
+                  )),
+                  whitelistRows.map(row => h('div', { key: `whitelist-${row.key}`, className: 'pricing-row' },
+                    h('span', null, `Whitelist uplift — ${row.key}`),
+                    h('span', null, `+${(row.pct * 100).toFixed(0)}% CPV`),
+                  )),
+                ),
+                h('div', { className: 'pricing-note' }, 'Advanced adjustments are applied automatically when the relevant toggles are enabled in the campaign builder.'),
+              )
+            : null,
+          h('div', { className: 'pricing-note' }, 'Variables are read-only today. Editing controls will unlock once benchmarking workflows are supported.'),
+        ),
+      );
+    }
+
+    let calculatorBootstrapped = false;
+
+    function startCalculator() {
+      if (calculatorBootstrapped) return;
+      calculatorBootstrapped = true;
+      init();
+    }
+
+    function RootApp() {
+      if (!hasReact) return null;
+      useEffect(() => {
+        startCalculator();
+      }, []);
+      return h(CampaignApp);
+    }
+
     const BASE_PATH = deriveBasePath();
 
     function deriveBasePath() {
@@ -2758,7 +3230,7 @@
       }
     }
 
-    function CampaignCard({ campaign, onEdit, onDuplicate, onDelete }) {
+    function CampaignCard({ campaign, onEdit, onDuplicate, onDelete, onExport }) {
       const budgetDisplay = campaign.budget > 0 ? formatCurrency(campaign.budget) : 'Not set';
       const creatorLabel = formatNumber(campaign.totalCreators || 0);
       const viewLabel = formatNumber(Math.round(campaign.estimatedViews || 0));
@@ -2799,8 +3271,9 @@
         ),
         h('div', { className: 'campaign-card-actions' },
           h('button', { onClick: () => onEdit(campaign.id) }, 'Edit'),
-          h('button', { className: 'danger', onClick: () => onDelete(campaign.id) }, 'Delete'),
           h('button', { className: 'secondary', onClick: () => onDuplicate(campaign.id) }, 'Duplicate'),
+          h('button', { className: 'secondary', onClick: () => onExport(campaign.id) }, 'Export CSV'),
+          h('button', { className: 'danger', onClick: () => onDelete(campaign.id) }, 'Delete'),
         ),
       );
     }
@@ -2814,6 +3287,8 @@
       templates,
       selectedTemplateId,
       onTemplateChange,
+      onShowPricing,
+      onExport,
     }) {
       const options = [
         h('option', { key: 'blank', value: '' }, 'Start from template (optional)'),
@@ -2826,6 +3301,7 @@
             h('p', null, 'Manage saved campaigns, duplicate work, or start something new.'),
           ),
           h('div', { className: 'campaign-toolbar-actions' },
+            h('button', { className: 'secondary', onClick: onShowPricing }, 'Pricing Variables'),
             h('select', {
               value: selectedTemplateId,
               onChange: event => onTemplateChange(event.target.value),
@@ -2835,13 +3311,20 @@
         ),
         campaigns.length
           ? h('div', { className: 'campaign-list' }, campaigns.map(campaign =>
-              h(CampaignCard, { key: campaign.id, campaign, onEdit, onDuplicate, onDelete }),
+              h(CampaignCard, {
+                key: campaign.id,
+                campaign,
+                onEdit,
+                onDuplicate,
+                onDelete,
+                onExport: onExport,
+              }),
             ))
           : h('p', { className: 'campaign-dashboard-empty' }, 'No campaigns yet. Create a new campaign to get started.'),
       );
     }
 
-    function EditorToolbar({ campaign, onBack, onSaveTemplate }) {
+    function EditorToolbar({ campaign, onBack, onSaveTemplate, onExport, onShowPricing }) {
       const contextLabel = campaign ? `Editing ${campaign.name}` : 'Select a campaign to begin.';
       return h('div', { className: 'campaign-app' },
         h('div', { className: 'campaign-toolbar' },
@@ -2851,6 +3334,8 @@
           ),
           h('div', { className: 'campaign-toolbar-actions' },
             h('button', { className: 'secondary', onClick: onBack }, 'Back to Campaigns'),
+            h('button', { className: 'secondary', onClick: onShowPricing }, 'Pricing Variables'),
+            h('button', { className: 'secondary', onClick: onExport }, 'Export CSV'),
             h('button', { onClick: onSaveTemplate }, 'Save as Template'),
           ),
         ),
@@ -2881,6 +3366,7 @@
       const [activeCampaignId, setActiveCampaignId] = useState(initialData.activeId);
       const [templates, setTemplates] = useState(() => loadTemplates());
       const [selectedTemplateId, setSelectedTemplateId] = useState('');
+      const [pricingMenuOpen, setPricingMenuOpen] = useState(false);
       const campaignsRef = useRef(campaigns);
 
       useEffect(() => {
@@ -2897,6 +3383,10 @@
 
       useEffect(() => {
         document.body.classList.toggle('dashboard-active', view === 'dashboard');
+      }, [view]);
+
+      useEffect(() => {
+        setPricingMenuOpen(false);
       }, [view]);
 
       useEffect(() => {
@@ -2981,6 +3471,14 @@
         setSelectedTemplateId(value);
       }, []);
 
+      const handleShowPricing = useCallback(() => {
+        setPricingMenuOpen(true);
+      }, []);
+
+      const handleClosePricing = useCallback(() => {
+        setPricingMenuOpen(false);
+      }, []);
+
       const handleCreateCampaign = useCallback(() => {
         const template = templates.find(item => item.id === selectedTemplateId);
         const seededState = applyTemplateToState(structuredClone(defaultState), template);
@@ -3053,39 +3551,59 @@
         setSelectedTemplateId(newTemplateId);
       }, []);
 
+      const handleExportCampaign = useCallback(id => {
+        const collection = campaignsRef.current || [];
+        const target = collection.find(entry => entry.id === id);
+        if (target) {
+          exportCampaignToCSV(target);
+        }
+      }, []);
+
+      const handleExportActive = useCallback(() => {
+        const exportRecord = createCampaignRecord(state, activeCampaign?.id, activeCampaign?.name);
+        exportCampaignToCSV(exportRecord);
+      }, [activeCampaign]);
+
       return view === 'dashboard'
-        ? h(CampaignDashboard, {
-            campaigns,
-            onEdit: handleEditCampaign,
-            onDuplicate: handleDuplicateCampaign,
-            onDelete: handleDeleteCampaign,
-            onCreate: handleCreateCampaign,
-            templates,
-            selectedTemplateId,
-            onTemplateChange: handleTemplateChange,
-          })
+        ? h(React.Fragment, null,
+            h(CampaignDashboard, {
+              campaigns,
+              onEdit: handleEditCampaign,
+              onDuplicate: handleDuplicateCampaign,
+              onDelete: handleDeleteCampaign,
+              onCreate: handleCreateCampaign,
+              templates,
+              selectedTemplateId,
+              onTemplateChange: handleTemplateChange,
+              onShowPricing: handleShowPricing,
+              onExport: handleExportCampaign,
+            }),
+            pricingMenuOpen ? h(PricingVariablesMenu, { onClose: handleClosePricing }) : null,
+          )
         : h(React.Fragment, null,
             h(EditorToolbar, {
               campaign: activeCampaign,
               onBack: handleBackToDashboard,
               onSaveTemplate: handleSaveTemplate,
+              onExport: handleExportActive,
+              onShowPricing: handleShowPricing,
             }),
+            pricingMenuOpen ? h(PricingVariablesMenu, { onClose: handleClosePricing }) : null,
           );
     }
 
-    function mountCampaignApp() {
+    function mountRootApp() {
       if (!hasReact) return;
       const container = document.getElementById('campaign-app');
       if (!container) return;
       if (!container.__picRoot) {
         container.__picRoot = ReactDOM.createRoot(container);
       }
-      container.__picRoot.render(h(CampaignApp));
+      container.__picRoot.render(h(RootApp));
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      init();
-      mountCampaignApp();
+      mountRootApp();
     });
 
     // placeholder for future EMPTY workbook parsing hook
