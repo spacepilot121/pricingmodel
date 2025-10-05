@@ -981,6 +981,18 @@
     const CAMPAIGN_STORAGE_KEY = 'pic-campaigns-v2';
     const TEMPLATE_STORAGE_KEY = 'pic-templates-v1';
     let persistActiveCampaign = () => {};
+    const hasNativeStructuredClone = typeof structuredClone === 'function';
+    const nativeStructuredClone = hasNativeStructuredClone ? structuredClone : null;
+    function safeStructuredClone(value) {
+      if (nativeStructuredClone) {
+        try {
+          return nativeStructuredClone(value);
+        } catch (err) {
+          console.warn('structuredClone failed, falling back to JSON clone', err);
+        }
+      }
+      return JSON.parse(JSON.stringify(value));
+    }
     // Generate a reasonably unique id when structuredClone is unavailable.
     function createId() {
       if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -1457,11 +1469,11 @@
 
     // Merge raw persisted data with calculator defaults to keep structures stable.
     function normalizeCampaignState(source) {
-      const base = structuredClone(defaultState);
+      const base = safeStructuredClone(defaultState);
       if (!source || typeof source !== 'object') {
         return base;
       }
-      const parsed = structuredClone(source);
+      const parsed = safeStructuredClone(source);
       const mergedPaidMedia = { ...base.paidMedia, ...(parsed.paidMedia || {}) };
       if (!mergedPaidMedia.rate || mergedPaidMedia.rate <= 0) {
         mergedPaidMedia.rate = DEFAULT_PAID_RATES[mergedPaidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
@@ -1470,7 +1482,7 @@
         ? parsed.campaignLines
         : base.campaignLines;
       const normalizedLines = sourceLines.map(line => {
-        const merged = { ...createDefaultLine(), ...structuredClone(line) };
+        const merged = { ...createDefaultLine(), ...safeStructuredClone(line) };
         merged.manualViews = false;
         return applyLineDefaults(merged, { forceViews: true });
       });
@@ -1492,12 +1504,12 @@
           return normalizeCampaignState(rawSource);
         }
         const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (!raw) return structuredClone(defaultState);
+        if (!raw) return safeStructuredClone(defaultState);
         const parsed = JSON.parse(raw);
         return normalizeCampaignState(parsed);
       } catch (err) {
         console.error('Failed to load state', err);
-        return structuredClone(defaultState);
+        return safeStructuredClone(defaultState);
       }
     }
 
@@ -1521,7 +1533,7 @@
     // Convert a raw calculator state into a dashboard-ready campaign record.
     function createCampaignRecord(rawState, id, nameOverride) {
       const normalized = normalizeCampaignState(rawState || {});
-      const data = structuredClone(normalized);
+      const data = safeStructuredClone(normalized);
       if (nameOverride) {
         data.details.campaignName = nameOverride;
       }
@@ -1581,7 +1593,7 @@
         ? template.deliverables
         : [createDefaultLine()];
       stateData.campaignLines = deliverables.map(line => {
-        const merged = { ...createDefaultLine(), ...structuredClone(line) };
+        const merged = { ...createDefaultLine(), ...safeStructuredClone(line) };
         merged.manualViews = false;
         return applyLineDefaults(merged, { forceViews: true });
       });
@@ -1607,7 +1619,7 @@
       }
       if (typeof persistActiveCampaign === 'function') {
         try {
-          persistActiveCampaign(structuredClone(state));
+          persistActiveCampaign(safeStructuredClone(state));
         } catch (err) {
           console.error('Failed to sync campaign collection', err);
         }
@@ -1969,7 +1981,7 @@
 
       document.getElementById('reset-state').onclick = () => {
         if (confirm('Reset calculator to defaults?')) {
-          state = structuredClone(defaultState);
+          state = safeStructuredClone(defaultState);
           saveState();
           syncCampaignDetailsInputs();
           renderCampaign();
@@ -2773,14 +2785,7 @@
     }
 
     function cloneValue(value) {
-      if (typeof structuredClone === 'function') {
-        try {
-          return structuredClone(value);
-        } catch (err) {
-          console.warn('structuredClone failed, falling back to JSON clone', err);
-        }
-      }
-      return JSON.parse(JSON.stringify(value));
+      return safeStructuredClone(value);
     }
 
     function toCsvNumber(value, decimals = 2) {
@@ -3481,7 +3486,7 @@
 
       const handleCreateCampaign = useCallback(() => {
         const template = templates.find(item => item.id === selectedTemplateId);
-        const seededState = applyTemplateToState(structuredClone(defaultState), template);
+        const seededState = applyTemplateToState(safeStructuredClone(defaultState), template);
         const label = template ? `${template.name} Campaign` : undefined;
         const record = createCampaignRecord(seededState, createId(), label);
         setCampaigns(prev => [...prev, record]);
