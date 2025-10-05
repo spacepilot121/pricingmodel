@@ -285,6 +285,16 @@
       gap: 1rem;
     }
 
+    .pricing-menu-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pricing-menu-actions button {
+      white-space: nowrap;
+    }
+
     .pricing-menu-header h3 {
       margin: 0;
       font-size: 1.1rem;
@@ -1758,6 +1768,14 @@
       });
     })();
 
+    function formatPricingUplift(multiplier) {
+      if (!Number.isFinite(multiplier)) return '0%';
+      const delta = (multiplier - 1) * 100;
+      const rounded = Math.abs(delta) >= 1 ? delta.toFixed(0) : delta.toFixed(2);
+      const prefix = delta > 0 ? '+' : '';
+      return `${prefix}${rounded}%`;
+    }
+
     let state = loadState();
 
     // Merge raw persisted data with calculator defaults to keep structures stable.
@@ -1920,6 +1938,164 @@
         summary,
         data,
       };
+    }
+
+    function exportPricingVariablesToCSV() {
+      try {
+        if (!pricingVariables) {
+          console.warn('No pricing variables available to export.');
+          return;
+        }
+
+        const { general, paidMedia, multipliers, followers, deliverables } = pricingVariables;
+        const sizeOrder = Object.keys(multipliers.size || {});
+        const rows = [];
+
+        rows.push(['Precise Influencer Calculator Pricing Variables']);
+        rows.push([`Generated ${new Date().toLocaleString()}`]);
+        rows.push([]);
+
+        rows.push(['General Pricing Inputs']);
+        rows.push(['Label', 'Value']);
+        rows.push(['Default margin goal', `${Number(general.marginGoal || 0).toFixed(0)}%`]);
+        rows.push(['Rush fee uplift', formatPricingUplift(general.rushFeeMultiplier)]);
+        rows.push(['Travel uplift', formatPricingUplift(general.travelFeeMultiplier)]);
+        rows.push(['Niche creator uplift', formatPricingUplift(general.nicheCreatorMultiplier)]);
+        rows.push(['Q4 uplift', formatPricingUplift(general.q4FeeMultiplier)]);
+        rows.push([]);
+
+        const paidRates = Object.entries(paidMedia.defaultRates || {});
+        if (paidRates.length) {
+          rows.push(['Paid Media Defaults']);
+          rows.push(['Mode', 'Default Rate', 'Unit']);
+          paidRates.forEach(([mode, rate]) => {
+            const isCpm = mode.toLowerCase() === 'cpm';
+            rows.push([
+              mode.toUpperCase(),
+              `$${Number(rate || 0).toFixed(2)}`,
+              isCpm ? 'Per 1,000 views' : 'Per view',
+            ]);
+          });
+          rows.push([]);
+        }
+
+        if (sizeOrder.length) {
+          rows.push(['Creator Size Benchmarks']);
+          rows.push(['Size', 'View Multiplier', 'Estimated Followers']);
+          sizeOrder.forEach(size => {
+            const config = multipliers.size[size] || {};
+            const followerCount = followers[size];
+            rows.push([
+              size,
+              `${Number(config.views ?? 1).toFixed(2)}x`,
+              followerCount ? formatNumber(followerCount) : '—',
+            ]);
+          });
+          rows.push([]);
+        }
+
+        const verticalEntries = Object.entries(multipliers.vertical || {});
+        if (verticalEntries.length) {
+          rows.push(['Audience Adjustments — Vertical']);
+          rows.push(['Vertical', 'Rate Multiplier', 'View Multiplier']);
+          verticalEntries.forEach(([vertical, values]) => {
+            rows.push([
+              vertical,
+              `${Number(values.rate ?? 1).toFixed(2)}x`,
+              `${Number(values.views ?? 1).toFixed(2)}x`,
+            ]);
+          });
+          rows.push([]);
+        }
+
+        const languageEntries = Object.entries(multipliers.language || {});
+        if (languageEntries.length) {
+          rows.push(['Audience Adjustments — Language']);
+          rows.push(['Language', 'Rate Multiplier', 'View Multiplier']);
+          languageEntries.forEach(([language, values]) => {
+            rows.push([
+              language,
+              `${Number(values.rate ?? 1).toFixed(2)}x`,
+              `${Number(values.views ?? 1).toFixed(2)}x`,
+            ]);
+          });
+          rows.push([]);
+        }
+
+        const whitelistEntries = Object.entries(multipliers.whitelist || {});
+        if (whitelistEntries.length) {
+          rows.push(['Whitelist Uplift by Creator Size']);
+          rows.push(['Creator Size', 'Whitelist Uplift']);
+          whitelistEntries.forEach(([size, uplift]) => {
+            rows.push([size, formatPricingUplift(1 + (uplift || 0))]);
+          });
+          rows.push([]);
+        }
+
+        const sentimentEntries = Array.isArray(multipliers.brandExcitement)
+          ? multipliers.brandExcitement
+          : [];
+        if (sentimentEntries.length) {
+          rows.push(['Brand Sentiment Impact']);
+          rows.push(['Brand Sentiment', 'Fee Impact']);
+          sentimentEntries.forEach((entry, index) => {
+            const label = entry.label || `Level ${index + 1}`;
+            rows.push([label, formatPricingUplift(entry.multiplier ?? 1)]);
+          });
+          rows.push([]);
+        }
+
+        rows.push(['Platform Deliverable Benchmarks']);
+        rows.push(['Platform', 'Deliverable', 'Metric', 'Value']);
+        Object.entries(deliverables || {}).forEach(([platform, items]) => {
+          Object.entries(items || {}).forEach(([deliverable, detail]) => {
+            const macroViews = detail.viewsBySize?.Macro ?? detail.baseViews ?? 0;
+            rows.push([platform, deliverable, 'Base CPV', formatCpv(Number(detail.cpv || 0))]);
+            rows.push([platform, deliverable, 'Macro views', formatNumber(macroViews || 0)]);
+            Object.entries(detail.viewsBySize || {}).forEach(([size, viewCount]) => {
+              rows.push([
+                platform,
+                deliverable,
+                `Views (${size})`,
+                formatNumber(Number(viewCount || 0)),
+              ]);
+            });
+            Object.entries(detail.cpvByVertical || {}).forEach(([vertical, cpvValue]) => {
+              rows.push([
+                platform,
+                deliverable,
+                `CPV (${vertical})`,
+                formatCpv(Number(cpvValue || 0)),
+              ]);
+            });
+            rows.push([]);
+          });
+        });
+
+        function wrapCsvValue(value) {
+          const stringValue = value == null ? '' : String(value);
+          if (/[",\n]/.test(stringValue)) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        }
+
+        const csvContent = rows.map(row => row.map(wrapCsvValue).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'pricing_variables.csv';
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        requestAnimationFrame(() => {
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+        });
+      } catch (error) {
+        console.error('Failed to export pricing variables as CSV', error);
+      }
     }
 
     function exportCampaignToCSV(campaign) {
@@ -3602,20 +3778,12 @@
       const { general, paidMedia, multipliers, followers, deliverables } = pricingVariables;
       const sizeOrder = Object.keys(multipliers.size || {});
 
-      const formatUplift = multiplier => {
-        if (!Number.isFinite(multiplier)) return '0%';
-        const delta = (multiplier - 1) * 100;
-        const rounded = Math.abs(delta) >= 1 ? delta.toFixed(0) : delta.toFixed(2);
-        const prefix = delta > 0 ? '+' : '';
-        return `${prefix}${rounded}%`;
-      };
-
       const generalItems = [
         ['Default margin goal', `${Number(general.marginGoal || 0).toFixed(0)}%`],
-        ['Rush fee uplift', formatUplift(general.rushFeeMultiplier)],
-        ['Travel uplift', formatUplift(general.travelFeeMultiplier)],
-        ['Niche creator uplift', formatUplift(general.nicheCreatorMultiplier)],
-        ['Q4 uplift', formatUplift(general.q4FeeMultiplier)],
+        ['Rush fee uplift', formatPricingUplift(general.rushFeeMultiplier)],
+        ['Travel uplift', formatPricingUplift(general.travelFeeMultiplier)],
+        ['Niche creator uplift', formatPricingUplift(general.nicheCreatorMultiplier)],
+        ['Q4 uplift', formatPricingUplift(general.q4FeeMultiplier)],
       ];
 
       const commonSections = [
@@ -3750,7 +3918,7 @@
               h('tbody', null,
                 Object.entries(multipliers.whitelist || {}).map(([size, uplift]) => h('tr', { key: size },
                   h('td', null, size),
-                  h('td', null, formatUplift(1 + (uplift || 0))),
+                  h('td', null, formatPricingUplift(1 + (uplift || 0))),
                 )),
               ),
             ),
@@ -3766,7 +3934,7 @@
               h('tbody', null,
                 (multipliers.brandExcitement || []).map((entry, index) => h('tr', { key: `${entry.label}-${index}` },
                   h('td', null, entry.label || `Level ${index + 1}`),
-                  h('td', null, formatUplift(entry.multiplier ?? 1)),
+                  h('td', null, formatPricingUplift(entry.multiplier ?? 1)),
                 )),
               ),
             ),
@@ -3866,10 +4034,18 @@
                 'Reference-only view of the cost assumptions used across the Precise Influencer Calculator.',
               ),
             ),
-            h('button', {
-              className: 'pricing-menu-close',
-              onClick: () => { if (typeof onClose === 'function') onClose(); },
-            }, 'Close'),
+            h('div', { className: 'pricing-menu-actions' },
+              h('button', {
+                type: 'button',
+                className: 'secondary',
+                onClick: exportPricingVariablesToCSV,
+              }, 'Download CSV'),
+              h('button', {
+                type: 'button',
+                className: 'pricing-menu-close',
+                onClick: () => { if (typeof onClose === 'function') onClose(); },
+              }, 'Close'),
+            ),
           ),
           h('div', { className: 'pricing-menu-viewbar' },
             h('p', { className: 'pricing-menu-description' },
