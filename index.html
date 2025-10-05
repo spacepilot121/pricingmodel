@@ -3504,15 +3504,16 @@
       );
     }
 
-    function PricingMatrixTable({ vertical, formats, language }) {
-      const sizes = ['Icon', 'Mega', 'Macro', 'HMid', 'LMid', 'Micro'];
+    const DEFAULT_MATRIX_SIZE = 'Macro';
+
+    function PricingMatrixTable({ verticals, formats, language }) {
       return h('table', {
         className: 'matrix-table',
-        'aria-label': `Pricing matrix — ${vertical}`,
+        'aria-label': 'Pricing matrix — vertical against platform',
       },
         h('thead', null,
           h('tr', null,
-            h('th', { key: 'corner' }, ''),
+            h('th', { key: 'vertical' }, 'Vertical'),
             formats.map(format => h('th', { key: format.key },
               h('div', { className: 'matrix-format' }, format.platform),
               h('div', { className: 'matrix-sub' }, format.deliverable),
@@ -3520,17 +3521,21 @@
           ),
         ),
         h('tbody', null,
-          sizes.map(size => h('tr', { key: `${vertical}-${size}` },
+          verticals.map(vertical => h('tr', { key: vertical },
             h('th', { scope: 'row', className: 'matrix-row-header' },
-              h('span', { className: 'matrix-format' }, size),
+              h('span', { className: 'matrix-format' }, vertical),
             ),
             formats.map(format => {
-              const defaults = getRateDefaults(format.platform, format.deliverable, size, vertical, language);
+              const defaults = getRateDefaults(
+                format.platform,
+                format.deliverable,
+                DEFAULT_MATRIX_SIZE,
+                vertical,
+                language,
+              );
               const cpvDisplay = `$${Number(defaults.cpv || 0).toFixed(3)}`;
-              const viewsDisplay = `${Math.round(defaults.views || 0).toLocaleString('en-US')} views`;
-              return h('td', { key: `${size}-${format.key}`, className: 'matrix-cell' },
-                h('div', { className: 'matrix-cpv' }, `CPV ${cpvDisplay}`),
-                h('div', { className: 'matrix-views' }, viewsDisplay),
+              return h('td', { key: `${vertical}-${format.key}`, className: 'matrix-cell' },
+                h('div', { className: 'matrix-cpv' }, cpvDisplay),
               );
             }),
           )),
@@ -3559,15 +3564,13 @@
 
       return h('div', null,
         h(PricingMatrixControls, { language, onChangeLanguage: setLanguage }),
-        h('div', { className: 'matrix-grid' },
-          verticals.map(vertical => h('div', { key: vertical, className: 'matrix-card' },
-            h('div', { className: 'matrix-head' },
-              h('h5', { className: 'matrix-title' }, vertical),
-            ),
-            h('div', { className: 'matrix-scroller' },
-              h(PricingMatrixTable, { vertical, formats, language }),
-            ),
-          )),
+        h('div', { className: 'matrix-card' },
+          h('div', { className: 'matrix-head' },
+            h('h5', { className: 'matrix-title' }, 'Vertical vs Platform'),
+          ),
+          h('div', { className: 'matrix-scroller' },
+            h(PricingMatrixTable, { verticals, formats, language }),
+          ),
         ),
       );
     }
