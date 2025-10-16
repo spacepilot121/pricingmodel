@@ -239,6 +239,13 @@
       box-shadow: 0 12px 18px -12px rgba(56, 189, 248, 0.65);
     }
 
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
     button.secondary {
       background: rgba(148, 163, 184, 0.15);
       color: #cbd5f5;
@@ -251,6 +258,29 @@
 
     button.danger:hover {
       box-shadow: 0 12px 18px -12px rgba(248, 113, 113, 0.65);
+    }
+
+    .line-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .line-action-button {
+      padding: 0.35rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      min-width: 0;
+    }
+
+    .line-action-button.move-button {
+      width: 2rem;
+      padding: 0.3rem 0;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
     }
 
     .pricing-menu-backdrop {
@@ -1113,7 +1143,7 @@
                 <th>Cogs CPV ($)</th>
                 <th>Client CPV ($)</th>
                 <th>Total COGs</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="campaign-body"></tbody>
@@ -2750,20 +2780,60 @@
         lineTotalTd.textContent = formatCurrency(currentLineTotal);
         tr.appendChild(lineTotalTd);
 
-        const deleteTd = document.createElement('td');
-        if (state.campaignLines.length > 1) {
-          const removeBtn = document.createElement('button');
-          removeBtn.textContent = 'Remove';
-          removeBtn.className = 'secondary';
-          removeBtn.addEventListener('click', () => {
-            state.campaignLines.splice(index, 1);
-            saveState();
-            renderCampaign();
-            recalc();
-          });
-          deleteTd.appendChild(removeBtn);
-        }
-        tr.appendChild(deleteTd);
+        const actionsTd = document.createElement('td');
+        const actionsWrapper = document.createElement('div');
+        actionsWrapper.className = 'line-actions';
+
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.type = 'button';
+        moveUpBtn.className = 'secondary line-action-button move-button';
+        moveUpBtn.textContent = '↑';
+        moveUpBtn.title = 'Move up';
+        moveUpBtn.setAttribute('aria-label', 'Move deliverable up');
+        moveUpBtn.disabled = index === 0;
+        moveUpBtn.addEventListener('click', () => {
+          if (index === 0) return;
+          const [moved] = state.campaignLines.splice(index, 1);
+          state.campaignLines.splice(index - 1, 0, moved);
+          saveState();
+          renderCampaign();
+          recalc();
+        });
+        actionsWrapper.appendChild(moveUpBtn);
+
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.type = 'button';
+        moveDownBtn.className = 'secondary line-action-button move-button';
+        moveDownBtn.textContent = '↓';
+        moveDownBtn.title = 'Move down';
+        moveDownBtn.setAttribute('aria-label', 'Move deliverable down');
+        moveDownBtn.disabled = index === state.campaignLines.length - 1;
+        moveDownBtn.addEventListener('click', () => {
+          if (index === state.campaignLines.length - 1) return;
+          const [moved] = state.campaignLines.splice(index, 1);
+          const targetIndex = Math.min(state.campaignLines.length, index + 1);
+          state.campaignLines.splice(targetIndex, 0, moved);
+          saveState();
+          renderCampaign();
+          recalc();
+        });
+        actionsWrapper.appendChild(moveDownBtn);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'Remove';
+        removeBtn.className = 'secondary line-action-button';
+        removeBtn.disabled = state.campaignLines.length <= 1;
+        removeBtn.addEventListener('click', () => {
+          state.campaignLines.splice(index, 1);
+          saveState();
+          renderCampaign();
+          recalc();
+        });
+        actionsWrapper.appendChild(removeBtn);
+
+        actionsTd.appendChild(actionsWrapper);
+        tr.appendChild(actionsTd);
 
         tbody.appendChild(tr);
       });
