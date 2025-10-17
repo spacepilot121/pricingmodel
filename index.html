@@ -799,15 +799,52 @@
       padding: 0.9rem;
       background: rgba(15, 23, 42, 0.55);
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      align-items: stretch;
       flex-wrap: wrap;
       gap: 0.75rem;
     }
 
-    .campaign-card > div:first-child {
+    .campaign-card-main {
       flex: 1 1 420px;
       min-width: 260px;
+    }
+
+    .campaign-card-actions {
+      margin-left: auto;
+    }
+
+    .campaign-card-order {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .campaign-card-order button {
+      min-width: 0;
+    }
+
+    .campaign-move-button {
+      width: 2.25rem;
+      height: 2.25rem;
+      padding: 0;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      line-height: 1;
+      background: rgba(148, 163, 184, 0.18);
+      color: #cbd5f5;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .campaign-move-button:hover {
+      box-shadow: 0 10px 14px -12px rgba(148, 163, 184, 0.65);
+    }
+
+    .campaign-move-button:disabled {
+      opacity: 0.35;
     }
 
     .campaign-card h3 {
@@ -4137,7 +4174,7 @@
       );
     }
 
-    function CampaignCard({ campaign, onEdit, onDuplicate, onDelete }) {
+    function CampaignCard({ campaign, onEdit, onDuplicate, onDelete, onMoveUp, onMoveDown }) {
       const budgetDisplay = campaign.budget > 0 ? formatCurrency(campaign.budget) : 'Not set';
       const creatorLabel = formatNumber(campaign.totalCreators || 0);
       const viewLabel = formatNumber(Math.round(campaign.estimatedViews || 0));
@@ -4184,8 +4221,25 @@
       if (campaign.nicheCreators) {
         flags.push({ key: 'niche', label: 'Niche creators' });
       }
+      const canMoveUp = typeof onMoveUp === 'function';
+      const canMoveDown = typeof onMoveDown === 'function';
+      const campaignLabel = campaign.name ? `"${campaign.name}"` : 'campaign';
       return h('div', { className: 'campaign-card' },
-        h('div', null,
+        h('div', { className: 'campaign-card-order' },
+          h('button', {
+            className: 'line-action-button move-button campaign-move-button',
+            onClick: () => { if (canMoveUp) onMoveUp(); },
+            disabled: !canMoveUp,
+            'aria-label': `Move ${campaignLabel} up`,
+          }, '▲'),
+          h('button', {
+            className: 'line-action-button move-button campaign-move-button',
+            onClick: () => { if (canMoveDown) onMoveDown(); },
+            disabled: !canMoveDown,
+            'aria-label': `Move ${campaignLabel} down`,
+          }, '▼'),
+        ),
+        h('div', { className: 'campaign-card-main' },
           h('h3', null, campaign.name || 'Untitled Campaign'),
           h('div', { className: 'campaign-card-meta' },
             h('span', null, h('strong', null, brandLabel), 'Brand'),
@@ -4243,6 +4297,7 @@
       templates,
       selectedTemplateId,
       onTemplateChange,
+      onMove,
     }) {
       const [showPricingVariables, setShowPricingVariables] = useState(false);
       const handleOpenPricing = useCallback(() => setShowPricingVariables(true), []);
@@ -4268,9 +4323,23 @@
             ),
           ),
           campaigns.length
-            ? h('div', { className: 'campaign-list' }, campaigns.map(campaign =>
-                h(CampaignCard, { key: campaign.id, campaign, onEdit, onDuplicate, onDelete }),
-              ))
+            ? h('div', { className: 'campaign-list' }, campaigns.map((campaign, index) => {
+                const moveUp = typeof onMove === 'function' && index > 0
+                  ? () => onMove(campaign.id, 'up')
+                  : null;
+                const moveDown = typeof onMove === 'function' && index < campaigns.length - 1
+                  ? () => onMove(campaign.id, 'down')
+                  : null;
+                return h(CampaignCard, {
+                  key: campaign.id,
+                  campaign,
+                  onEdit,
+                  onDuplicate,
+                  onDelete,
+                  onMoveUp: moveUp,
+                  onMoveDown: moveDown,
+                });
+              }))
             : h('p', { className: 'campaign-dashboard-empty' }, 'No campaigns yet. Create a new campaign to get started.'),
         ),
         h(PricingVariablesMenu, { open: showPricingVariables, onClose: handleClosePricing }),
@@ -4457,6 +4526,23 @@
         }
       }, []);
 
+      const handleMoveCampaign = useCallback((id, direction) => {
+        setCampaigns(prev => {
+          const currentIndex = prev.findIndex(campaign => campaign.id === id);
+          if (currentIndex === -1) {
+            return prev;
+          }
+          const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+          if (targetIndex < 0 || targetIndex >= prev.length) {
+            return prev;
+          }
+          const updated = [...prev];
+          const [moved] = updated.splice(currentIndex, 1);
+          updated.splice(targetIndex, 0, moved);
+          return updated;
+        });
+      }, []);
+
       const handleDeleteCampaign = useCallback(id => {
         setCampaigns(prev => prev.filter(campaign => campaign.id !== id));
         setActiveCampaignId(previous => (previous === id ? null : previous));
@@ -4504,6 +4590,7 @@
             templates,
             selectedTemplateId,
             onTemplateChange: handleTemplateChange,
+            onMove: handleMoveCampaign,
           })
         : h(React.Fragment, null,
             h(EditorToolbar, {
