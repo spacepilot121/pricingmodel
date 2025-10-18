@@ -683,6 +683,66 @@
       height: 100% !important;
     }
 
+    .insight-table-card {
+      margin-top: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.45);
+      padding: 0.85rem;
+      box-shadow: 0 20px 36px -28px rgba(15, 23, 42, 0.8);
+      overflow-x: auto;
+    }
+
+    .insight-table-card h3 {
+      margin: 0 0 0.65rem;
+      font-size: 0.9rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .insight-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      min-width: 600px;
+    }
+
+    .insight-table th,
+    .insight-table td {
+      padding: 0.45rem 0.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .insight-table th {
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .insight-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .insight-notes-field {
+      min-height: 2.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 8px;
+      padding: 0.4rem 0.5rem;
+      background: rgba(15, 23, 42, 0.6);
+      color: inherit;
+      outline: none;
+      white-space: pre-wrap;
+    }
+
+    .insight-notes-field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+    }
+
     .paid-media-mode {
       display: flex;
       gap: 1rem;
@@ -1292,6 +1352,41 @@
             </div>
           </div>
         </div>
+        <div class="insight-table-card">
+          <h3>Copy Snapshot</h3>
+          <table class="insight-table" aria-label="Campaign copy snapshot">
+            <thead>
+              <tr>
+                <th scope="col">Client Budget</th>
+                <th scope="col">Est. Creators &amp; Sizes</th>
+                <th scope="col">Estimated Deliverables</th>
+                <th scope="col">Guaranteed Views</th>
+                <th scope="col">Combined CPV</th>
+                <th scope="col">Usage</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td id="insight-client-budget">$0</td>
+                <td id="insight-creator-summary">—</td>
+                <td id="insight-deliverable-summary">—</td>
+                <td id="insight-views">0</td>
+                <td id="insight-cpv">$0.000</td>
+                <td id="insight-usage">Standard usage</td>
+                <td>
+                  <div
+                    id="insight-notes"
+                    class="insight-notes-field"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-label="Snapshot notes"
+                  ></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
     <aside>
@@ -1784,6 +1879,7 @@
         rate: DEFAULT_PAID_RATES.cpv,
       },
       marginGoal: 0,
+      insightNotes: '',
     };
 
     const pricingVariables = (() => {
@@ -1872,6 +1968,9 @@
         travel: { ...base.travel, ...(parsed.travel || {}) },
         campaignLines: normalizedLines,
         paidMedia: mergedPaidMedia,
+        insightNotes: typeof parsed.insightNotes === 'string'
+          ? parsed.insightNotes
+          : base.insightNotes,
       };
     }
 
@@ -2471,6 +2570,7 @@
       syncPaidMediaInputs();
       syncOtherCostInputs();
       syncMarginControls();
+      syncInsightNotes();
       recalc();
     }
 
@@ -2495,6 +2595,7 @@
       bindPaidMedia();
       bindOtherCosts();
       bindSummaryControls();
+      bindInsightNotes();
       recalc();
     }
 
@@ -3091,6 +3192,56 @@
       });
     }
 
+    function syncInsightNotes() {
+      const notesField = document.getElementById('insight-notes');
+      if (!notesField || document.activeElement === notesField) return;
+      notesField.textContent = state.insightNotes || '';
+    }
+
+    function bindInsightNotes() {
+      const notesField = document.getElementById('insight-notes');
+      if (!notesField) return;
+      let pendingSave = null;
+
+      const queueSave = () => {
+        if (pendingSave) {
+          clearTimeout(pendingSave);
+        }
+        pendingSave = setTimeout(() => {
+          pendingSave = null;
+          saveState();
+        }, 400);
+      };
+
+      const commitNotes = () => {
+        if (pendingSave) {
+          clearTimeout(pendingSave);
+          pendingSave = null;
+        }
+        state.insightNotes = notesField.textContent || '';
+        saveState();
+      };
+
+      notesField.addEventListener('input', () => {
+        state.insightNotes = notesField.textContent || '';
+        queueSave();
+      });
+
+      notesField.addEventListener('blur', () => {
+        state.insightNotes = notesField.textContent || '';
+        commitNotes();
+      });
+
+      notesField.addEventListener('keydown', event => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+          event.preventDefault();
+          notesField.blur();
+        }
+      });
+
+      notesField.textContent = state.insightNotes || '';
+    }
+
     function calculateModifiers(targetState = state) {
       const details = targetState?.details || defaultState.details;
       const rawQuarter = Number(details.quarter);
@@ -3248,6 +3399,20 @@
         details: state.details,
       });
 
+      const creatorSummary = buildCreatorSizeSummary(state.campaignLines);
+      const deliverableSummary = buildDeliverableSummary(state.campaignLines);
+      const usageSummary = buildUsageSummary(state.campaignLines);
+      updateInsightTable({
+        totalBudget: totalPrice,
+        creatorSummary,
+        deliverableSummary,
+        totalViews,
+        organicViews: organicViewsAdjusted,
+        paidViews,
+        combinedCpv: brandCombinedCPV,
+        usageSummary,
+      });
+
       const viewMix = {
         'Organic Views': organicViewsAdjusted,
         'Paid Views': paidViews,
@@ -3384,6 +3549,118 @@
         row.innerHTML = `<span>${platform}</span><span>${formatNumber(views)} (${pct}%)</span>`;
         breakdown.appendChild(row);
       });
+    }
+
+    function buildCreatorSizeSummary(lines) {
+      const counts = {};
+      const source = Array.isArray(lines) ? lines : [];
+      source.forEach(line => {
+        const creators = Number(line.creators || 0);
+        if (!creators) return;
+        const key = line.size || 'Unspecified';
+        counts[key] = (counts[key] || 0) + creators;
+      });
+      const orderedSizes = Object.keys(SIZE_MULT);
+      const ordered = orderedSizes
+        .filter(size => counts[size])
+        .map(size => `${formatNumber(counts[size])} ${size}`);
+      const leftovers = Object.keys(counts)
+        .filter(size => !orderedSizes.includes(size))
+        .sort((a, b) => a.localeCompare(b))
+        .map(size => `${formatNumber(counts[size])} ${size}`);
+      const combined = ordered.concat(leftovers);
+      return combined.length ? combined.join(', ') : '—';
+    }
+
+    function buildDeliverableSummary(lines) {
+      const counts = {};
+      const source = Array.isArray(lines) ? lines : [];
+      source.forEach(line => {
+        const creators = Number(line.creators || 0);
+        const qty = Number(line.qtyPerCreator || 0);
+        const pieces = creators * qty;
+        if (!pieces) return;
+        const platform = line.platform || 'Platform';
+        const deliverable = line.deliverable || 'Deliverable';
+        const key = `${platform} ${deliverable}`;
+        counts[key] = (counts[key] || 0) + pieces;
+      });
+      const entries = Object.entries(counts)
+        .sort((a, b) => {
+          if (b[1] !== a[1]) return b[1] - a[1];
+          return a[0].localeCompare(b[0]);
+        })
+        .map(([label, qty]) => `${label} (${formatNumber(qty)})`);
+      return entries.length ? entries.join(', ') : '—';
+    }
+
+    function buildUsageSummary(lines) {
+      const sizes = new Set();
+      const source = Array.isArray(lines) ? lines : [];
+      source.forEach(line => {
+        if (line.whitelist) {
+          sizes.add(line.size || 'Unspecified');
+        }
+      });
+      if (!sizes.size) {
+        return 'Standard usage';
+      }
+      const labels = Array.from(sizes).sort((a, b) => a.localeCompare(b));
+      const suffix = labels.length ? ` (${labels.join(', ')})` : '';
+      return `Paid media rights for 1 month${suffix}`;
+    }
+
+    function formatViewsSummary(total, organic, paid) {
+      const parts = [];
+      if (organic) {
+        parts.push(`Organic ${formatNumber(organic)}`);
+      }
+      if (paid) {
+        parts.push(`Paid ${formatNumber(paid)}`);
+      }
+      const breakdown = parts.length ? ` (${parts.join(' / ')})` : '';
+      return `${formatNumber(total || 0)}${breakdown}`;
+    }
+
+    function updateInsightTable(snapshot) {
+      const budgetCell = document.getElementById('insight-client-budget');
+      if (!budgetCell) return;
+      const data = snapshot || {};
+      budgetCell.textContent = formatCurrency(data.totalBudget || 0);
+
+      const creatorCell = document.getElementById('insight-creator-summary');
+      if (creatorCell) {
+        creatorCell.textContent = data.creatorSummary || '—';
+      }
+
+      const deliverableCell = document.getElementById('insight-deliverable-summary');
+      if (deliverableCell) {
+        deliverableCell.textContent = data.deliverableSummary || '—';
+      }
+
+      const viewsCell = document.getElementById('insight-views');
+      if (viewsCell) {
+        viewsCell.textContent = formatViewsSummary(
+          data.totalViews || 0,
+          data.organicViews || 0,
+          data.paidViews || 0,
+        );
+      }
+
+      const cpvCell = document.getElementById('insight-cpv');
+      if (cpvCell) {
+        cpvCell.textContent = formatCpv(data.combinedCpv || 0);
+      }
+
+      const usageCell = document.getElementById('insight-usage');
+      if (usageCell) {
+        usageCell.textContent = data.usageSummary || 'Standard usage';
+      }
+
+      const notesField = document.getElementById('insight-notes');
+      if (notesField && document.activeElement !== notesField) {
+        notesField.textContent = state.insightNotes || '';
+      }
     }
 
     function appendSummaryRows(container, items) {
