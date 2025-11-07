@@ -3517,8 +3517,8 @@
           ['Total Creators', data.totalCreators],
           ['Min Estimated Followers', data.totalEstimatedFollowers],
           ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
-          ['Brand Organic CPV', isFinite(data.brandOrganicCPV) ? `$${data.brandOrganicCPV.toFixed(2)}` : '$0.00'],
-          ['Brand Combined CPV', isFinite(data.brandCombinedCPV) ? `$${data.brandCombinedCPV.toFixed(2)}` : '$0.00'],
+          ['Brand Organic CPV', isFinite(data.brandOrganicCPV) ? formatCpv(data.brandOrganicCPV) : '$0.000'],
+          ['Brand Combined CPV', isFinite(data.brandCombinedCPV) ? formatCpv(data.brandCombinedCPV) : '$0.000'],
         ];
         appendSummaryRows(metricsGrid, metricItems);
       }
