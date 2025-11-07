@@ -1272,7 +1272,7 @@
         </section>
 
         <section>
-          <h2>Travel &amp; Additional Costs</h2>
+          <h2>Travel &amp; Other Costs</h2>
           <div class="input-group">
             <div class="input-row">
               <label for="other-costs">Other Costs</label>
@@ -1281,10 +1281,6 @@
             <div class="input-row">
               <label for="study-costs">Study Costs</label>
               <input type="number" id="study-costs" min="0" step="100" />
-            </div>
-            <div class="input-row">
-              <label for="additional-costs">Additional Costs</label>
-              <input type="number" id="additional-costs" min="0" step="100" />
             </div>
           </div>
           <div id="travel-controls" class="input-group" style="display:none; margin-top:0.5rem;">
@@ -1295,6 +1291,16 @@
             <div class="input-row">
               <label for="travel-budget">Travel Budget / Creator</label>
               <input type="number" id="travel-budget" min="0" step="100" />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Additional Costs (Inc Margin)</h2>
+          <div class="input-group">
+            <div class="input-row">
+              <label for="additional-costs">Additional Costs (Inc Margin)</label>
+              <input type="number" id="additional-costs" min="0" step="100" />
             </div>
           </div>
         </section>
@@ -2009,17 +2015,18 @@
       const paidBudget = normalized.paidMedia?.budget || 0;
       const paidViews = calculatePaidViews(normalized.paidMedia);
       const otherCosts = normalized.otherCosts || {};
-      const otherTotal = (otherCosts.other || 0) + (otherCosts.study || 0) + (otherCosts.additional || 0);
+      const otherTotal = (otherCosts.other || 0) + (otherCosts.study || 0);
+      const additionalWithMargin = otherCosts.additional || 0;
       const travelCost = modifiers.travelRequired
         ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
         : 0;
       const feeAdjustedContent = contentSubtotal * (modifiers.feeMultiplier ?? 1);
       const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
-      const totalCOGs = baseCOGs + paidBudget;
+      const totalCOGs = baseCOGs + paidBudget + additionalWithMargin;
       const marginGoalPct = (normalized.marginGoal || 0) / 100;
       const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
       const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
-      const totalPrice = totalPriceExcludingPaid + paidBudget;
+      const totalPrice = totalPriceExcludingPaid + paidBudget + additionalWithMargin;
       const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
       const influencerCogs = feeAdjustedContent;
       const influencerMargin = influencerCogs * Math.max(priceMultiplier - 1, 0);
@@ -2049,6 +2056,7 @@
         totalEstimatedFollowers,
         totalPrice,
         paidBudget,
+        additionalCostsWithMargin: additionalWithMargin,
         influencerClientCost,
         grossMargin,
         pricePerCreator,
@@ -2306,19 +2314,19 @@
 
         const feeAdjustedContent = processedLines.reduce((acc, line) => acc + (line.cogsTotal || 0), 0);
         const otherTotal = (normalized.otherCosts?.other || 0)
-          + (normalized.otherCosts?.study || 0)
-          + (normalized.otherCosts?.additional || 0);
+          + (normalized.otherCosts?.study || 0);
+        const additionalWithMargin = normalized.otherCosts?.additional || 0;
         const travelCost = modifiers.travelRequired
           ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
           : 0;
         const paidBudget = Number(normalized.paidMedia?.budget || 0);
         const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
-        const totalCOGs = baseCOGs + paidBudget;
+        const totalCOGs = baseCOGs + paidBudget + additionalWithMargin;
         const marginGoalPct = Math.max(0, Number(normalized.marginGoal || 0)) / 100;
         const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
         const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
         const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
-        const totalPrice = totalPriceExcludingPaid + paidBudget;
+        const totalPrice = totalPriceExcludingPaid + paidBudget + additionalWithMargin;
         const paidViews = calculatePaidViews(normalized.paidMedia);
 
         const detailedLines = processedLines.map(line => {
@@ -2423,6 +2431,30 @@
             '',
             formatNumberValue(otherTotal, 2),
             formatNumberValue(otherClientTotal, 2),
+            '',
+            '',
+            '',
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        }
+
+        if (additionalWithMargin > 0) {
+          rows.push([
+            campaignName,
+            brand,
+            'Additional Costs (Inc Margin)',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            formatNumberValue(additionalWithMargin, 2),
+            formatNumberValue(additionalWithMargin, 2),
             '',
             '',
             '',
@@ -3331,8 +3363,8 @@
       });
 
       const feeAdjustedContent = contentSubtotal * modifiers.feeMultiplier;
-      const otherBase = (state.otherCosts.other || 0) + (state.otherCosts.study || 0) + (state.otherCosts.additional || 0);
-      const otherTotal = otherBase;
+      const otherTotal = (state.otherCosts.other || 0) + (state.otherCosts.study || 0);
+      const additionalWithMargin = state.otherCosts.additional || 0;
       const travelCost = modifiers.travelRequired
         ? (state.travel.creators || 0) * (state.travel.perCreator || 0)
         : 0;
@@ -3340,11 +3372,11 @@
       const paidBudget = state.paidMedia.budget || 0;
       const paidViews = calculatePaidViews(state.paidMedia);
       const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
-      const totalCOGs = baseCOGs + paidBudget;
+      const totalCOGs = baseCOGs + paidBudget + additionalWithMargin;
       const marginGoalPct = (state.marginGoal || 0) / 100;
       const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
       const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
-      const totalPrice = totalPriceExcludingPaid + paidBudget;
+      const totalPrice = totalPriceExcludingPaid + paidBudget + additionalWithMargin;
       const grossMargin = totalPrice - totalCOGs;
       const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
       contentLines.forEach(line => {
@@ -3358,6 +3390,7 @@
       const influencerMargin = influencerCogs * Math.max(priceMultiplier - 1, 0);
       const influencerClientCost = influencerCogs + influencerMargin;
       const paidMediaWithMargin = paidBudget;
+      const additionalCostsWithMargin = additionalWithMargin;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
       const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
       const totalCogsPerCreator = totalCreators > 0 ? totalCOGs / totalCreators : 0;
@@ -3397,6 +3430,7 @@
         adRateCpv,
         modifiers,
         details: state.details,
+        additionalCostsWithMargin,
       });
 
       const creatorSummary = buildCreatorSizeSummary(state.campaignLines);
@@ -3422,6 +3456,9 @@
         'Influencer Cost to Client': influencerClientCost,
         'Paid Media Budget (Including Margin)': paidMediaWithMargin,
       };
+      if (additionalCostsWithMargin > 0) {
+        investmentMix['Additional Costs (Inc Margin)'] = additionalCostsWithMargin;
+      }
 
       updateCharts(
         platformBudget,
@@ -3459,9 +3496,14 @@
           ['Total Influencer COGs', formatCurrency(data.influencerCogs)],
           ['Influencer Margin', formatCurrency(data.influencerMargin)],
           ['Total Influencer Cost to Client', formatCurrency(data.influencerClientCost)],
+        ];
+        if (data.additionalCostsWithMargin > 0) {
+          costItems.push(['Additional Costs (Inc Margin)', formatCurrency(data.additionalCostsWithMargin)]);
+        }
+        costItems.push(
           ['Paid Media Budget (Including Margin)', formatCurrency(data.paidMediaWithMargin)],
           ['Total Campaign Budget', formatCurrency(data.totalPrice)],
-        ];
+        );
         appendSummaryRows(costGrid, costItems);
       }
 
@@ -4018,7 +4060,7 @@
         }
       }
       const fallbackId = list[0]?.id ?? null;
-      return { view: fallbackId ? 'editor' : 'dashboard', id: fallbackId };
+      return { view: 'dashboard', id: fallbackId };
     }
 
     function updateRoute(view, campaignId) {
