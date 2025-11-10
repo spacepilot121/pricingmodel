@@ -1307,11 +1307,15 @@
         </section>
 
         <section>
-          <h2>Additional Costs (Inc Margin)</h2>
+          <h2>Precise TV Project Cost inc Margin</h2>
           <div class="input-group">
             <div class="input-row">
-              <label for="additional-costs">Additional Costs (Inc Margin)</label>
-              <input type="number" id="additional-costs" min="0" step="100" />
+              <label for="precise-project-costs">Precise TV Project Cost inc Margin</label>
+              <input type="number" id="precise-project-costs" min="0" step="100" />
+            </div>
+            <div class="input-row">
+              <label for="third-party-project-costs">3rd Party Project Costs Inc Margin</label>
+              <input type="number" id="third-party-project-costs" min="0" step="100" />
             </div>
           </div>
         </section>
@@ -1801,14 +1805,6 @@
           },
         },
       },
-      Agency: {
-        deliverables: {
-          Fee: {
-            baseViews: 1000,
-            cpv: 1,
-          },
-        },
-      },
     };
 
     const QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
@@ -1895,7 +1891,8 @@
       otherCosts: {
         other: 0,
         study: 0,
-        additional: 0,
+        preciseProject: 0,
+        thirdPartyProject: 0,
       },
       travel: {
         creators: 0,
@@ -1989,11 +1986,25 @@
         merged.manualViews = false;
         return applyLineDefaults(merged, { forceViews: true });
       });
+      const parsedOtherCosts = { ...(parsed.otherCosts || {}) };
+      if (!('preciseProject' in parsedOtherCosts) && 'additional' in parsedOtherCosts) {
+        parsedOtherCosts.preciseProject = parsedOtherCosts.additional;
+      }
+      if (!('thirdPartyProject' in parsedOtherCosts)) {
+        parsedOtherCosts.thirdPartyProject = parsedOtherCosts.thirdPartyProject ?? 0;
+      }
+      delete parsedOtherCosts.additional;
+      if ('preciseProject' in parsedOtherCosts) {
+        parsedOtherCosts.preciseProject = Number(parsedOtherCosts.preciseProject) || 0;
+      }
+      if ('thirdPartyProject' in parsedOtherCosts) {
+        parsedOtherCosts.thirdPartyProject = Number(parsedOtherCosts.thirdPartyProject) || 0;
+      }
       return {
         ...base,
         marginGoal: parsed.marginGoal ?? base.marginGoal,
         details: { ...base.details, ...(parsed.details || {}) },
-        otherCosts: { ...base.otherCosts, ...(parsed.otherCosts || {}) },
+        otherCosts: { ...base.otherCosts, ...parsedOtherCosts },
         travel: { ...base.travel, ...(parsed.travel || {}) },
         campaignLines: normalizedLines,
         paidMedia: mergedPaidMedia,
@@ -2038,19 +2049,21 @@
       const paidBudget = normalized.paidMedia?.budget || 0;
       const paidViews = calculatePaidViews(normalized.paidMedia);
       const otherCosts = normalized.otherCosts || {};
-      const otherTotal = (otherCosts.other || 0) + (otherCosts.study || 0);
-      const additionalWithMargin = otherCosts.additional || 0;
+      const otherTotal = Number(otherCosts.other || 0) + Number(otherCosts.study || 0);
+      const preciseProjectWithMargin = Number(otherCosts.preciseProject ?? otherCosts.additional ?? 0);
+      const thirdPartyProjectWithMargin = Number(otherCosts.thirdPartyProject || 0);
+      const extraProjectCosts = preciseProjectWithMargin + thirdPartyProjectWithMargin;
       const travelCost = modifiers.travelRequired
         ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
         : 0;
       const feeAdjustedContent = contentSubtotal * (modifiers.feeMultiplier ?? 1);
       const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
       const totalCOGs = baseCOGs;
-      const totalCostWithExtras = baseCOGs + paidBudget + additionalWithMargin;
+      const totalCostWithExtras = baseCOGs + paidBudget + extraProjectCosts;
       const marginGoalPct = (normalized.marginGoal || 0) / 100;
       const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
       const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
-      const totalPrice = totalPriceExcludingPaid + paidBudget + additionalWithMargin;
+      const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
       const influencerCogs = contentSubtotal;
       const influencerMargin = Math.max(influencerCogs * marginGoalPct, 0);
       const influencerClientCost = influencerCogs + influencerMargin;
@@ -2079,7 +2092,8 @@
         totalEstimatedFollowers,
         totalPrice,
         paidBudget,
-        additionalCostsWithMargin: additionalWithMargin,
+        preciseProjectCostsWithMargin: preciseProjectWithMargin,
+        thirdPartyProjectCostsWithMargin: thirdPartyProjectWithMargin,
         influencerClientCost,
         grossMargin,
         pricePerCreator,
@@ -2336,9 +2350,15 @@
         });
 
         const feeAdjustedContent = processedLines.reduce((acc, line) => acc + (line.cogsTotal || 0), 0);
-        const otherTotal = (normalized.otherCosts?.other || 0)
-          + (normalized.otherCosts?.study || 0);
-        const additionalWithMargin = normalized.otherCosts?.additional || 0;
+        const otherTotal = Number(normalized.otherCosts?.other || 0)
+          + Number(normalized.otherCosts?.study || 0);
+        const preciseProjectWithMargin = Number(
+          normalized.otherCosts?.preciseProject
+            ?? normalized.otherCosts?.additional
+            ?? 0,
+        );
+        const thirdPartyProjectWithMargin = Number(normalized.otherCosts?.thirdPartyProject || 0);
+        const extraProjectCosts = preciseProjectWithMargin + thirdPartyProjectWithMargin;
         const travelCost = modifiers.travelRequired
           ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
           : 0;
@@ -2349,7 +2369,7 @@
         const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
         const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
         const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
-        const totalPrice = totalPriceExcludingPaid + paidBudget + additionalWithMargin;
+        const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
         const paidViews = calculatePaidViews(normalized.paidMedia);
 
         const detailedLines = processedLines.map(line => {
@@ -2464,11 +2484,11 @@
           ]);
         }
 
-        if (additionalWithMargin > 0) {
+        if (preciseProjectWithMargin > 0) {
           rows.push([
             campaignName,
             brand,
-            'Additional Costs (Inc Margin)',
+            'Precise TV Project Cost inc Margin',
             '',
             '',
             '',
@@ -2476,8 +2496,32 @@
             '',
             '',
             '',
-            formatNumberValue(additionalWithMargin, 2),
-            formatNumberValue(additionalWithMargin, 2),
+            formatNumberValue(preciseProjectWithMargin, 2),
+            formatNumberValue(preciseProjectWithMargin, 2),
+            '',
+            '',
+            '',
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        }
+
+        if (thirdPartyProjectWithMargin > 0) {
+          rows.push([
+            campaignName,
+            brand,
+            '3rd Party Project Costs Inc Margin',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            formatNumberValue(thirdPartyProjectWithMargin, 2),
+            formatNumberValue(thirdPartyProjectWithMargin, 2),
             '',
             '',
             '',
@@ -3139,13 +3183,18 @@
     function bindOtherCosts() {
       const otherInput = document.getElementById('other-costs');
       const studyInput = document.getElementById('study-costs');
-      const additionalInput = document.getElementById('additional-costs');
+      const preciseProjectInput = document.getElementById('precise-project-costs');
+      const thirdPartyProjectInput = document.getElementById('third-party-project-costs');
       const travelCreators = document.getElementById('travel-creators');
       const travelBudget = document.getElementById('travel-budget');
 
       otherInput.value = Number(state.otherCosts.other || 0);
       studyInput.value = Number(state.otherCosts.study || 0);
-      additionalInput.value = Number(state.otherCosts.additional || 0);
+      const preciseProjectValue = Number(
+        state.otherCosts.preciseProject ?? state.otherCosts.additional ?? 0,
+      );
+      preciseProjectInput.value = preciseProjectValue;
+      thirdPartyProjectInput.value = Number(state.otherCosts.thirdPartyProject || 0);
       travelCreators.value = Number(state.travel.creators || 0);
       travelBudget.value = Number(state.travel.perCreator || 0);
 
@@ -3159,8 +3208,13 @@
         saveState();
         recalc();
       });
-      additionalInput.addEventListener('change', () => {
-        state.otherCosts.additional = parseFloat(additionalInput.value) || 0;
+      preciseProjectInput.addEventListener('change', () => {
+        state.otherCosts.preciseProject = parseFloat(preciseProjectInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      thirdPartyProjectInput.addEventListener('change', () => {
+        state.otherCosts.thirdPartyProject = parseFloat(thirdPartyProjectInput.value) || 0;
         saveState();
         recalc();
       });
@@ -3185,9 +3239,15 @@
       if (studyInput) {
         studyInput.value = Number(state.otherCosts.study || 0);
       }
-      const additionalInput = document.getElementById('additional-costs');
-      if (additionalInput) {
-        additionalInput.value = Number(state.otherCosts.additional || 0);
+      const preciseProjectInput = document.getElementById('precise-project-costs');
+      if (preciseProjectInput) {
+        preciseProjectInput.value = Number(
+          state.otherCosts.preciseProject ?? state.otherCosts.additional ?? 0,
+        );
+      }
+      const thirdPartyProjectInput = document.getElementById('third-party-project-costs');
+      if (thirdPartyProjectInput) {
+        thirdPartyProjectInput.value = Number(state.otherCosts.thirdPartyProject || 0);
       }
       const travelCreators = document.getElementById('travel-creators');
       if (travelCreators) {
@@ -3386,8 +3446,14 @@
       });
 
       const feeAdjustedContent = contentSubtotal * modifiers.feeMultiplier;
-      const otherTotal = (state.otherCosts.other || 0) + (state.otherCosts.study || 0);
-      const additionalWithMargin = state.otherCosts.additional || 0;
+      const otherTotal = Number(state.otherCosts.other || 0) + Number(state.otherCosts.study || 0);
+      const preciseProjectWithMargin = Number(
+        state.otherCosts.preciseProject
+          ?? state.otherCosts.additional
+          ?? 0,
+      );
+      const thirdPartyProjectWithMargin = Number(state.otherCosts.thirdPartyProject || 0);
+      const extraProjectCosts = preciseProjectWithMargin + thirdPartyProjectWithMargin;
       const travelCost = modifiers.travelRequired
         ? (state.travel.creators || 0) * (state.travel.perCreator || 0)
         : 0;
@@ -3396,11 +3462,11 @@
       const paidViews = calculatePaidViews(state.paidMedia);
       const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
       const totalCOGs = baseCOGs;
-      const totalCostWithExtras = baseCOGs + paidBudget + additionalWithMargin;
+      const totalCostWithExtras = baseCOGs + paidBudget + extraProjectCosts;
       const marginGoalPct = (state.marginGoal || 0) / 100;
       const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
       const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
-      const totalPrice = totalPriceExcludingPaid + paidBudget + additionalWithMargin;
+      const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
       const grossMargin = totalPrice - totalCostWithExtras;
       const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
       contentLines.forEach(line => {
@@ -3414,7 +3480,8 @@
       const influencerMargin = Math.max(influencerCogs * marginGoalPct, 0);
       const influencerClientCost = influencerCogs + influencerMargin;
       const paidMediaWithMargin = paidBudget;
-      const additionalCostsWithMargin = additionalWithMargin;
+      const preciseProjectCostsWithMargin = preciseProjectWithMargin;
+      const thirdPartyProjectCostsWithMargin = thirdPartyProjectWithMargin;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
       const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
       const totalCogsPerCreator = totalCreators > 0 ? totalCOGs / totalCreators : 0;
@@ -3454,7 +3521,8 @@
         adRateCpv,
         modifiers,
         details: state.details,
-        additionalCostsWithMargin,
+        preciseProjectCostsWithMargin,
+        thirdPartyProjectCostsWithMargin,
       });
 
       const creatorSummary = buildCreatorSizeSummary(state.campaignLines);
@@ -3480,8 +3548,11 @@
         'Influencer Cost to Client': influencerClientCost,
         'Paid Media Budget (Including Margin)': paidMediaWithMargin,
       };
-      if (additionalCostsWithMargin > 0) {
-        investmentMix['Additional Costs (Inc Margin)'] = additionalCostsWithMargin;
+      if (preciseProjectCostsWithMargin > 0) {
+        investmentMix['Precise TV Project Cost inc Margin'] = preciseProjectCostsWithMargin;
+      }
+      if (thirdPartyProjectCostsWithMargin > 0) {
+        investmentMix['3rd Party Project Costs Inc Margin'] = thirdPartyProjectCostsWithMargin;
       }
 
       updateCharts(
@@ -3521,8 +3592,17 @@
           ['Influencer Margin', formatCurrency(data.influencerMargin)],
           ['Total Influencer Cost to Client', formatCurrency(data.influencerClientCost)],
         ];
-        if (data.additionalCostsWithMargin > 0) {
-          costItems.push(['Additional Costs (Inc Margin)', formatCurrency(data.additionalCostsWithMargin)]);
+        if (data.preciseProjectCostsWithMargin > 0) {
+          costItems.push([
+            'Precise TV Project Cost inc Margin',
+            formatCurrency(data.preciseProjectCostsWithMargin),
+          ]);
+        }
+        if (data.thirdPartyProjectCostsWithMargin > 0) {
+          costItems.push([
+            '3rd Party Project Costs Inc Margin',
+            formatCurrency(data.thirdPartyProjectCostsWithMargin),
+          ]);
         }
         costItems.push(
           ['Paid Media Budget (Including Margin)', formatCurrency(data.paidMediaWithMargin)],
