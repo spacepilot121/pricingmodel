@@ -1383,6 +1383,7 @@
                 <th scope="col">Estimated Deliverables</th>
                 <th scope="col">Guaranteed Views</th>
                 <th scope="col">Combined CPV</th>
+                <th scope="col">Complete CPV</th>
                 <th scope="col">Usage</th>
                 <th scope="col">Notes</th>
               </tr>
@@ -1394,6 +1395,7 @@
                 <td id="insight-deliverable-summary">—</td>
                 <td id="insight-views">0</td>
                 <td id="insight-cpv">$0.000</td>
+                <td id="insight-complete-cpv">Set target budget</td>
                 <td id="insight-usage">Standard usage</td>
                 <td>
                   <div
@@ -3490,6 +3492,8 @@
       const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
       const brandOrganicCPV = organicViewsAdjusted > 0 ? influencerClientCost / organicViewsAdjusted : 0;
       const brandCombinedCPV = totalViews > 0 ? totalPrice / totalViews : 0;
+      const targetBudget = parseCurrencyInput(state.details?.budget);
+      const completeCpv = totalViews > 0 && targetBudget > 0 ? targetBudget / totalViews : null;
       const adRateCpv = organicViewsAdjusted > 0 ? feeAdjustedContent / organicViewsAdjusted : 0;
 
       updateSummary({
@@ -3515,6 +3519,7 @@
         brandCPM,
         brandOrganicCPV,
         brandCombinedCPV,
+        completeCpv,
         totalViews,
         platformViews,
         totalEstimatedFollowers,
@@ -3523,6 +3528,7 @@
         details: state.details,
         preciseProjectCostsWithMargin,
         thirdPartyProjectCostsWithMargin,
+        targetBudget,
       });
 
       const creatorSummary = buildCreatorSizeSummary(state.campaignLines);
@@ -3536,6 +3542,8 @@
         organicViews: organicViewsAdjusted,
         paidViews,
         combinedCpv: brandCombinedCPV,
+        completeCpv,
+        targetBudget,
         usageSummary,
       });
 
@@ -3611,10 +3619,17 @@
         appendSummaryRows(costGrid, costItems);
       }
 
-      updatePaidBudgetPercentageDisplay(data.totalPrice, data.paidMediaWithMargin);
+      const paidShareBase = Number(data.targetBudget) > 0 ? data.targetBudget : data.totalPrice;
+      updatePaidBudgetPercentageDisplay(paidShareBase, data.paidMediaWithMargin);
 
       if (metricsGrid) {
         metricsGrid.innerHTML = '';
+        const completeCpvDisplay = Number.isFinite(data.completeCpv)
+          ? formatCpv(data.completeCpv)
+          : '—';
+        const brandCombinedCpvDisplay = Number.isFinite(data.brandCombinedCPV)
+          ? formatCpv(data.brandCombinedCPV)
+          : '$0.000';
         const metricItems = [
           ['Organic Views (adj.)', data.organicViewsAdjusted],
           ['Paid Views', data.paidViews],
@@ -3624,7 +3639,8 @@
           ['Min Estimated Followers', data.totalEstimatedFollowers],
           ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
           ['Brand Organic CPV', isFinite(data.brandOrganicCPV) ? formatCpv(data.brandOrganicCPV) : '$0.000'],
-          ['Brand Combined CPV', isFinite(data.brandCombinedCPV) ? formatCpv(data.brandCombinedCPV) : '$0.000'],
+          ['Complete CPV (Target Budget)', completeCpvDisplay],
+          ['Brand Combined CPV', brandCombinedCpvDisplay],
         ];
         appendSummaryRows(metricsGrid, metricItems);
       }
@@ -3829,6 +3845,17 @@
       const cpvCell = document.getElementById('insight-cpv');
       if (cpvCell) {
         cpvCell.textContent = formatCpv(data.combinedCpv || 0);
+      }
+
+      const completeCpvCell = document.getElementById('insight-complete-cpv');
+      if (completeCpvCell) {
+        if (Number.isFinite(data.completeCpv) && data.completeCpv > 0) {
+          completeCpvCell.textContent = formatCpv(data.completeCpv);
+        } else if (Number(data.targetBudget) > 0) {
+          completeCpvCell.textContent = '—';
+        } else {
+          completeCpvCell.textContent = 'Set target budget';
+        }
       }
 
       const usageCell = document.getElementById('insight-usage');
