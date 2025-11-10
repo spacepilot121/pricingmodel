@@ -2039,9 +2039,9 @@
       const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
       const totalPrice = totalPriceExcludingPaid + paidBudget + additionalWithMargin;
       const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
-      const influencerCogs = feeAdjustedContent;
-      const influencerMargin = influencerCogs * Math.max(priceMultiplier - 1, 0);
-      const influencerClientCost = influencerCogs + influencerMargin;
+      const influencerCogs = contentSubtotal;
+      const influencerClientCost = feeAdjustedContent * priceMultiplier;
+      const influencerMargin = Math.max(influencerClientCost - influencerCogs, 0);
       const grossMargin = totalPrice - totalCOGs;
       const totalViews = organicViewsAdjusted + paidViews;
       const totalCreators = lines.reduce((acc, line) => acc + (line.creators || 0), 0);
@@ -3397,9 +3397,9 @@
         const effectiveCpv = line.cogsCpv * priceMultiplier;
         line.effectiveCpv = Number.isFinite(effectiveCpv) ? effectiveCpv : 0;
       });
-      const influencerCogs = feeAdjustedContent;
-      const influencerMargin = influencerCogs * Math.max(priceMultiplier - 1, 0);
-      const influencerClientCost = influencerCogs + influencerMargin;
+      const influencerCogs = contentSubtotal;
+      const influencerClientCost = feeAdjustedContent * priceMultiplier;
+      const influencerMargin = Math.max(influencerClientCost - influencerCogs, 0);
       const paidMediaWithMargin = paidBudget;
       const additionalCostsWithMargin = additionalWithMargin;
       const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
