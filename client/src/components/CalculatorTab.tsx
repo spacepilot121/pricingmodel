@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 
 export default function CalculatorTab() {
+  const legacyCalculatorUrl = `${import.meta.env.BASE_URL}legacy-calculator.html`;
+
   return (
     <div className="card" style={{ padding: 0 }}>
       <div style={{ padding: '16px 16px 0 16px' }}>
@@ -17,7 +19,7 @@ export default function CalculatorTab() {
         </div>
       </div>
       <iframe
-        src="/legacy-calculator.html"
+        src={legacyCalculatorUrl}
         title="Pricing calculator"
         style={{ border: 'none', width: '100%', height: '80vh', borderTop: '1px solid #334155' }}
       />
