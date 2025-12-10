@@ -12,6 +12,10 @@ This repository hosts the single-page Precise Influencer Calculator front-end (`
 
 Open `index.html` directly in a modern browser or serve it from any static web server. No build tooling or backend services are required.
 
+## Live preview
+
+GitHub Pages can serve the calculator from the repository root (`/index.html`) or from the optional `docs/` copy used by the Pages default configuration. Visit `https://spacepilot121.github.io/pricingmodel/` to land directly on the calculator UI.
+
 ## CSV export tips
 
 - The CSV includes key selectors such as platform, deliverable, creator size, language, vertical, and counts of creators/content.
