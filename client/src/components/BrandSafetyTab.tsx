@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { scanManyCreators, getAllBrandSafetyResults } from '../api/brandSafetyApi';
 import { BrandSafetyResult, Creator, Incident } from '../types';
-import { mockCreators } from '../mockCreators';
 
 const riskColors: Record<string, string> = {
   Green: 'badge green',
@@ -12,9 +11,9 @@ const riskColors: Record<string, string> = {
 type ScanningStatus = Record<string, 'Pending' | 'Scanning' | 'Done' | 'Error'>;
 
 export default function BrandSafetyTab() {
+  const [pastedUrls, setPastedUrls] = useState('');
   const [creators, setCreators] = useState<Creator[]>([]);
   const [resultsByCreatorId, setResultsByCreatorId] = useState<Record<string, BrandSafetyResult>>({});
-  const [selectedCreatorIds, setSelectedCreatorIds] = useState<string[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [filterRiskLevel, setFilterRiskLevel] = useState<'All' | 'Green' | 'Amber' | 'Red'>('All');
   const [error, setError] = useState<string | null>(null);
@@ -37,27 +36,39 @@ export default function BrandSafetyTab() {
     return creators.filter((creator) => resultsByCreatorId[creator.id]?.riskLevel === filterRiskLevel);
   }, [creators, filterRiskLevel, resultsByCreatorId]);
 
-  function loadCreatorsFromCalculator() {
-    setCreators(mockCreators);
-    const map: Record<string, BrandSafetyResult> = {};
-    Object.values(resultsByCreatorId).forEach((r) => {
-      map[r.creatorId] = r;
-    });
-    setResultsByCreatorId(map);
+  function parseUrls(): string[] {
+    return pastedUrls
+      .split(/\r?\n/) // split on newlines
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
   }
 
-  function toggleSelection(id: string) {
-    setSelectedCreatorIds((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+  function loadUrls() {
+    const urls = Array.from(new Set(parseUrls()));
+    if (!urls.length) {
+      setError('Paste at least one URL to scan.');
+      return;
+    }
+    const preparedCreators: Creator[] = urls.map((url) => ({
+      id: `url-${encodeURIComponent(url)}`,
+      name: url,
+      platform: 'Other',
+      channelUrl: url
+    }));
+    setError(null);
+    setCreators(preparedCreators);
+    setScanningStatus({});
   }
 
   async function handleScan(targetCreators: Creator[]) {
-    if (!targetCreators.length) return;
+    if (!targetCreators.length) {
+      setError('Paste URLs and press Load URLs before scanning.');
+      return;
+    }
     setIsScanning(true);
     setError(null);
     const status: ScanningStatus = {};
-    targetCreators.forEach((c) => (status[c.id] = 'Pending'));
+    targetCreators.forEach((c) => (status[c.id] = 'Scanning'));
     setScanningStatus(status);
     try {
       const results = await scanManyCreators(targetCreators);
@@ -80,8 +91,6 @@ export default function BrandSafetyTab() {
     }
   }
 
-  const selectedCreators = creators.filter((c) => selectedCreatorIds.includes(c.id));
-
   return (
     <div className="card">
       <h2>Brand Safety</h2>
@@ -92,33 +101,39 @@ export default function BrandSafetyTab() {
 
       {error && <div className="badge red">{error}</div>}
 
-      <div className="flex-row" style={{ marginTop: 12, marginBottom: 12 }}>
-        <button className="button" onClick={loadCreatorsFromCalculator} disabled={isScanning}>
-          Load creators from calculator
-        </button>
-        <button className="button secondary" onClick={() => handleScan(creators)} disabled={isScanning || !creators.length}>
-          Scan all creators
-        </button>
-        <button
-          className="button secondary"
-          onClick={() => handleScan(selectedCreators)}
-          disabled={isScanning || !selectedCreators.length}
-        >
-          Scan selected
-        </button>
-        <label>
-          Risk filter:
-          <select
-            style={{ marginLeft: 8 }}
-            value={filterRiskLevel}
-            onChange={(e) => setFilterRiskLevel(e.target.value as any)}
-          >
-            <option value="All">All</option>
-            <option value="Green">Green</option>
-            <option value="Amber">Amber</option>
-            <option value="Red">Red</option>
-          </select>
-        </label>
+      <div className="flex-row" style={{ gap: 12, marginTop: 12, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <label className="text-muted" style={{ display: 'block', marginBottom: 4 }}>
+            Paste creator profile URLs (one per line)
+          </label>
+          <textarea
+            value={pastedUrls}
+            onChange={(e) => setPastedUrls(e.target.value)}
+            placeholder="https://www.youtube.com/@example\nhttps://www.tiktok.com/@example"
+            style={{ width: '100%', minHeight: 140, padding: 12 }}
+          />
+        </div>
+        <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button className="button" onClick={loadUrls} disabled={isScanning}>
+            Load URLs
+          </button>
+          <button className="button secondary" onClick={() => handleScan(creators)} disabled={isScanning || !creators.length}>
+            Scan loaded URLs
+          </button>
+          <label>
+            Risk filter:
+            <select
+              style={{ marginLeft: 8 }}
+              value={filterRiskLevel}
+              onChange={(e) => setFilterRiskLevel(e.target.value as any)}
+            >
+              <option value="All">All</option>
+              <option value="Green">Green</option>
+              <option value="Amber">Amber</option>
+              <option value="Red">Red</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {isScanning && <p className="status-text">Scanning... please wait.</p>}
@@ -126,10 +141,8 @@ export default function BrandSafetyTab() {
       <table className="table">
         <thead>
           <tr>
-            <th>Select</th>
-            <th>Creator</th>
+            <th>URL</th>
             <th>Platform</th>
-            <th>Channel</th>
             <th>Last checked</th>
             <th>Risk score</th>
             <th>Risk level</th>
@@ -143,16 +156,8 @@ export default function BrandSafetyTab() {
             const status = scanningStatus[creator.id];
             return (
               <tr key={creator.id}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selectedCreatorIds.includes(creator.id)}
-                    onChange={() => toggleSelection(creator.id)}
-                  />
-                </td>
-                <td>{creator.name}</td>
+                <td>{creator.channelUrl || creator.name}</td>
                 <td>{creator.platform}</td>
-                <td>{creator.channelId || creator.channelUrl || '—'}</td>
                 <td>{result?.lastChecked ? new Date(result.lastChecked).toLocaleString() : '—'}</td>
                 <td>{result?.riskScore ?? '—'}</td>
                 <td>
@@ -172,7 +177,7 @@ export default function BrandSafetyTab() {
                       onClick={() => handleScan([creator])}
                       disabled={isScanning}
                     >
-                      Scan
+                      Rescan
                     </button>
                     <button
                       className="button secondary"
@@ -188,8 +193,8 @@ export default function BrandSafetyTab() {
           })}
           {!filteredCreators.length && (
             <tr>
-              <td colSpan={9} className="text-muted">
-                No creators loaded yet.
+              <td colSpan={7} className="text-muted">
+                No URLs loaded yet.
               </td>
             </tr>
           )}
