@@ -4,6 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>P.I.C — Precise. Influencer. Calculator.</title>
+  <script>
+    (function redirectToDocs() {
+      const repoPath = '/pricingmodel/';
+      const isGitHubPages = location.hostname.endsWith('github.io');
+      const alreadyInDocs = location.pathname.includes('/docs/');
+
+      if (isGitHubPages && location.pathname.startsWith(repoPath) && !alreadyInDocs) {
+        const target = `${repoPath}docs/${location.hash || '#/'}`;
+        location.replace(target);
+      }
+    })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
