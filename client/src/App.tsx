@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import CalculatorTab from './components/CalculatorTab';
 import BrandSafetyTab from './components/BrandSafetyTab';
 import SettingsTab from './components/SettingsTab';
