@@ -2,12 +2,14 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import CalculatorTab from './components/CalculatorTab';
 import BrandSafetyTab from './components/BrandSafetyTab';
 import SettingsTab from './components/SettingsTab';
+import LandingPage from './components/LandingPage';
 import './app.css';
 
 function NavTabs() {
   const location = useLocation();
   const tabs = [
-    { path: '/', label: 'Calculator' },
+    { path: '/', label: 'Home' },
+    { path: '/campaigns', label: 'Calculator' },
     { path: '/brand-safety', label: 'Brand Safety' },
     { path: '/settings', label: 'Settings' }
   ];
@@ -32,7 +34,8 @@ export default function App() {
       <NavTabs />
       <div className="tab-content">
         <Routes>
-          <Route path="/" element={<CalculatorTab />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/campaigns" element={<CalculatorTab />} />
           <Route path="/brand-safety" element={<BrandSafetyTab />} />
           <Route path="/settings" element={<SettingsTab />} />
         </Routes>
