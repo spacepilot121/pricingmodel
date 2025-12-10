@@ -3,11 +3,20 @@ import { BrandSafetyResult, Creator } from '../types';
 const BASE_URL = '/api/brand-safety';
 
 async function handleResponse(res: Response) {
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || 'Request failed');
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (err) {
+    console.warn('Failed to parse response JSON', err);
   }
-  return res.json();
+
+  if (!res.ok) {
+    const message = data?.error || data?.message || text || 'Request failed';
+    throw new Error(message);
+  }
+
+  return data;
 }
 
 export async function scanManyCreators(creators: Creator[]): Promise<BrandSafetyResult[]> {

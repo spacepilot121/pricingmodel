@@ -1,7 +1,7 @@
 export type Creator = {
   id: string;
   name: string;
-  platform: 'YouTube' | 'Twitch' | 'TikTok' | 'Other';
+  platform: 'YouTube' | 'Twitch' | 'TikTok' | 'Instagram' | 'Other';
   channelUrl?: string;
   channelId?: string;
 };

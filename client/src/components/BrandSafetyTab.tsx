@@ -36,6 +36,31 @@ export default function BrandSafetyTab() {
     return creators.filter((creator) => resultsByCreatorId[creator.id]?.riskLevel === filterRiskLevel);
   }, [creators, filterRiskLevel, resultsByCreatorId]);
 
+  function inferPlatform(url: string): Creator['platform'] {
+    const lower = url.toLowerCase();
+    if (lower.includes('youtube.com') || lower.includes('youtu.be')) return 'YouTube';
+    if (lower.includes('tiktok.com')) return 'TikTok';
+    if (lower.includes('instagram.com')) return 'Instagram';
+    return 'Other';
+  }
+
+  function prepareCreators(urls: string[]): Creator[] {
+    return urls.map((url) => {
+      let name = url;
+      try {
+        const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+        name = parsed.hostname.replace(/^www\./, '');
+      } catch {}
+
+      return {
+        id: `url-${encodeURIComponent(url)}`,
+        name,
+        platform: inferPlatform(url),
+        channelUrl: url
+      };
+    });
+  }
+
   function parseUrls(): string[] {
     return pastedUrls
       .split(/\r?\n/) // split on newlines
@@ -49,15 +74,11 @@ export default function BrandSafetyTab() {
       setError('Paste at least one URL to scan.');
       return;
     }
-    const preparedCreators: Creator[] = urls.map((url) => ({
-      id: `url-${encodeURIComponent(url)}`,
-      name: url,
-      platform: 'Other',
-      channelUrl: url
-    }));
+    const preparedCreators = prepareCreators(urls);
     setError(null);
     setCreators(preparedCreators);
     setScanningStatus({});
+    handleScan(preparedCreators);
   }
 
   async function handleScan(targetCreators: Creator[]) {
