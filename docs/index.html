@@ -1,0 +1,5108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>P.I.C — Precise. Influencer. Calculator.</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --accent: #38bdf8;
+      --muted: #94a3b8;
+      --danger: #f87171;
+      --success: #34d399;
+      --warning: #facc15;
+      --border: #334155;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    html {
+      font-size: 0.85rem;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: #e2e8f0;
+      line-height: 1.35;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      font-size: 0.85rem;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      background: linear-gradient(120deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.25));
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    header h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.85rem;
+      letter-spacing: 0.04em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 1.1rem;
+      padding: 1.1rem;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: static;
+        top: auto;
+        height: auto;
+      }
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 24px 48px -32px rgba(15, 23, 42, 0.8);
+    }
+
+    section h2 {
+      margin-top: 0;
+      margin-bottom: 0.65rem;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    #campaign-details h2 {
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .details-grid {
+      display: grid;
+      gap: 0.65rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .details-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: rgba(15, 23, 42, 0.35);
+    }
+
+    .details-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .details-field input[type="text"],
+    .details-field input[type="range"] {
+      width: 100%;
+    }
+
+    .details-slider-value {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .details-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: rgba(15, 23, 42, 0.35);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .details-checkbox span {
+      flex: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 0.4rem;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 0.35rem 0.4rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    select,
+    input[type="number"],
+    input[type="text"] {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 6px;
+      color: inherit;
+      padding: 0.35rem 0.4rem;
+      font-size: 0.8rem;
+    }
+
+    .readonly-value {
+      padding: 0.25rem 0;
+      border-radius: 0;
+      border: none;
+      background: transparent;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 1.1rem;
+      height: 1.1rem;
+      cursor: pointer;
+    }
+
+    .table-actions {
+      margin-top: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .section-pair {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-pair > section {
+      margin-bottom: 0;
+    }
+
+    button {
+      background: var(--accent);
+      color: #0f172a;
+      border: none;
+      border-radius: 999px;
+      padding: 0.55rem 1.25rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 18px -12px rgba(56, 189, 248, 0.65);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    button.secondary {
+      background: rgba(148, 163, 184, 0.15);
+      color: #cbd5f5;
+    }
+
+    button.danger {
+      background: rgba(248, 113, 113, 0.18);
+      color: var(--danger);
+    }
+
+    button.danger:hover {
+      box-shadow: 0 12px 18px -12px rgba(248, 113, 113, 0.65);
+    }
+
+    .line-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .line-action-button {
+      padding: 0.35rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      min-width: 0;
+    }
+
+    .line-action-button.move-button {
+      width: 2rem;
+      padding: 0.3rem 0;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .pricing-menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-y: auto;
+      padding: 2.5rem 1.5rem;
+      z-index: 2000;
+    }
+
+    .pricing-menu {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      width: min(960px, 100%);
+      max-height: calc(100vh - 3rem);
+      overflow-y: auto;
+      padding: 1.5rem;
+      box-shadow: 0 32px 64px -40px rgba(8, 15, 32, 0.9);
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .pricing-menu-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .pricing-menu-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pricing-menu-actions button {
+      white-space: nowrap;
+    }
+
+    .pricing-menu-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .pricing-menu-description {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .pricing-menu-close {
+      background: rgba(148, 163, 184, 0.15);
+      color: #cbd5f5;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .pricing-menu-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .pricing-menu-toggle label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .pricing-menu-section {
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 14px;
+      padding: 1rem;
+      background: rgba(15, 23, 42, 0.4);
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .pricing-menu-section h4 {
+      margin: 0;
+      font-size: 0.9rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .pricing-menu-section p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .pricing-variable-grid {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .pricing-variable-item {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.55);
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .pricing-variable-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .pricing-variable-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .pricing-menu-table-wrapper {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.5);
+    }
+
+    .pricing-menu-table-wrapper table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .pricing-menu-table-wrapper th,
+    .pricing-menu-table-wrapper td {
+      padding: 0.5rem 0.65rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      text-align: left;
+    }
+
+    .pricing-menu-table-wrapper th {
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .pricing-menu-table-wrapper tr:last-child td {
+      border-bottom: none;
+    }
+
+    .pricing-deliverable-grid {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .pricing-deliverable-card {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.55);
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .pricing-deliverable-card h5 {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #cbd5f5;
+    }
+
+    .pricing-deliverable-meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .pricing-deliverable-meta strong {
+      color: #e2e8f0;
+    }
+
+    aside {
+      position: sticky;
+      top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      height: calc(100vh - 3rem);
+    }
+
+    .summary-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .summary-card h3 {
+      margin-top: 0;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      color: #cbd5f5;
+    }
+
+    .summary-grid {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: baseline;
+      padding: 0.4rem 0.5rem;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.3);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .summary-item span:last-child {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .status-ok {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+    }
+
+    .status-needs {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+    }
+
+    .summary-block-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .summary-block {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .budget-status-card {
+      border-radius: 12px;
+      padding: 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(148, 163, 184, 0.08);
+      display: grid;
+      gap: 0.35rem;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .budget-status-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .budget-status-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .budget-status-subtext {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .budget-status-good {
+      border-color: rgba(52, 211, 153, 0.4);
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--success);
+    }
+
+    .budget-status-over {
+      border-color: rgba(248, 113, 113, 0.4);
+      background: rgba(248, 113, 113, 0.12);
+      color: var(--danger);
+    }
+
+    .budget-status-under {
+      border-color: rgba(250, 204, 21, 0.4);
+      background: rgba(250, 204, 21, 0.12);
+      color: var(--warning);
+    }
+
+    .budget-status-neutral {
+      color: #cbd5f5;
+    }
+
+    .platform-breakdown {
+      margin-top: 0.75rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+      padding-top: 0.75rem;
+      display: grid;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .platform-breakdown div {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+    }
+
+    .chart-section {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .chart-grid {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+
+    @media (min-width: 640px) {
+      .chart-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 960px) {
+      .chart-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 1280px) {
+      .chart-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    .chart-card {
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.45);
+      box-shadow: 0 18px 32px -28px rgba(15, 23, 42, 0.8);
+    }
+
+    .chart-card h3 {
+      margin: 0 0 0.4rem;
+      font-size: 0.85rem;
+      color: #cbd5f5;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 240px;
+    }
+
+    .chart-wrapper canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .insight-table-card {
+      margin-top: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.45);
+      padding: 0.85rem;
+      box-shadow: 0 20px 36px -28px rgba(15, 23, 42, 0.8);
+      overflow-x: auto;
+    }
+
+    .insight-table-card h3 {
+      margin: 0 0 0.65rem;
+      font-size: 0.9rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .insight-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      min-width: 600px;
+    }
+
+    .insight-table th,
+    .insight-table td {
+      padding: 0.45rem 0.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .insight-table th {
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .insight-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .insight-notes-field {
+      min-height: 2.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 8px;
+      padding: 0.4rem 0.5rem;
+      background: rgba(15, 23, 42, 0.6);
+      color: inherit;
+      outline: none;
+      white-space: pre-wrap;
+    }
+
+    .insight-notes-field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+    }
+
+    .paid-media-mode {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .paid-media-mode label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+
+    .input-group {
+      display: grid;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+
+    .margin-controls {
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    .margin-inputs {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .margin-inputs input[type="range"] {
+      width: 100%;
+    }
+
+    .margin-inputs input[type="number"] {
+      width: 4rem;
+      justify-self: end;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .input-row label {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .field-note {
+      margin-left: 0.5rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      opacity: 0.85;
+      white-space: nowrap;
+    }
+
+    #campaign-app {
+      padding: 1.1rem;
+    }
+
+    .campaign-app {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 24px 48px -32px rgba(15, 23, 42, 0.8);
+    }
+
+    .campaign-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .campaign-toolbar h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .campaign-toolbar p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .campaign-toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .campaign-toolbar select {
+      width: auto;
+      min-width: 180px;
+    }
+
+    .campaign-dashboard-empty {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 1rem;
+    }
+
+    .campaign-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .campaign-card {
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 12px;
+      padding: 0.9rem;
+      background: rgba(15, 23, 42, 0.55);
+      display: flex;
+      align-items: stretch;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .campaign-card-main {
+      flex: 1 1 420px;
+      min-width: 260px;
+    }
+
+    .campaign-card-actions {
+      margin-left: auto;
+    }
+
+    .campaign-card-order {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .campaign-card-order button {
+      min-width: 0;
+    }
+
+    .campaign-move-button {
+      width: 2.25rem;
+      height: 2.25rem;
+      padding: 0;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      line-height: 1;
+      background: rgba(148, 163, 184, 0.18);
+      color: #cbd5f5;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .campaign-move-button:hover {
+      box-shadow: 0 10px 14px -12px rgba(148, 163, 184, 0.65);
+    }
+
+    .campaign-move-button:disabled {
+      opacity: 0.35;
+    }
+
+    .campaign-card h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .campaign-card-meta {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .campaign-card-meta span strong {
+      color: #e2e8f0;
+      display: block;
+      font-size: 0.9rem;
+    }
+
+    .campaign-card-flags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+    }
+
+    .campaign-flag {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 0.25rem 0.6rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: rgba(148, 163, 184, 0.12);
+    }
+
+    .campaign-flag-urgent {
+      color: var(--danger);
+      border-color: rgba(248, 113, 113, 0.45);
+      background: rgba(248, 113, 113, 0.15);
+    }
+
+    .campaign-card-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .campaign-card-actions button {
+      min-width: 88px;
+    }
+
+    .campaign-card-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.6rem;
+      margin-top: 0.75rem;
+    }
+
+    .campaign-card-stat {
+      padding: 0.6rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .campaign-card-stat span {
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .campaign-card-stat strong {
+      font-size: 0.95rem;
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+
+    body.dashboard-active main,
+    body.dashboard-active footer {
+      display: none;
+    }
+
+    footer {
+      padding: 1rem 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .danger-text {
+      color: var(--danger);
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+    }
+
+    .pricing-menu-viewbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .pricing-menu-view-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .pricing-menu-tab {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 0.3rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .pricing-menu-tab.active {
+      background: var(--accent);
+      color: #0f172a;
+    }
+
+    .matrix-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .matrix-controls label {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .matrix-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .matrix-title {
+      margin: 0;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #cbd5f5;
+    }
+
+    .matrix-card {
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 12px;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .matrix-head {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .matrix-scroller {
+      overflow: auto;
+    }
+
+    .matrix-table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      border-right: 1px solid rgba(148, 163, 184, 0.08);
+    }
+
+    .matrix-table th {
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.8);
+      color: #cbd5f5;
+      text-align: left;
+    }
+
+    .matrix-row-header {
+      position: static;
+      background: transparent;
+      color: #cbd5f5;
+      text-align: left;
+    }
+
+    .matrix-format {
+      color: #cbd5f5;
+      font-weight: 600;
+    }
+
+    .matrix-sub {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .matrix-cell {
+      line-height: 1.2;
+    }
+
+    .matrix-cpv {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .matrix-views {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>P.I.C</h1>
+    <p>Precise. Influencer. Calculator.</p>
+  </header>
+  <div id="campaign-app"></div>
+  <main>
+    <div>
+      <section id="campaign-details">
+        <h2>Campaign Details</h2>
+        <div class="details-grid">
+          <label class="details-field" for="detail-brand">
+            <span class="details-label">Brand</span>
+            <input type="text" id="detail-brand" placeholder="e.g., Acme Co." />
+          </label>
+          <label class="details-field" for="detail-campaign">
+            <span class="details-label">Campaign Name</span>
+            <input type="text" id="detail-campaign" placeholder="Launch Campaign" />
+          </label>
+          <label class="details-field" for="detail-budget">
+            <span class="details-label">Target Budget</span>
+            <input type="text" id="detail-budget" placeholder="$250,000" />
+          </label>
+        </div>
+        <div class="details-grid" style="margin-top:0.75rem;">
+          <div class="details-field">
+            <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Quarter</span>
+              <span class="details-slider-value" id="quarter-display">Q1</span>
+            </div>
+            <input type="range" id="detail-quarter" min="1" max="4" step="1" list="quarter-marks" />
+          </div>
+          <div class="details-field">
+            <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Brand Excitement</span>
+              <span class="details-slider-value" id="excitement-display">Neutral</span>
+            </div>
+            <input type="range" id="detail-excitement" min="0" max="4" step="1" list="excitement-marks" />
+          </div>
+        </div>
+        <div class="details-grid" style="margin-top:0.75rem;">
+          <div class="details-field">
+            <div class="details-label" style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Margin Goal</span>
+              <span class="details-slider-value" id="margin-display">0%</span>
+            </div>
+            <div class="margin-inputs">
+              <input type="range" id="margin-goal-slider" min="0" max="90" step="1" />
+              <input type="number" id="margin-goal" min="0" max="90" step="1" />
+            </div>
+          </div>
+        </div>
+        <datalist id="quarter-marks">
+          <option value="1" label="Q1"></option>
+          <option value="2" label="Q2"></option>
+          <option value="3" label="Q3"></option>
+          <option value="4" label="Q4"></option>
+        </datalist>
+        <datalist id="excitement-marks">
+          <option value="0" label="Loved"></option>
+          <option value="1" label="Liked"></option>
+          <option value="2" label="Neutral"></option>
+          <option value="3" label="Disliked"></option>
+          <option value="4" label="Hated"></option>
+        </datalist>
+        <div class="details-grid" style="margin-top:0.75rem;">
+          <label class="details-checkbox" for="detail-rush">
+            <input type="checkbox" id="detail-rush" />
+            <span>Rush Fee (adds 15%)</span>
+          </label>
+          <label class="details-checkbox" for="detail-travel">
+            <input type="checkbox" id="detail-travel" />
+            <span>Travel Needed (adds 20%)</span>
+          </label>
+          <label class="details-checkbox" for="detail-niche">
+            <input type="checkbox" id="detail-niche" />
+            <span>Niche Creators Needed (adds 20%)</span>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Build the Campaign</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Deliverable</th>
+                <th>Creator Vertical</th>
+                <th>Creator Language</th>
+                <th>Creator Size</th>
+                <th>Whitelist</th>
+                <th>No. Creators</th>
+                <th>No. Content Each</th>
+                <th>Views per Piece</th>
+                <th>Cogs CPV ($)</th>
+                <th>Client CPV ($)</th>
+                <th>Total COGs</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="campaign-body"></tbody>
+          </table>
+        </div>
+        <div class="table-actions">
+          <button id="add-line">Add Deliverable</button>
+          <button class="secondary" id="reset-state">Reset All</button>
+        </div>
+      </section>
+
+      <div class="section-pair">
+        <section>
+          <h2>Paid Media Options</h2>
+          <div class="paid-media-mode">
+            <label><input type="radio" name="paid-mode" value="cpv" /> CPV</label>
+            <label><input type="radio" name="paid-mode" value="cpm" /> CPM Mode</label>
+          </div>
+          <div class="input-group">
+            <div class="input-row">
+              <label for="paid-budget">
+                Paid Media Budget (Including Margin)
+                <span id="paid-budget-percent" class="field-note"></span>
+              </label>
+              <input type="number" id="paid-budget" min="0" step="100" />
+            </div>
+            <div class="input-row">
+              <label id="paid-rate-label" for="paid-rate">Client CPV (Including Margin)</label>
+              <input type="number" id="paid-rate" min="0" step="0.001" />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Travel &amp; Other Costs</h2>
+          <div class="input-group">
+            <div class="input-row">
+              <label for="other-costs">Other Costs</label>
+              <input type="number" id="other-costs" min="0" step="100" />
+            </div>
+            <div class="input-row">
+              <label for="study-costs">Study Costs</label>
+              <input type="number" id="study-costs" min="0" step="100" />
+            </div>
+          </div>
+          <div id="travel-controls" class="input-group" style="display:none; margin-top:0.5rem;">
+            <div class="input-row">
+              <label for="travel-creators">Traveling Creators</label>
+              <input type="number" id="travel-creators" min="0" step="1" />
+            </div>
+            <div class="input-row">
+              <label for="travel-budget">Travel Budget / Creator</label>
+              <input type="number" id="travel-budget" min="0" step="100" />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Precise TV Project Cost inc Margin</h2>
+          <div class="input-group">
+            <div class="input-row">
+              <label for="precise-project-costs">Precise TV Project Cost inc Margin</label>
+              <input type="number" id="precise-project-costs" min="0" step="100" />
+            </div>
+            <div class="input-row">
+              <label for="third-party-project-costs">3rd Party Project Costs Inc Margin</label>
+              <input type="number" id="third-party-project-costs" min="0" step="100" />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="chart-section">
+        <h2>Campaign Insights</h2>
+        <div class="chart-grid">
+          <div class="chart-card">
+            <h3>Budget Split by Platform</h3>
+            <div class="chart-wrapper">
+              <canvas id="platform-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Budget Split by Language</h3>
+            <div class="chart-wrapper">
+              <canvas id="language-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Budget Split by Creator Size</h3>
+            <div class="chart-wrapper">
+              <canvas id="size-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Budget Split by Creator Vertical</h3>
+            <div class="chart-wrapper">
+              <canvas id="vertical-budget-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Estimated Views by Platform</h3>
+            <div class="chart-wrapper">
+              <canvas id="platform-view-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Content Pieces by Creator Size</h3>
+            <div class="chart-wrapper">
+              <canvas id="size-content-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Organic vs Paid Views</h3>
+            <div class="chart-wrapper">
+              <canvas id="view-mix-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Organic Influencer Cost vs Paid Media Budget</h3>
+            <div class="chart-wrapper">
+              <canvas id="investment-mix-chart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="insight-table-card">
+          <h3>Copy Snapshot</h3>
+          <table class="insight-table" aria-label="Campaign copy snapshot">
+            <thead>
+              <tr>
+                <th scope="col">Client Budget</th>
+                <th scope="col">Est. Creators &amp; Sizes</th>
+                <th scope="col">Estimated Deliverables</th>
+                <th scope="col">Guaranteed Views</th>
+                <th scope="col">Combined CPV</th>
+                <th scope="col">Complete CPV</th>
+                <th scope="col">Usage</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td id="insight-client-budget">$0</td>
+                <td id="insight-creator-summary">—</td>
+                <td id="insight-deliverable-summary">—</td>
+                <td id="insight-views">0</td>
+                <td id="insight-cpv">$0.000</td>
+                <td id="insight-complete-cpv">Set target budget</td>
+                <td id="insight-usage">Standard usage</td>
+                <td>
+                  <div
+                    id="insight-notes"
+                    class="insight-notes-field"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-label="Snapshot notes"
+                  ></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <aside>
+      <div class="summary-card">
+        <h3>Estimated Deliverables &amp; Commercials</h3>
+        <div id="status-badge" class="status-badge status-ok">OK — Ready</div>
+        <div class="summary-block">
+          <p class="summary-block-title">Cost Breakdown</p>
+          <div class="summary-grid" id="cost-summary"></div>
+          <div id="budget-status" class="budget-status-card budget-status-neutral">
+            <div class="budget-status-title">Budget Status</div>
+            <div class="budget-status-value">No target budget set</div>
+            <div class="budget-status-subtext">Enter a target budget in campaign details to compare.</div>
+          </div>
+        </div>
+        <div class="summary-block">
+          <p class="summary-block-title">Delivery Metrics</p>
+          <div class="summary-grid" id="summary-grid"></div>
+        </div>
+        <div class="platform-breakdown" id="platform-breakdown"></div>
+      </div>
+    </aside>
+  </main>
+  <footer>
+    State auto-saves locally. Refresh anytime and pick up where you left off.
+  </footer>
+
+  <script>
+    /* =============================
+       Constants (EMPTY tab mapping)
+       =============================
+       The workbook exposes key multipliers near rows 44563-44613. They are consolidated below for easy edits.
+    */
+    const LEGACY_STORAGE_KEY = 'precise-influencer-calculator-v1';
+    const CAMPAIGN_STORAGE_KEY = 'pic-campaigns-v2';
+    const TEMPLATE_STORAGE_KEY = 'pic-templates-v1';
+    let persistActiveCampaign = () => {};
+    // Generate a reasonably unique id when structuredClone is unavailable.
+    function createId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+      }
+      return `pic-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    // Read saved campaigns from localStorage and normalise their structure.
+    function loadCampaigns() {
+      try {
+        const raw = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(entry => createCampaignRecord(entry.data ?? entry, entry.id, entry.name));
+      } catch (err) {
+        console.error('Failed to load campaigns', err);
+        return [];
+      }
+    }
+
+    // Persist the current campaign collection for dashboard use.
+    function saveCampaigns(campaigns) {
+      try {
+        localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(campaigns));
+      } catch (err) {
+        console.error('Failed to save campaigns', err);
+      }
+    }
+
+    // Restore saved templates from localStorage.
+    function loadTemplates() {
+      try {
+        const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(template => ({
+          id: template.id ?? createId(),
+          name: template.name ?? 'Template',
+          deliverables: Array.isArray(template.deliverables) ? template.deliverables : [],
+        }));
+      } catch (err) {
+        console.error('Failed to load templates', err);
+        return [];
+      }
+    }
+
+    // Persist reusable deliverable templates locally.
+    function saveTemplates(templates) {
+      try {
+        localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+      } catch (err) {
+        console.error('Failed to save templates', err);
+      }
+    }
+
+    // Prefer campaign collection storage but fall back to legacy single-state save.
+    function bootstrapCampaigns() {
+      const stored = loadCampaigns();
+      if (stored.length) {
+        return stored;
+      }
+      try {
+        const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (!legacyRaw) return [];
+        const parsed = JSON.parse(legacyRaw);
+        const record = createCampaignRecord(parsed);
+        const seeded = [record];
+        saveCampaigns(seeded);
+        return seeded;
+      } catch (err) {
+        console.error('Failed to import legacy campaign', err);
+        return [];
+      }
+    }
+
+    const chartStates = {
+      platformBudget: createChartState('platform-budget-chart'),
+      sizeBudget: createChartState('size-budget-chart'),
+      platformViews: createChartState('platform-view-chart'),
+      viewMix: createChartState('view-mix-chart'),
+      languageBudget: createChartState('language-budget-chart'),
+      verticalBudget: createChartState('vertical-budget-chart'),
+      sizeContent: createChartState('size-content-chart', createCountTooltipFormatter('pieces')),
+      investmentMix: createChartState('investment-mix-chart'),
+    };
+    chartStates.sizeContent.defaultType = 'bar';
+    chartStates.sizeContent.alternateType = 'pie';
+    chartStates.sizeContent.currentType = 'bar';
+
+    const CPV_WITH_MARGIN_LABEL = 'Client CPV (Including Margin)';
+
+    const DEFAULT_PAID_RATES = {
+      cpv: 0.03,
+      cpm: 12,
+    };
+
+    const SIZE_MULT = {
+      Icon: { views: 2.5 },
+      Mega: { views: 1.5 },
+      Macro: { views: 1 },
+      HMid: { views: 0.5 },
+      LMid: { views: 0.25 },
+      Micro: { views: 0.05 },
+      Fee: { views: 1 },
+    };
+
+    const SIZE_FOLLOWERS = {
+      Icon: 2000000,
+      Mega: 1000000,
+      Macro: 500000,
+      HMid: 250000,
+      LMid: 50000,
+      Micro: 10000,
+      Fee: 0,
+    };
+
+    const VERTICAL_MULT = {
+      Gaming: { rate: 1, views: 1.05 },
+      'Mobile Gaming': { rate: 1, views: 1.05 },
+      'Beauty/Fashion': { rate: 1, views: 1.1 },
+      Lifestyle: { rate: 1, views: 1.08 },
+      Tech: { rate: 1, views: 1 },
+      Fee: { rate: 1, views: 1 },
+    };
+
+    const LANGUAGE_MULT = {
+      English: { rate: 1, views: 1 },
+      French: { rate: 1.3, views: 1 },
+      German: { rate: 1.3, views: 1 },
+      Italian: { rate: 1.3, views: 1 },
+      Spanish: { rate: 0.8, views: 1 },
+      Portuguese: { rate: 0.8, views: 1 },
+      Fee: { rate: 1, views: 1 },
+    };
+
+    const WHITELIST_UPLIFT_PCT = {
+      Icon: 0.3,
+      Mega: 0.3,
+      Macro: 0.3,
+      HMid: 0.3,
+      LMid: 0.1,
+      Micro: 0,
+    };
+
+    // Each deliverable stores a base macro view count and creator CPV so we can derive
+    // consistent pricing across creator sizes while still allowing vertical/language uplifts.
+    // Size only impacts view expectations—pricing comes from the base rate plus other multipliers.
+    // When tier-specific view goals are available, a `viewsBySize` map overrides the generic
+    // size multiplier to reflect those expectations directly.
+    const RATE_CARD = {
+      YouTube: {
+        deliverables: {
+          Dedicated: {
+            baseViews: 200000,
+            cpv: 0.094,
+            cpvByVertical: {
+              Gaming: 0.064,
+              'Mobile Gaming': 0.096,
+              'Beauty/Fashion': 0.128,
+              Lifestyle: 0.085,
+              Tech: 0.081,
+            },
+            viewsBySize: {
+              Icon: 500000,
+              Mega: 300000,
+              Macro: 200000,
+              HMid: 100000,
+              LMid: 50000,
+              Micro: 10000,
+            },
+          },
+          Integrated: {
+            baseViews: 200000,
+            cpv: 0.054,
+            cpvByVertical: {
+              Gaming: 0.032,
+              'Mobile Gaming': 0.048,
+              'Beauty/Fashion': 0.072,
+              Lifestyle: 0.049,
+              Tech: 0.049,
+            },
+            viewsBySize: {
+              Icon: 500000,
+              Mega: 300000,
+              Macro: 200000,
+              HMid: 100000,
+              LMid: 50000,
+              Micro: 10000,
+            },
+          },
+          Shorts: {
+            baseViews: 200000,
+            cpv: 0.054,
+            viewsBySize: {
+              Icon: 500000,
+              Mega: 300000,
+              Macro: 200000,
+              HMid: 100000,
+              LMid: 50000,
+              Micro: 10000,
+            },
+          },
+          Stream: {
+            baseViews: 10000,
+            cpv: 0.935,
+            cpvByVertical: {
+              Gaming: 0.85,
+              'Mobile Gaming': 1.275,
+              'Beauty/Fashion': 0.85,
+              Lifestyle: 0.85,
+              Tech: 0.85,
+            },
+            viewsBySize: {
+              Icon: 20000,
+              Mega: 15000,
+              Macro: 10000,
+              HMid: 5000,
+              LMid: 500,
+              Micro: 100,
+            },
+          },
+        },
+      },
+      Instagram: {
+        deliverables: {
+          Reel: {
+            baseViews: 100000,
+            cpv: 0.056,
+            cpvByVertical: {
+              Gaming: 0.055,
+              'Mobile Gaming': 0.083,
+              'Beauty/Fashion': 0.072,
+              Lifestyle: 0.064,
+              Tech: 0.072,
+            },
+            viewsBySize: {
+              Icon: 300000,
+              Mega: 200000,
+              Macro: 100000,
+              HMid: 50000,
+              LMid: 30000,
+              Micro: 10000,
+            },
+          },
+          Video: {
+            baseViews: 100000,
+            cpv: 0.056,
+            cpvByVertical: {
+              Gaming: 0.055,
+              'Mobile Gaming': 0.083,
+              'Beauty/Fashion': 0.072,
+              Lifestyle: 0.064,
+              Tech: 0.072,
+            },
+            viewsBySize: {
+              Icon: 300000,
+              Mega: 200000,
+              Macro: 100000,
+              HMid: 50000,
+              LMid: 30000,
+              Micro: 10000,
+            },
+          },
+          Story: {
+            baseViews: 55000,
+            cpv: 0.042,
+            cpvByVertical: {
+              Gaming: 0.03,
+              'Mobile Gaming': 0.045,
+              'Beauty/Fashion': 0.045,
+              Lifestyle: 0.038,
+              Tech: 0.038,
+            },
+            viewsBySize: {
+              Icon: 150000,
+              Mega: 110000,
+              Macro: 55000,
+              HMid: 20000,
+              LMid: 5000,
+              Micro: 1000,
+            },
+          },
+          Photo: {
+            baseViews: 39000,
+            cpv: 0.049,
+            cpvByVertical: {
+              Gaming: 0.039,
+              'Mobile Gaming': 0.058,
+              'Beauty/Fashion': 0.051,
+              Lifestyle: 0.045,
+              Tech: 0.051,
+            },
+          },
+        },
+      },
+      TikTok: {
+        deliverables: {
+          Video: {
+            baseViews: 100000,
+            cpv: 0.056,
+            cpvByVertical: {
+              Gaming: 0.043,
+              'Mobile Gaming': 0.064,
+              'Beauty/Fashion': 0.058,
+              Lifestyle: 0.051,
+              Tech: 0.055,
+            },
+            viewsBySize: {
+              Icon: 300000,
+              Mega: 200000,
+              Macro: 100000,
+              HMid: 50000,
+              LMid: 30000,
+              Micro: 10000,
+            },
+          },
+          Live: { baseViews: 60000, cpv: 0.367 },
+        },
+      },
+      Twitch: {
+        deliverables: {
+          Stream: {
+            baseViews: 10000,
+            cpv: 0.935,
+            cpvByVertical: {
+              Gaming: 0.85,
+              'Mobile Gaming': 1.275,
+              'Beauty/Fashion': 0.85,
+              Lifestyle: 0.85,
+              Tech: 0.85,
+            },
+            viewsBySize: {
+              Icon: 20000,
+              Mega: 15000,
+              Macro: 10000,
+              HMid: 5000,
+              LMid: 500,
+              Micro: 100,
+            },
+          },
+        },
+      },
+      Twitter: {
+        deliverables: {
+          Video: {
+            baseViews: 50000,
+            cpv: 0.042,
+            cpvByVertical: {
+              Gaming: 0.03,
+              'Mobile Gaming': 0.045,
+              'Beauty/Fashion': 0.045,
+              Lifestyle: 0.038,
+              Tech: 0.038,
+            },
+          },
+        },
+      },
+    };
+
+    const QUARTER_LABELS = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const BRAND_EXCITEMENT = [
+      { label: 'Loved', multiplier: 0.85 },
+      { label: 'Liked', multiplier: 0.93 },
+      { label: 'Neutral', multiplier: 1 },
+      { label: 'Disliked', multiplier: 1.08 },
+      { label: 'Hated', multiplier: 1.15 },
+    ];
+
+    function createDefaultLine() {
+      const platform = Object.keys(RATE_CARD)[0];
+      const deliverable = Object.keys(RATE_CARD[platform].deliverables)[0];
+      const size = 'Macro';
+      const vertical = Object.keys(VERTICAL_MULT)[0];
+      const language = Object.keys(LANGUAGE_MULT)[0];
+      const defaults = getRateDefaults(platform, deliverable, size, vertical, language);
+      return {
+        platform,
+        deliverable,
+        vertical,
+        language,
+        size,
+        whitelist: false,
+        unitRate: defaults.cpv,
+        qtyPerCreator: 0,
+        creators: 0,
+        viewsPerPiece: defaults.views,
+        manualViews: false,
+      };
+    }
+
+    function applyLineDefaults(line, options = {}) {
+      const { forceViews = false } = options;
+      const defaults = getRateDefaults(line.platform, line.deliverable, line.size, line.vertical, line.language);
+      line.unitRate = defaults.cpv;
+      if (forceViews || !line.manualViews) {
+        line.viewsPerPiece = defaults.views;
+      }
+      return line;
+    }
+
+    function getRateDefaults(platform, deliverable, size, vertical, language) {
+      const base = RATE_CARD[platform]?.deliverables?.[deliverable] || { baseViews: 0, cpv: 0 };
+      const sizeAdjust = SIZE_MULT[size] || { views: 1 };
+      const verticalAdjust = VERTICAL_MULT[vertical] || { rate: 1, views: 1 };
+      const languageAdjust = LANGUAGE_MULT[language] || { rate: 1, views: 1 };
+      const baseViews = base.viewsBySize
+        ? base.viewsBySize[size] ?? base.viewsBySize.Macro ?? base.baseViews ?? 0
+        : base.baseViews || 0;
+      const sizeViewMultiplier = base.viewsBySize ? 1 : (sizeAdjust.views ?? 1);
+      const views = Math.round(
+        baseViews
+          * sizeViewMultiplier
+          * (verticalAdjust.views ?? 1)
+          * (languageAdjust.views ?? 1),
+      );
+      const cpvOverride = base.cpvByVertical?.[vertical];
+      const hasOverride = Number.isFinite(cpvOverride);
+      const cpvBase = hasOverride ? Number(cpvOverride) : (base.cpv || 0);
+      let cpvRaw = cpvBase
+        * (languageAdjust.rate ?? 1);
+      if (!hasOverride) {
+        cpvRaw *= (verticalAdjust.rate ?? 1);
+      }
+      return {
+        cpv: Number.isFinite(cpvRaw) ? Number(cpvRaw.toFixed(3)) : 0,
+        views,
+      };
+    }
+
+    const defaultState = {
+      details: {
+        brand: '',
+        campaignName: '',
+        budget: '',
+        quarter: 1,
+        brandExcitement: 1,
+        rush: false,
+        travelNeeded: false,
+        nicheCreators: false,
+      },
+      otherCosts: {
+        other: 0,
+        study: 0,
+        preciseProject: 0,
+        thirdPartyProject: 0,
+      },
+      travel: {
+        creators: 0,
+        perCreator: 0,
+      },
+      campaignLines: [createDefaultLine()],
+      paidMedia: {
+        mode: 'cpv',
+        budget: 0,
+        rate: DEFAULT_PAID_RATES.cpv,
+      },
+      marginGoal: 0,
+      insightNotes: '',
+    };
+
+    const pricingVariables = (() => {
+      const deliverables = {};
+      Object.entries(RATE_CARD).forEach(([platform, platformData]) => {
+        const platformDeliverables = {};
+        Object.entries(platformData.deliverables || {}).forEach(([deliverable, details]) => {
+          const baseViews = Number(details.baseViews || 0);
+          const cpv = Number(details.cpv || 0);
+          const cpvByVertical = { ...(details.cpvByVertical || {}) };
+          const viewsBySize = details.viewsBySize
+            ? { ...details.viewsBySize }
+            : Object.fromEntries(
+                Object.keys(SIZE_MULT).map(size => {
+                  const sizeMultiplier = SIZE_MULT[size]?.views ?? 1;
+                  return [size, Math.round(baseViews * sizeMultiplier)];
+                }),
+              );
+          platformDeliverables[deliverable] = {
+            baseViews,
+            cpv,
+            cpvByVertical,
+            viewsBySize,
+          };
+        });
+        deliverables[platform] = platformDeliverables;
+      });
+
+      return Object.freeze({
+        general: {
+          marginGoal: defaultState.marginGoal,
+          rushFeeMultiplier: 1.15,
+          travelFeeMultiplier: 1.2,
+          nicheCreatorMultiplier: 1.2,
+          q4FeeMultiplier: 1.15,
+        },
+        paidMedia: {
+          defaultRates: { ...DEFAULT_PAID_RATES },
+        },
+        multipliers: {
+          size: structuredClone(SIZE_MULT),
+          vertical: structuredClone(VERTICAL_MULT),
+          language: structuredClone(LANGUAGE_MULT),
+          whitelist: structuredClone(WHITELIST_UPLIFT_PCT),
+          brandExcitement: BRAND_EXCITEMENT.map(entry => ({ ...entry })),
+        },
+        followers: structuredClone(SIZE_FOLLOWERS),
+        deliverables,
+      });
+    })();
+
+    function formatPricingUplift(multiplier) {
+      if (!Number.isFinite(multiplier)) return '0%';
+      const delta = (multiplier - 1) * 100;
+      const rounded = Math.abs(delta) >= 1 ? delta.toFixed(0) : delta.toFixed(2);
+      const prefix = delta > 0 ? '+' : '';
+      return `${prefix}${rounded}%`;
+    }
+
+    let state = loadState();
+
+    // Merge raw persisted data with calculator defaults to keep structures stable.
+    function normalizeCampaignState(source) {
+      const base = structuredClone(defaultState);
+      if (!source || typeof source !== 'object') {
+        return base;
+      }
+      const parsed = structuredClone(source);
+      const mergedPaidMedia = { ...base.paidMedia, ...(parsed.paidMedia || {}) };
+      if (!mergedPaidMedia.rate || mergedPaidMedia.rate <= 0) {
+        mergedPaidMedia.rate = DEFAULT_PAID_RATES[mergedPaidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
+      }
+      const sourceLines = Array.isArray(parsed.campaignLines) && parsed.campaignLines.length
+        ? parsed.campaignLines
+        : base.campaignLines;
+      const normalizedLines = sourceLines.map(line => {
+        const merged = { ...createDefaultLine(), ...structuredClone(line) };
+        merged.manualViews = false;
+        return applyLineDefaults(merged, { forceViews: true });
+      });
+      const parsedOtherCosts = { ...(parsed.otherCosts || {}) };
+      if (!('preciseProject' in parsedOtherCosts) && 'additional' in parsedOtherCosts) {
+        parsedOtherCosts.preciseProject = parsedOtherCosts.additional;
+      }
+      if (!('thirdPartyProject' in parsedOtherCosts)) {
+        parsedOtherCosts.thirdPartyProject = parsedOtherCosts.thirdPartyProject ?? 0;
+      }
+      delete parsedOtherCosts.additional;
+      if ('preciseProject' in parsedOtherCosts) {
+        parsedOtherCosts.preciseProject = Number(parsedOtherCosts.preciseProject) || 0;
+      }
+      if ('thirdPartyProject' in parsedOtherCosts) {
+        parsedOtherCosts.thirdPartyProject = Number(parsedOtherCosts.thirdPartyProject) || 0;
+      }
+      return {
+        ...base,
+        marginGoal: parsed.marginGoal ?? base.marginGoal,
+        details: { ...base.details, ...(parsed.details || {}) },
+        otherCosts: { ...base.otherCosts, ...parsedOtherCosts },
+        travel: { ...base.travel, ...(parsed.travel || {}) },
+        campaignLines: normalizedLines,
+        paidMedia: mergedPaidMedia,
+        insightNotes: typeof parsed.insightNotes === 'string'
+          ? parsed.insightNotes
+          : base.insightNotes,
+      };
+    }
+
+    // Load the active calculator state, defaulting to legacy storage when available.
+    function loadState(rawSource) {
+      try {
+        if (rawSource) {
+          return normalizeCampaignState(rawSource);
+        }
+        const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (!raw) return structuredClone(defaultState);
+        const parsed = JSON.parse(raw);
+        return normalizeCampaignState(parsed);
+      } catch (err) {
+        console.error('Failed to load state', err);
+        return structuredClone(defaultState);
+      }
+    }
+
+    // Derive summary metrics used for dashboard previews.
+    function calculateCampaignSummaryFromData(campaignState) {
+      const normalized = normalizeCampaignState(campaignState || {});
+      const modifiers = calculateModifiers(normalized);
+      const lines = (normalized.campaignLines || []).map(sourceLine => {
+        const workingLine = structuredClone(sourceLine);
+        const total = calculateLineTotal(workingLine);
+        return { ...workingLine, total };
+      });
+
+      const contentSubtotal = lines.reduce((acc, line) => acc + (line.total || 0), 0);
+      const organicViewsRaw = lines.reduce((acc, line) => {
+        const views = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
+        return acc + views;
+      }, 0);
+      const organicViewsAdjusted = organicViewsRaw * (modifiers.organicViewMultiplier ?? 1);
+      const paidBudget = normalized.paidMedia?.budget || 0;
+      const paidViews = calculatePaidViews(normalized.paidMedia);
+      const otherCosts = normalized.otherCosts || {};
+      const otherTotal = Number(otherCosts.other || 0) + Number(otherCosts.study || 0);
+      const preciseProjectWithMargin = Number(otherCosts.preciseProject ?? otherCosts.additional ?? 0);
+      const thirdPartyProjectWithMargin = Number(otherCosts.thirdPartyProject || 0);
+      const extraProjectCosts = preciseProjectWithMargin + thirdPartyProjectWithMargin;
+      const travelCost = modifiers.travelRequired
+        ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
+        : 0;
+      const feeAdjustedContent = contentSubtotal * (modifiers.feeMultiplier ?? 1);
+      const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
+      const totalCOGs = baseCOGs;
+      const totalCostWithExtras = baseCOGs + paidBudget + extraProjectCosts;
+      const marginGoalPct = (normalized.marginGoal || 0) / 100;
+      const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
+      const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
+      const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
+      const influencerCogs = contentSubtotal;
+      const influencerMargin = Math.max(influencerCogs * marginGoalPct, 0);
+      const influencerClientCost = influencerCogs + influencerMargin;
+      const grossMargin = totalPrice - totalCostWithExtras;
+      const totalViews = organicViewsAdjusted + paidViews;
+      const totalCreators = lines.reduce((acc, line) => acc + (line.creators || 0), 0);
+      const totalContentPieces = lines.reduce(
+        (acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0),
+        0,
+      );
+      const totalEstimatedFollowers = lines.reduce((acc, line) => {
+        const averageFollowers = SIZE_FOLLOWERS[line.size] || 0;
+        return acc + averageFollowers * (line.creators || 0);
+      }, 0);
+      const pricePerCreator = totalCreators > 0 ? totalPrice / totalCreators : 0;
+      const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
+      const brandOrganicCPV = organicViewsAdjusted > 0 ? influencerClientCost / organicViewsAdjusted : 0;
+      const brandCombinedCPV = totalViews > 0 ? totalPrice / totalViews : 0;
+
+      return {
+        totalViews,
+        totalCreators,
+        organicViewsAdjusted,
+        paidViews,
+        totalContentPieces,
+        totalEstimatedFollowers,
+        totalPrice,
+        paidBudget,
+        preciseProjectCostsWithMargin: preciseProjectWithMargin,
+        thirdPartyProjectCostsWithMargin: thirdPartyProjectWithMargin,
+        influencerClientCost,
+        grossMargin,
+        pricePerCreator,
+        brandCPM,
+        brandOrganicCPV,
+        brandCombinedCPV,
+      };
+    }
+
+    // Convert a raw calculator state into a dashboard-ready campaign record.
+    function createCampaignRecord(rawState, id, nameOverride) {
+      const normalized = normalizeCampaignState(rawState || {});
+      const data = structuredClone(normalized);
+      if (nameOverride) {
+        data.details.campaignName = nameOverride;
+      }
+      const detailsName = (data.details?.campaignName || '').trim();
+      const finalName = nameOverride ?? (detailsName || 'Untitled Campaign');
+      const summary = calculateCampaignSummaryFromData(data);
+      const brand = (data.details?.brand || '').trim();
+      const rawQuarter = Number(data.details?.quarter);
+      const quarterIndex = Number.isFinite(rawQuarter)
+        ? Math.min(Math.max(Math.floor(rawQuarter), 1), QUARTER_LABELS.length)
+        : null;
+      const quarterLabel = quarterIndex
+        ? QUARTER_LABELS[quarterIndex - 1] ?? `Q${quarterIndex}`
+        : null;
+      const deliverableCount = Array.isArray(data.campaignLines) ? data.campaignLines.length : 0;
+      const rush = !!data.details?.rush;
+      const travelNeeded = !!data.details?.travelNeeded;
+      const nicheCreators = !!data.details?.nicheCreators;
+      return {
+        id: id ?? createId(),
+        name: finalName,
+        budget: parseCurrencyInput(data.details?.budget),
+        totalCreators: summary.totalCreators,
+        estimatedViews: summary.totalViews,
+        organicViews: summary.organicViewsAdjusted,
+        paidViews: summary.paidViews,
+        estimatedBudget: summary.totalPrice,
+        paidMediaBudget: summary.paidBudget,
+        influencerSpend: summary.influencerClientCost,
+        grossMargin: summary.grossMargin,
+        contentPieces: summary.totalContentPieces,
+        estimatedFollowers: summary.totalEstimatedFollowers,
+        brand,
+        quarter: quarterIndex,
+        quarterLabel,
+        deliverableCount,
+        rush,
+        travelNeeded,
+        nicheCreators,
+        summary,
+        data,
+      };
+    }
+
+    function exportPricingVariablesToCSV() {
+      try {
+        if (!pricingVariables) {
+          console.warn('No pricing variables available to export.');
+          return;
+        }
+
+        const { general, paidMedia, multipliers, followers, deliverables } = pricingVariables;
+        const sizeOrder = Object.keys(multipliers.size || {});
+        const rows = [];
+
+        rows.push(['Precise Influencer Calculator Pricing Variables']);
+        rows.push([`Generated ${new Date().toLocaleString()}`]);
+        rows.push([]);
+
+        rows.push(['General Pricing Inputs']);
+        rows.push(['Label', 'Value']);
+        rows.push(['Default margin goal', `${Number(general.marginGoal || 0).toFixed(0)}%`]);
+        rows.push(['Rush fee uplift', formatPricingUplift(general.rushFeeMultiplier)]);
+        rows.push(['Travel uplift', formatPricingUplift(general.travelFeeMultiplier)]);
+        rows.push(['Niche creator uplift', formatPricingUplift(general.nicheCreatorMultiplier)]);
+        rows.push(['Q4 uplift', formatPricingUplift(general.q4FeeMultiplier)]);
+        rows.push([]);
+
+        const paidRates = Object.entries(paidMedia.defaultRates || {});
+        if (paidRates.length) {
+          rows.push(['Paid Media Defaults']);
+          rows.push(['Mode', 'Default Rate', 'Unit']);
+          paidRates.forEach(([mode, rate]) => {
+            const isCpm = mode.toLowerCase() === 'cpm';
+            rows.push([
+              mode.toUpperCase(),
+              `$${Number(rate || 0).toFixed(2)}`,
+              isCpm ? 'Per 1,000 views' : 'Per view',
+            ]);
+          });
+          rows.push([]);
+        }
+
+        if (sizeOrder.length) {
+          rows.push(['Creator Size Benchmarks']);
+          rows.push(['Size', 'View Multiplier', 'Estimated Followers']);
+          sizeOrder.forEach(size => {
+            const config = multipliers.size[size] || {};
+            const followerCount = followers[size];
+            rows.push([
+              size,
+              `${Number(config.views ?? 1).toFixed(2)}x`,
+              followerCount ? formatNumber(followerCount) : '—',
+            ]);
+          });
+          rows.push([]);
+        }
+
+        const verticalEntries = Object.entries(multipliers.vertical || {});
+        if (verticalEntries.length) {
+          rows.push(['Audience Adjustments — Vertical']);
+          rows.push(['Vertical', 'Rate Multiplier', 'View Multiplier']);
+          verticalEntries.forEach(([vertical, values]) => {
+            rows.push([
+              vertical,
+              `${Number(values.rate ?? 1).toFixed(2)}x`,
+              `${Number(values.views ?? 1).toFixed(2)}x`,
+            ]);
+          });
+          rows.push([]);
+        }
+
+        const languageEntries = Object.entries(multipliers.language || {});
+        if (languageEntries.length) {
+          rows.push(['Audience Adjustments — Language']);
+          rows.push(['Language', 'Rate Multiplier', 'View Multiplier']);
+          languageEntries.forEach(([language, values]) => {
+            rows.push([
+              language,
+              `${Number(values.rate ?? 1).toFixed(2)}x`,
+              `${Number(values.views ?? 1).toFixed(2)}x`,
+            ]);
+          });
+          rows.push([]);
+        }
+
+        const whitelistEntries = Object.entries(multipliers.whitelist || {});
+        if (whitelistEntries.length) {
+          rows.push(['Whitelist Uplift by Creator Size']);
+          rows.push(['Creator Size', 'Whitelist Uplift']);
+          whitelistEntries.forEach(([size, uplift]) => {
+            rows.push([size, formatPricingUplift(1 + (uplift || 0))]);
+          });
+          rows.push([]);
+        }
+
+        const sentimentEntries = Array.isArray(multipliers.brandExcitement)
+          ? multipliers.brandExcitement
+          : [];
+        if (sentimentEntries.length) {
+          rows.push(['Brand Sentiment Impact']);
+          rows.push(['Brand Sentiment', 'Fee Impact']);
+          sentimentEntries.forEach((entry, index) => {
+            const label = entry.label || `Level ${index + 1}`;
+            rows.push([label, formatPricingUplift(entry.multiplier ?? 1)]);
+          });
+          rows.push([]);
+        }
+
+        rows.push(['Platform Deliverable Benchmarks']);
+        rows.push(['Platform', 'Deliverable', 'Metric', 'Value']);
+        Object.entries(deliverables || {}).forEach(([platform, items]) => {
+          Object.entries(items || {}).forEach(([deliverable, detail]) => {
+            const macroViews = detail.viewsBySize?.Macro ?? detail.baseViews ?? 0;
+            rows.push([platform, deliverable, 'Base CPV', formatCpv(Number(detail.cpv || 0))]);
+            rows.push([platform, deliverable, 'Macro views', formatNumber(macroViews || 0)]);
+            Object.entries(detail.viewsBySize || {}).forEach(([size, viewCount]) => {
+              rows.push([
+                platform,
+                deliverable,
+                `Views (${size})`,
+                formatNumber(Number(viewCount || 0)),
+              ]);
+            });
+            Object.entries(detail.cpvByVertical || {}).forEach(([vertical, cpvValue]) => {
+              rows.push([
+                platform,
+                deliverable,
+                `CPV (${vertical})`,
+                formatCpv(Number(cpvValue || 0)),
+              ]);
+            });
+            rows.push([]);
+          });
+        });
+
+        function wrapCsvValue(value) {
+          const stringValue = value == null ? '' : String(value);
+          if (/[",\n]/.test(stringValue)) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        }
+
+        const csvContent = rows.map(row => row.map(wrapCsvValue).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = 'pricing_variables.csv';
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        requestAnimationFrame(() => {
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+        });
+      } catch (error) {
+        console.error('Failed to export pricing variables as CSV', error);
+      }
+    }
+
+    function exportCampaignToCSV(campaign) {
+      if (!campaign) {
+        console.warn('No campaign selected to export.');
+        return;
+      }
+      try {
+        const source = campaign.data ? structuredClone(campaign.data) : structuredClone(campaign);
+        const normalized = normalizeCampaignState(source);
+        const summary = calculateCampaignSummaryFromData(normalized);
+        const modifiers = calculateModifiers(normalized);
+        const rawLines = Array.isArray(normalized.campaignLines) ? normalized.campaignLines : [];
+        const processedLines = rawLines.map(line => {
+          const working = structuredClone(line);
+          const baseTotal = calculateLineTotal(working) || 0;
+          const creators = Number(working.creators || 0);
+          const qtyPerCreator = Number(working.qtyPerCreator || 0);
+          const contentPieces = creators * qtyPerCreator;
+          const estimatedViews = (working.viewsPerPiece || 0)
+            * contentPieces
+            * (modifiers.organicViewMultiplier ?? 1);
+          const cogsTotal = baseTotal * (modifiers.feeMultiplier ?? 1);
+          const baseCpv = Number.isFinite(working.cpvWithWhitelist)
+            ? Number(working.cpvWithWhitelist)
+            : Number(working.unitRate || 0);
+          return {
+            platform: working.platform || 'Unknown',
+            deliverable: working.deliverable || 'Deliverable',
+            vertical: working.vertical || 'Unspecified',
+            language: working.language || 'Unspecified',
+            size: working.size || 'Unspecified',
+            creators,
+            qtyPerCreator,
+            contentPieces,
+            estimatedViews,
+            baseTotal,
+            cogsTotal,
+            baseCpv,
+          };
+        });
+
+        const feeAdjustedContent = processedLines.reduce((acc, line) => acc + (line.cogsTotal || 0), 0);
+        const otherTotal = Number(normalized.otherCosts?.other || 0)
+          + Number(normalized.otherCosts?.study || 0);
+        const preciseProjectWithMargin = Number(
+          normalized.otherCosts?.preciseProject
+            ?? normalized.otherCosts?.additional
+            ?? 0,
+        );
+        const thirdPartyProjectWithMargin = Number(normalized.otherCosts?.thirdPartyProject || 0);
+        const extraProjectCosts = preciseProjectWithMargin + thirdPartyProjectWithMargin;
+        const travelCost = modifiers.travelRequired
+          ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
+          : 0;
+        const paidBudget = Number(normalized.paidMedia?.budget || 0);
+        const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
+        const totalCOGs = baseCOGs;
+        const marginGoalPct = Math.max(0, Number(normalized.marginGoal || 0)) / 100;
+        const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
+        const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
+        const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
+        const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
+        const paidViews = calculatePaidViews(normalized.paidMedia);
+
+        const detailedLines = processedLines.map(line => {
+          const clientTotal = line.cogsTotal * priceMultiplier;
+          const cogsCpv = line.estimatedViews > 0 ? line.cogsTotal / line.estimatedViews : 0;
+          const clientCpv = line.estimatedViews > 0 ? clientTotal / line.estimatedViews : 0;
+          const clientCpm = clientCpv * 1000;
+          return {
+            ...line,
+            clientTotal,
+            cogsCpv,
+            clientCpv,
+            clientCpm,
+          };
+        });
+
+        const campaignName = (campaign.name || normalized.details?.campaignName || 'Campaign').trim() || 'Campaign';
+        const brand = (normalized.details?.brand || '').trim();
+        const rush = normalized.details?.rush ? 'Yes' : 'No';
+        const travel = normalized.details?.travelNeeded ? 'Yes' : 'No';
+        const niche = normalized.details?.nicheCreators ? 'Yes' : 'No';
+        const marginGoalLabel = Number.isFinite(normalized.marginGoal)
+          ? Number(normalized.marginGoal).toFixed(2)
+          : '0.00';
+
+        const headers = [
+          'Campaign Name',
+          'Brand',
+          'Platform',
+          'Deliverable',
+          'Vertical',
+          'Language',
+          'Creator Size',
+          'Creators',
+          'Content Pieces',
+          'Estimated Views',
+          'Total COGS',
+          'Client Total',
+          'COGS CPV',
+          'Client CPV',
+          'Client CPM',
+          'Rush',
+          'Travel',
+          'Niche',
+          'Margin Goal (%)',
+        ];
+
+        function formatNumberValue(value, decimals) {
+          if (!Number.isFinite(value)) return '';
+          if (typeof decimals === 'number') {
+            return value.toFixed(decimals);
+          }
+          return String(value);
+        }
+
+        function wrapCsvValue(value) {
+          const stringValue = value == null ? '' : String(value);
+          if (/[",\n]/.test(stringValue)) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        }
+
+        const rows = [];
+
+        detailedLines.forEach(line => {
+          rows.push([
+            campaignName,
+            brand,
+            line.platform,
+            line.deliverable,
+            line.vertical,
+            line.language,
+            line.size,
+            formatNumberValue(line.creators, 0),
+            formatNumberValue(line.contentPieces, 0),
+            formatNumberValue(line.estimatedViews, 0),
+            formatNumberValue(line.cogsTotal, 2),
+            formatNumberValue(line.clientTotal, 2),
+            formatNumberValue(line.cogsCpv, 3),
+            formatNumberValue(line.clientCpv, 3),
+            formatNumberValue(line.clientCpm, 2),
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        });
+
+        if (otherTotal > 0) {
+          const otherClientTotal = otherTotal * priceMultiplier;
+          rows.push([
+            campaignName,
+            brand,
+            'Other Costs',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            formatNumberValue(otherTotal, 2),
+            formatNumberValue(otherClientTotal, 2),
+            '',
+            '',
+            '',
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        }
+
+        if (preciseProjectWithMargin > 0) {
+          rows.push([
+            campaignName,
+            brand,
+            'Precise TV Project Cost inc Margin',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            formatNumberValue(preciseProjectWithMargin, 2),
+            formatNumberValue(preciseProjectWithMargin, 2),
+            '',
+            '',
+            '',
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        }
+
+        if (thirdPartyProjectWithMargin > 0) {
+          rows.push([
+            campaignName,
+            brand,
+            '3rd Party Project Costs Inc Margin',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            formatNumberValue(thirdPartyProjectWithMargin, 2),
+            formatNumberValue(thirdPartyProjectWithMargin, 2),
+            '',
+            '',
+            '',
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        }
+
+        if (travelCost > 0) {
+          const travelClientTotal = travelCost * priceMultiplier;
+          rows.push([
+            campaignName,
+            brand,
+            'Travel',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            formatNumberValue(travelCost, 2),
+            formatNumberValue(travelClientTotal, 2),
+            '',
+            '',
+            '',
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        }
+
+        if (paidBudget > 0) {
+          const paidCpv = paidViews > 0 ? paidBudget / paidViews : 0;
+          const paidCpm = paidCpv * 1000;
+          rows.push([
+            campaignName,
+            brand,
+            'Paid Media',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            formatNumberValue(paidViews, 0),
+            formatNumberValue(paidBudget, 2),
+            formatNumberValue(paidBudget, 2),
+            formatNumberValue(paidCpv, 3),
+            formatNumberValue(paidCpv, 3),
+            formatNumberValue(paidCpm, 2),
+            rush,
+            travel,
+            niche,
+            marginGoalLabel,
+          ]);
+        }
+
+        const overallCogsCpv = summary.totalViews > 0 ? totalCOGs / summary.totalViews : 0;
+        const totalClientCpv = summary.totalViews > 0 ? totalPrice / summary.totalViews : 0;
+        const totalClientCpm = summary.brandCPM;
+
+        rows.push([
+          campaignName,
+          brand,
+          'TOTAL',
+          '',
+          '',
+          '',
+          '',
+          formatNumberValue(summary.totalCreators, 0),
+          formatNumberValue(summary.totalContentPieces, 0),
+          formatNumberValue(summary.totalViews, 0),
+          formatNumberValue(totalCOGs, 2),
+          formatNumberValue(totalPrice, 2),
+          formatNumberValue(overallCogsCpv, 3),
+          formatNumberValue(totalClientCpv, 3),
+          formatNumberValue(totalClientCpm, 2),
+          rush,
+          travel,
+          niche,
+          marginGoalLabel,
+        ]);
+
+        const headerLine = headers.map(wrapCsvValue).join(',');
+        const rowLines = rows.map(row => row.map(wrapCsvValue).join(',')).join('\n');
+        const csvContent = rows.length ? `${headerLine}\n${rowLines}` : headerLine;
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        const safeName = campaignName.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_');
+        anchor.download = `${safeName || 'campaign_export'}.csv`;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        requestAnimationFrame(() => {
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+        });
+      } catch (error) {
+        console.error('Failed to export campaign as CSV', error);
+      }
+    }
+
+    // Pick only the deliverable fields that a template should remember.
+    function sanitizeTemplateLines(sourceState) {
+      const lines = sourceState?.campaignLines || [];
+      return lines.map(line => ({
+        platform: line.platform,
+        deliverable: line.deliverable,
+        vertical: line.vertical,
+        language: line.language,
+        size: line.size,
+        whitelist: !!line.whitelist,
+        creators: Number(line.creators || 0),
+        qtyPerCreator: Number(line.qtyPerCreator || 0),
+        viewsPerPiece: Number(line.viewsPerPiece || 0),
+        unitRate: Number(line.unitRate || 0),
+      }));
+    }
+
+    // Apply a template payload to a fresh calculator state instance.
+    function applyTemplateToState(stateData, template) {
+      if (!template) return stateData;
+      const deliverables = Array.isArray(template.deliverables) && template.deliverables.length
+        ? template.deliverables
+        : [createDefaultLine()];
+      stateData.campaignLines = deliverables.map(line => {
+        const merged = { ...createDefaultLine(), ...structuredClone(line) };
+        merged.manualViews = false;
+        return applyLineDefaults(merged, { forceViews: true });
+      });
+      return stateData;
+    }
+
+    // Push a campaign payload into the DOM-driven editor experience.
+    function hydrateActiveCampaign(rawState) {
+      state = loadState(rawState);
+      syncCampaignDetailsInputs();
+      renderCampaign();
+      syncPaidMediaInputs();
+      syncOtherCostInputs();
+      syncMarginControls();
+      syncInsightNotes();
+      recalc();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(state));
+      } catch (err) {
+        console.error('Failed to persist legacy state', err);
+      }
+      if (typeof persistActiveCampaign === 'function') {
+        try {
+          persistActiveCampaign(structuredClone(state));
+        } catch (err) {
+          console.error('Failed to sync campaign collection', err);
+        }
+      }
+    }
+
+    function init() {
+      bindCampaignDetails();
+      renderCampaign();
+      bindPaidMedia();
+      bindOtherCosts();
+      bindSummaryControls();
+      bindInsightNotes();
+      recalc();
+    }
+
+    function bindCampaignDetails() {
+      const brandInput = document.getElementById('detail-brand');
+      const campaignInput = document.getElementById('detail-campaign');
+      const budgetInput = document.getElementById('detail-budget');
+      const quarterInput = document.getElementById('detail-quarter');
+      const excitementInput = document.getElementById('detail-excitement');
+      const rushInput = document.getElementById('detail-rush');
+      const travelInput = document.getElementById('detail-travel');
+      const nicheInput = document.getElementById('detail-niche');
+
+      if (!brandInput) return;
+
+      brandInput.addEventListener('input', () => {
+        state.details.brand = brandInput.value;
+        saveState();
+        recalc();
+      });
+
+      campaignInput.addEventListener('input', () => {
+        state.details.campaignName = campaignInput.value;
+        saveState();
+        recalc();
+      });
+
+      budgetInput.addEventListener('input', () => {
+        state.details.budget = budgetInput.value;
+        saveState();
+        recalc();
+      });
+
+      quarterInput.addEventListener('input', () => {
+        const value = Math.min(Math.max(Number(quarterInput.value) || 1, 1), QUARTER_LABELS.length);
+        state.details.quarter = value;
+        updateQuarterDisplay(value);
+        saveState();
+        recalc();
+      });
+
+      excitementInput.addEventListener('input', () => {
+        const maxIndex = BRAND_EXCITEMENT.length - 1;
+        const value = Math.min(Math.max(Number(excitementInput.value) || 0, 0), maxIndex);
+        state.details.brandExcitement = value;
+        updateExcitementDisplay(value);
+        saveState();
+        recalc();
+      });
+
+      rushInput.addEventListener('change', () => {
+        state.details.rush = rushInput.checked;
+        saveState();
+        recalc();
+      });
+
+      travelInput.addEventListener('change', () => {
+        state.details.travelNeeded = travelInput.checked;
+        saveState();
+        updateTravelControls();
+        recalc();
+      });
+
+      nicheInput.addEventListener('change', () => {
+        state.details.nicheCreators = nicheInput.checked;
+        saveState();
+        recalc();
+      });
+
+      syncCampaignDetailsInputs();
+    }
+
+    function updateQuarterDisplay(value) {
+      const display = document.getElementById('quarter-display');
+      const index = Math.min(Math.max(Number(value) || 1, 1), QUARTER_LABELS.length) - 1;
+      if (display) {
+        display.textContent = QUARTER_LABELS[index] ?? `Q${index + 1}`;
+      }
+    }
+
+    function updateExcitementDisplay(value) {
+      const display = document.getElementById('excitement-display');
+      const index = Math.min(Math.max(Number(value) || 0, 0), BRAND_EXCITEMENT.length - 1);
+      if (display) {
+        display.textContent = BRAND_EXCITEMENT[index]?.label ?? 'Neutral';
+      }
+    }
+
+    function syncCampaignDetailsInputs() {
+      const { details } = state;
+      const brandInput = document.getElementById('detail-brand');
+      const campaignInput = document.getElementById('detail-campaign');
+      const budgetInput = document.getElementById('detail-budget');
+      const quarterInput = document.getElementById('detail-quarter');
+      const excitementInput = document.getElementById('detail-excitement');
+      const rushInput = document.getElementById('detail-rush');
+      const travelInput = document.getElementById('detail-travel');
+      const nicheInput = document.getElementById('detail-niche');
+
+      if (!brandInput) return;
+
+      brandInput.value = details.brand || '';
+      campaignInput.value = details.campaignName || '';
+      budgetInput.value = details.budget || '';
+      const rawQuarter = Number(details.quarter);
+      const quarterValue = Math.min(
+        Math.max(Number.isFinite(rawQuarter) && rawQuarter >= 1 ? rawQuarter : 1, 1),
+        QUARTER_LABELS.length,
+      );
+      quarterInput.value = String(quarterValue);
+      updateQuarterDisplay(quarterValue);
+      const rawExcitement = Number(details.brandExcitement);
+      const excitementValue = Math.min(
+        Math.max(Number.isFinite(rawExcitement) ? rawExcitement : 1, 0),
+        BRAND_EXCITEMENT.length - 1,
+      );
+      excitementInput.value = String(excitementValue);
+      updateExcitementDisplay(excitementValue);
+      rushInput.checked = !!details.rush;
+      travelInput.checked = !!details.travelNeeded;
+      nicheInput.checked = !!details.nicheCreators;
+      updateTravelControls();
+    }
+
+    function updateTravelControls() {
+      const travelBlock = document.getElementById('travel-controls');
+      if (!travelBlock) return;
+      travelBlock.style.display = state.details.travelNeeded ? 'grid' : 'none';
+    }
+
+    function renderCampaign() {
+      const tbody = document.getElementById('campaign-body');
+      tbody.innerHTML = '';
+      state.campaignLines.forEach((line, index) => {
+        const tr = document.createElement('tr');
+
+        const verticalOptions = Object.keys(VERTICAL_MULT);
+        if (!verticalOptions.includes(line.vertical)) {
+          line.vertical = verticalOptions[0];
+        }
+        const languageOptions = Object.keys(LANGUAGE_MULT);
+        if (!languageOptions.includes(line.language)) {
+          line.language = languageOptions[0];
+        }
+        line.manualViews = false;
+        applyLineDefaults(line, { forceViews: true });
+
+        const platformTd = document.createElement('td');
+        const platformSelect = document.createElement('select');
+        Object.keys(RATE_CARD).forEach(platform => {
+          const opt = document.createElement('option');
+          opt.value = platform;
+          opt.textContent = platform;
+          if (platform === line.platform) opt.selected = true;
+          platformSelect.appendChild(opt);
+        });
+        platformSelect.addEventListener('change', () => {
+          line.platform = platformSelect.value;
+          const deliverables = Object.keys(RATE_CARD[line.platform].deliverables);
+          if (!deliverables.includes(line.deliverable)) {
+            line.deliverable = deliverables[0];
+          }
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        platformTd.appendChild(platformSelect);
+        tr.appendChild(platformTd);
+
+        const deliverableTd = document.createElement('td');
+        const deliverableSelect = document.createElement('select');
+        const deliverableOptions = RATE_CARD[line.platform]?.deliverables || {};
+        Object.keys(deliverableOptions).forEach(deliverable => {
+          const opt = document.createElement('option');
+          opt.value = deliverable;
+          opt.textContent = deliverable;
+          if (deliverable === line.deliverable) opt.selected = true;
+          deliverableSelect.appendChild(opt);
+        });
+        deliverableSelect.addEventListener('change', () => {
+          line.deliverable = deliverableSelect.value;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        deliverableTd.appendChild(deliverableSelect);
+        tr.appendChild(deliverableTd);
+
+        const verticalTd = document.createElement('td');
+        const verticalSelect = document.createElement('select');
+        Object.keys(VERTICAL_MULT).forEach(vertical => {
+          const opt = document.createElement('option');
+          opt.value = vertical;
+          opt.textContent = vertical;
+          if (vertical === line.vertical) opt.selected = true;
+          verticalSelect.appendChild(opt);
+        });
+        verticalSelect.addEventListener('change', () => {
+          line.vertical = verticalSelect.value;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        verticalTd.appendChild(verticalSelect);
+        tr.appendChild(verticalTd);
+
+        const languageTd = document.createElement('td');
+        const languageSelect = document.createElement('select');
+        Object.keys(LANGUAGE_MULT).forEach(language => {
+          const opt = document.createElement('option');
+          opt.value = language;
+          opt.textContent = language;
+          if (language === line.language) opt.selected = true;
+          languageSelect.appendChild(opt);
+        });
+        languageSelect.addEventListener('change', () => {
+          line.language = languageSelect.value;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        languageTd.appendChild(languageSelect);
+        tr.appendChild(languageTd);
+
+        const sizeTd = document.createElement('td');
+        const sizeSelect = document.createElement('select');
+        Object.keys(SIZE_MULT).forEach(size => {
+          const opt = document.createElement('option');
+          opt.value = size;
+          opt.textContent = size;
+          if (size === line.size) opt.selected = true;
+          sizeSelect.appendChild(opt);
+        });
+        sizeSelect.addEventListener('change', () => {
+          line.size = sizeSelect.value;
+          line.manualViews = false;
+          applyLineDefaults(line, { forceViews: true });
+          renderCampaign();
+          saveState();
+          recalc();
+        });
+        sizeTd.appendChild(sizeSelect);
+        tr.appendChild(sizeTd);
+
+        const whitelistTd = document.createElement('td');
+        const whitelistCheckbox = document.createElement('input');
+        whitelistCheckbox.type = 'checkbox';
+        whitelistCheckbox.checked = line.whitelist;
+        whitelistCheckbox.addEventListener('change', () => {
+          line.whitelist = whitelistCheckbox.checked;
+          saveState();
+          recalc();
+        });
+        whitelistTd.appendChild(whitelistCheckbox);
+        tr.appendChild(whitelistTd);
+
+        const creatorsTd = document.createElement('td');
+        const creatorsInput = document.createElement('input');
+        creatorsInput.type = 'number';
+        creatorsInput.min = '0';
+        creatorsInput.step = '1';
+        creatorsInput.value = Number(line.creators || 0);
+        creatorsInput.addEventListener('change', () => {
+          line.creators = parseFloat(creatorsInput.value) || 0;
+          saveState();
+          recalc();
+        });
+        creatorsTd.appendChild(creatorsInput);
+        tr.appendChild(creatorsTd);
+
+        const contentTd = document.createElement('td');
+        const contentInput = document.createElement('input');
+        contentInput.type = 'number';
+        contentInput.min = '0';
+        contentInput.step = '1';
+        contentInput.value = Number(line.qtyPerCreator || 0);
+        contentInput.addEventListener('change', () => {
+          line.qtyPerCreator = parseFloat(contentInput.value) || 0;
+          saveState();
+          recalc();
+        });
+        contentTd.appendChild(contentInput);
+        tr.appendChild(contentTd);
+
+        const viewsTd = document.createElement('td');
+        const viewsDisplay = document.createElement('div');
+        viewsDisplay.className = 'readonly-value';
+        viewsDisplay.textContent = formatNumber(line.viewsPerPiece || 0);
+        viewsTd.appendChild(viewsDisplay);
+        tr.appendChild(viewsTd);
+
+        const currentLineTotal = calculateLineTotal(line);
+
+        const cogsCpvTd = document.createElement('td');
+        const cogsCpvDisplay = document.createElement('div');
+        cogsCpvDisplay.className = 'readonly-value cogs-cpv';
+        const initialCogsCpv = Number.isFinite(line.cpvWithWhitelist)
+          ? line.cpvWithWhitelist
+          : line.unitRate || 0;
+        cogsCpvDisplay.textContent = formatCpv(initialCogsCpv);
+        cogsCpvTd.appendChild(cogsCpvDisplay);
+        tr.appendChild(cogsCpvTd);
+
+        const clientCpvTd = document.createElement('td');
+        const clientCpvDisplay = document.createElement('div');
+        clientCpvDisplay.className = 'readonly-value client-cpv';
+        clientCpvDisplay.textContent = formatCpv(initialCogsCpv);
+        clientCpvTd.appendChild(clientCpvDisplay);
+        tr.appendChild(clientCpvTd);
+
+        const lineTotalTd = document.createElement('td');
+        lineTotalTd.textContent = formatCurrency(currentLineTotal);
+        tr.appendChild(lineTotalTd);
+
+        const actionsTd = document.createElement('td');
+        const actionsWrapper = document.createElement('div');
+        actionsWrapper.className = 'line-actions';
+
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.type = 'button';
+        moveUpBtn.className = 'secondary line-action-button move-button';
+        moveUpBtn.textContent = '↑';
+        moveUpBtn.title = 'Move up';
+        moveUpBtn.setAttribute('aria-label', 'Move deliverable up');
+        moveUpBtn.disabled = index === 0;
+        moveUpBtn.addEventListener('click', () => {
+          if (index === 0) return;
+          const [moved] = state.campaignLines.splice(index, 1);
+          state.campaignLines.splice(index - 1, 0, moved);
+          saveState();
+          renderCampaign();
+          recalc();
+        });
+        actionsWrapper.appendChild(moveUpBtn);
+
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.type = 'button';
+        moveDownBtn.className = 'secondary line-action-button move-button';
+        moveDownBtn.textContent = '↓';
+        moveDownBtn.title = 'Move down';
+        moveDownBtn.setAttribute('aria-label', 'Move deliverable down');
+        moveDownBtn.disabled = index === state.campaignLines.length - 1;
+        moveDownBtn.addEventListener('click', () => {
+          if (index === state.campaignLines.length - 1) return;
+          const [moved] = state.campaignLines.splice(index, 1);
+          const targetIndex = Math.min(state.campaignLines.length, index + 1);
+          state.campaignLines.splice(targetIndex, 0, moved);
+          saveState();
+          renderCampaign();
+          recalc();
+        });
+        actionsWrapper.appendChild(moveDownBtn);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'Remove';
+        removeBtn.className = 'secondary line-action-button';
+        removeBtn.disabled = state.campaignLines.length <= 1;
+        removeBtn.addEventListener('click', () => {
+          state.campaignLines.splice(index, 1);
+          saveState();
+          renderCampaign();
+          recalc();
+        });
+        actionsWrapper.appendChild(removeBtn);
+
+        actionsTd.appendChild(actionsWrapper);
+        tr.appendChild(actionsTd);
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('add-line').onclick = () => {
+        state.campaignLines.push(createDefaultLine());
+        saveState();
+        renderCampaign();
+        recalc();
+      };
+
+      document.getElementById('reset-state').onclick = () => {
+        if (confirm('Reset calculator to defaults?')) {
+          state = structuredClone(defaultState);
+          saveState();
+          syncCampaignDetailsInputs();
+          renderCampaign();
+          bindPaidMedia();
+          bindOtherCosts();
+          bindSummaryControls();
+          recalc();
+        }
+      };
+    }
+
+    function calculateLineTotal(line) {
+      applyLineDefaults(line);
+      const cpv = line.unitRate || 0;
+      const viewsPerPiece = line.viewsPerPiece || 0;
+      const perCreatorBase = cpv * viewsPerPiece * (line.qtyPerCreator || 0);
+      // Mirrors EMPTY workbook calc: base rate * qty * whitelist multiplier
+      const whitelistMultiplier = line.whitelist
+        ? 1 + (WHITELIST_UPLIFT_PCT[line.size] ?? 0.2)
+        : 1;
+      const cogsPerCreator = perCreatorBase * whitelistMultiplier;
+      line.cogsPerCreator = cogsPerCreator;
+      line.cpvWithWhitelist = cpv * whitelistMultiplier;
+      return cogsPerCreator * (line.creators || 0);
+    }
+
+    function bindPaidMedia() {
+      const modeInputs = document.querySelectorAll('input[name="paid-mode"]');
+      const budgetInput = document.getElementById('paid-budget');
+      const rateInput = document.getElementById('paid-rate');
+
+      if (!state.paidMedia.rate || state.paidMedia.rate <= 0) {
+        state.paidMedia.rate = DEFAULT_PAID_RATES[state.paidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
+      }
+
+      modeInputs.forEach(input => {
+        input.checked = state.paidMedia.mode === input.value;
+        input.addEventListener('change', () => {
+          if (input.checked) {
+            const previousMode = state.paidMedia.mode;
+            const previousRate = state.paidMedia.rate;
+            state.paidMedia.mode = input.value;
+            if (!previousRate || previousRate === (DEFAULT_PAID_RATES[previousMode] ?? DEFAULT_PAID_RATES.cpv)) {
+              state.paidMedia.rate = DEFAULT_PAID_RATES[state.paidMedia.mode] ?? DEFAULT_PAID_RATES.cpv;
+            }
+            rateInput.value = Number(state.paidMedia.rate || 0);
+            saveState();
+            updatePaidRateLabel();
+            recalc();
+          }
+        });
+      });
+
+      budgetInput.value = Number(state.paidMedia.budget || 0);
+      budgetInput.addEventListener('change', () => {
+        state.paidMedia.budget = parseFloat(budgetInput.value) || 0;
+        saveState();
+        recalc();
+      });
+
+      rateInput.value = Number(state.paidMedia.rate || 0);
+      rateInput.addEventListener('change', () => {
+        state.paidMedia.rate = parseFloat(rateInput.value) || 0;
+        saveState();
+        recalc();
+      });
+
+      updatePaidRateLabel();
+    }
+
+    function syncPaidMediaInputs() {
+      const modeInputs = document.querySelectorAll('input[name="paid-mode"]');
+      modeInputs.forEach(input => {
+        input.checked = state.paidMedia.mode === input.value;
+      });
+      const budgetInput = document.getElementById('paid-budget');
+      if (budgetInput) {
+        budgetInput.value = Number(state.paidMedia.budget || 0);
+      }
+      const rateInput = document.getElementById('paid-rate');
+      if (rateInput) {
+        rateInput.value = Number(state.paidMedia.rate || 0);
+      }
+      updatePaidRateLabel();
+    }
+
+    function updatePaidRateLabel() {
+      const label = document.getElementById('paid-rate-label');
+      const isCpm = state.paidMedia.mode === 'cpm';
+      label.textContent = isCpm ? 'CPM' : CPV_WITH_MARGIN_LABEL;
+      const rateInput = document.getElementById('paid-rate');
+      rateInput.step = isCpm ? '0.1' : '0.001';
+      rateInput.placeholder = (DEFAULT_PAID_RATES[state.paidMedia.mode] ?? DEFAULT_PAID_RATES.cpv).toString();
+    }
+
+    function bindOtherCosts() {
+      const otherInput = document.getElementById('other-costs');
+      const studyInput = document.getElementById('study-costs');
+      const preciseProjectInput = document.getElementById('precise-project-costs');
+      const thirdPartyProjectInput = document.getElementById('third-party-project-costs');
+      const travelCreators = document.getElementById('travel-creators');
+      const travelBudget = document.getElementById('travel-budget');
+
+      otherInput.value = Number(state.otherCosts.other || 0);
+      studyInput.value = Number(state.otherCosts.study || 0);
+      const preciseProjectValue = Number(
+        state.otherCosts.preciseProject ?? state.otherCosts.additional ?? 0,
+      );
+      preciseProjectInput.value = preciseProjectValue;
+      thirdPartyProjectInput.value = Number(state.otherCosts.thirdPartyProject || 0);
+      travelCreators.value = Number(state.travel.creators || 0);
+      travelBudget.value = Number(state.travel.perCreator || 0);
+
+      otherInput.addEventListener('change', () => {
+        state.otherCosts.other = parseFloat(otherInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      studyInput.addEventListener('change', () => {
+        state.otherCosts.study = parseFloat(studyInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      preciseProjectInput.addEventListener('change', () => {
+        state.otherCosts.preciseProject = parseFloat(preciseProjectInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      thirdPartyProjectInput.addEventListener('change', () => {
+        state.otherCosts.thirdPartyProject = parseFloat(thirdPartyProjectInput.value) || 0;
+        saveState();
+        recalc();
+      });
+      travelCreators.addEventListener('change', () => {
+        state.travel.creators = parseFloat(travelCreators.value) || 0;
+        saveState();
+        recalc();
+      });
+      travelBudget.addEventListener('change', () => {
+        state.travel.perCreator = parseFloat(travelBudget.value) || 0;
+        saveState();
+        recalc();
+      });
+    }
+
+    function syncOtherCostInputs() {
+      const otherInput = document.getElementById('other-costs');
+      if (otherInput) {
+        otherInput.value = Number(state.otherCosts.other || 0);
+      }
+      const studyInput = document.getElementById('study-costs');
+      if (studyInput) {
+        studyInput.value = Number(state.otherCosts.study || 0);
+      }
+      const preciseProjectInput = document.getElementById('precise-project-costs');
+      if (preciseProjectInput) {
+        preciseProjectInput.value = Number(
+          state.otherCosts.preciseProject ?? state.otherCosts.additional ?? 0,
+        );
+      }
+      const thirdPartyProjectInput = document.getElementById('third-party-project-costs');
+      if (thirdPartyProjectInput) {
+        thirdPartyProjectInput.value = Number(state.otherCosts.thirdPartyProject || 0);
+      }
+      const travelCreators = document.getElementById('travel-creators');
+      if (travelCreators) {
+        travelCreators.value = Number(state.travel.creators || 0);
+      }
+      const travelBudget = document.getElementById('travel-budget');
+      if (travelBudget) {
+        travelBudget.value = Number(state.travel.perCreator || 0);
+      }
+      updateTravelControls();
+    }
+
+    function syncMarginControls() {
+      const marginInput = document.getElementById('margin-goal');
+      const marginSlider = document.getElementById('margin-goal-slider');
+      const marginDisplay = document.getElementById('margin-display');
+      const currentMargin = Number(state.marginGoal || 0);
+      if (marginInput) {
+        marginInput.value = currentMargin;
+      }
+      if (marginSlider) {
+        marginSlider.value = currentMargin;
+      }
+      if (marginDisplay) {
+        marginDisplay.textContent = `${currentMargin}%`;
+      }
+    }
+
+    function bindSummaryControls() {
+      const marginInput = document.getElementById('margin-goal');
+      const marginSlider = document.getElementById('margin-goal-slider');
+      const marginDisplay = document.getElementById('margin-display');
+      syncMarginControls();
+
+      function updateMargin(value) {
+        const sanitized = Math.min(90, Math.max(0, Number(value) || 0));
+        state.marginGoal = sanitized;
+        if (marginInput) {
+          marginInput.value = sanitized;
+        }
+        if (marginSlider) {
+          marginSlider.value = sanitized;
+        }
+        if (marginDisplay) {
+          marginDisplay.textContent = `${sanitized}%`;
+        }
+        saveState();
+        recalc();
+      }
+
+      marginInput?.addEventListener('change', () => {
+        updateMargin(marginInput.value);
+      });
+
+      marginSlider?.addEventListener('input', () => {
+        updateMargin(marginSlider.value);
+      });
+    }
+
+    function syncInsightNotes() {
+      const notesField = document.getElementById('insight-notes');
+      if (!notesField || document.activeElement === notesField) return;
+      notesField.textContent = state.insightNotes || '';
+    }
+
+    function bindInsightNotes() {
+      const notesField = document.getElementById('insight-notes');
+      if (!notesField) return;
+      let pendingSave = null;
+
+      const queueSave = () => {
+        if (pendingSave) {
+          clearTimeout(pendingSave);
+        }
+        pendingSave = setTimeout(() => {
+          pendingSave = null;
+          saveState();
+        }, 400);
+      };
+
+      const commitNotes = () => {
+        if (pendingSave) {
+          clearTimeout(pendingSave);
+          pendingSave = null;
+        }
+        state.insightNotes = notesField.textContent || '';
+        saveState();
+      };
+
+      notesField.addEventListener('input', () => {
+        state.insightNotes = notesField.textContent || '';
+        queueSave();
+      });
+
+      notesField.addEventListener('blur', () => {
+        state.insightNotes = notesField.textContent || '';
+        commitNotes();
+      });
+
+      notesField.addEventListener('keydown', event => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+          event.preventDefault();
+          notesField.blur();
+        }
+      });
+
+      notesField.textContent = state.insightNotes || '';
+    }
+
+    function calculateModifiers(targetState = state) {
+      const details = targetState?.details || defaultState.details;
+      const rawQuarter = Number(details.quarter);
+      const quarterIndex = Math.min(
+        Math.max(Number.isFinite(rawQuarter) && rawQuarter >= 1 ? rawQuarter : 1, 1),
+        QUARTER_LABELS.length,
+      );
+      const rawExcitement = Number(details.brandExcitement);
+      const excitementIndex = Math.min(
+        Math.max(Number.isFinite(rawExcitement) ? rawExcitement : 1, 0),
+        BRAND_EXCITEMENT.length - 1,
+      );
+      let feeMultiplier = 1;
+      if (quarterIndex === 4) {
+        feeMultiplier *= 1.15;
+      }
+      feeMultiplier *= BRAND_EXCITEMENT[excitementIndex]?.multiplier ?? 1;
+      if (details.rush) {
+        feeMultiplier *= 1.15;
+      }
+      if (details.travelNeeded) {
+        feeMultiplier *= 1.2;
+      }
+      if (details.nicheCreators) {
+        feeMultiplier *= 1.2;
+      }
+      return {
+        feeMultiplier,
+        organicViewMultiplier: 1,
+        travelRequired: !!details.travelNeeded,
+        quarterIndex,
+        excitementIndex,
+      };
+    }
+
+    function recalc() {
+      const modifiers = calculateModifiers();
+      const contentLines = state.campaignLines.map(line => {
+        const total = calculateLineTotal(line);
+        return {
+          ...line,
+          total,
+          cogsPerCreator: line.cogsPerCreator || 0,
+          cpvWithWhitelist: Number.isFinite(line.cpvWithWhitelist) ? line.cpvWithWhitelist : line.unitRate || 0,
+        };
+      });
+      const platformBudget = {};
+      const sizeBudget = {};
+      const languageBudget = {};
+      const verticalBudget = {};
+      const sizeContentPieces = {};
+      contentLines.forEach(line => {
+        const lineTotal = line.total || 0;
+        if (lineTotal > 0) {
+          const adjusted = lineTotal * modifiers.feeMultiplier;
+          const languageKey = line.language || 'Unspecified';
+          const verticalKey = line.vertical || 'Unspecified';
+          platformBudget[line.platform] = (platformBudget[line.platform] || 0) + adjusted;
+          sizeBudget[line.size] = (sizeBudget[line.size] || 0) + adjusted;
+          languageBudget[languageKey] = (languageBudget[languageKey] || 0) + adjusted;
+          verticalBudget[verticalKey] = (verticalBudget[verticalKey] || 0) + adjusted;
+        }
+      });
+      const contentSubtotal = contentLines.reduce((acc, line) => acc + line.total, 0);
+      const organicViewsRaw = state.campaignLines.reduce((acc, line) => {
+        const lineViews = (line.viewsPerPiece || 0) * (line.qtyPerCreator || 0) * (line.creators || 0);
+        return acc + lineViews;
+      }, 0);
+      const organicViewsAdjusted = organicViewsRaw * modifiers.organicViewMultiplier;
+
+      const platformViews = {};
+      let totalEstimatedFollowers = 0;
+      state.campaignLines.forEach(line => {
+        const lineViews = (line.viewsPerPiece || 0)
+          * (line.qtyPerCreator || 0)
+          * (line.creators || 0)
+          * modifiers.organicViewMultiplier;
+        if (!platformViews[line.platform]) platformViews[line.platform] = 0;
+        platformViews[line.platform] += lineViews;
+        const avgFollowers = SIZE_FOLLOWERS[line.size] || 0;
+        totalEstimatedFollowers += avgFollowers * (line.creators || 0);
+        const pieces = (line.qtyPerCreator || 0) * (line.creators || 0);
+        if (pieces > 0) {
+          const sizeKey = line.size || 'Unspecified';
+          sizeContentPieces[sizeKey] = (sizeContentPieces[sizeKey] || 0) + pieces;
+        }
+      });
+
+      const feeAdjustedContent = contentSubtotal * modifiers.feeMultiplier;
+      const otherTotal = Number(state.otherCosts.other || 0) + Number(state.otherCosts.study || 0);
+      const preciseProjectWithMargin = Number(
+        state.otherCosts.preciseProject
+          ?? state.otherCosts.additional
+          ?? 0,
+      );
+      const thirdPartyProjectWithMargin = Number(state.otherCosts.thirdPartyProject || 0);
+      const extraProjectCosts = preciseProjectWithMargin + thirdPartyProjectWithMargin;
+      const travelCost = modifiers.travelRequired
+        ? (state.travel.creators || 0) * (state.travel.perCreator || 0)
+        : 0;
+
+      const paidBudget = state.paidMedia.budget || 0;
+      const paidViews = calculatePaidViews(state.paidMedia);
+      const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
+      const totalCOGs = baseCOGs;
+      const totalCostWithExtras = baseCOGs + paidBudget + extraProjectCosts;
+      const marginGoalPct = (state.marginGoal || 0) / 100;
+      const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
+      const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
+      const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
+      const grossMargin = totalPrice - totalCostWithExtras;
+      const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
+      contentLines.forEach(line => {
+        const baseCpv = Number.isFinite(line.cpvWithWhitelist) ? line.cpvWithWhitelist : line.unitRate || 0;
+        const cogsCpv = baseCpv * (modifiers.feeMultiplier ?? 1);
+        line.cogsCpv = Number.isFinite(cogsCpv) ? cogsCpv : 0;
+        const effectiveCpv = line.cogsCpv * priceMultiplier;
+        line.effectiveCpv = Number.isFinite(effectiveCpv) ? effectiveCpv : 0;
+      });
+      const influencerCogs = contentSubtotal;
+      const influencerMargin = Math.max(influencerCogs * marginGoalPct, 0);
+      const influencerClientCost = influencerCogs + influencerMargin;
+      const paidMediaWithMargin = paidBudget;
+      const preciseProjectCostsWithMargin = preciseProjectWithMargin;
+      const thirdPartyProjectCostsWithMargin = thirdPartyProjectWithMargin;
+      const totalContentPieces = state.campaignLines.reduce((acc, line) => acc + (line.qtyPerCreator || 0) * (line.creators || 0), 0);
+      const totalCreators = state.campaignLines.reduce((acc, line) => acc + (line.creators || 0), 0);
+      const totalCogsPerCreator = totalCreators > 0 ? totalCOGs / totalCreators : 0;
+      const pricePerCreator = totalCreators > 0 ? totalPrice / totalCreators : 0;
+      const totalViews = organicViewsAdjusted + paidViews;
+      const brandCPM = totalViews > 0 ? (totalPrice / totalViews) * 1000 : 0;
+      const brandOrganicCPV = organicViewsAdjusted > 0 ? influencerClientCost / organicViewsAdjusted : 0;
+      const brandCombinedCPV = totalViews > 0 ? totalPrice / totalViews : 0;
+      const targetBudget = parseCurrencyInput(state.details?.budget);
+      const completeCpv = totalViews > 0 && targetBudget > 0 ? targetBudget / totalViews : null;
+      const adRateCpv = organicViewsAdjusted > 0 ? feeAdjustedContent / organicViewsAdjusted : 0;
+
+      updateSummary({
+        contentSubtotal,
+        feeAdjustedContent,
+        organicViewsRaw,
+        organicViewsAdjusted,
+        otherTotal,
+        travelCost,
+        paidBudget,
+        influencerClientCost,
+        influencerMargin,
+        influencerCogs,
+        paidMediaWithMargin,
+        paidViews,
+        totalCOGs,
+        totalPrice,
+        grossMargin,
+        totalContentPieces,
+        totalCreators,
+        totalCogsPerCreator,
+        pricePerCreator,
+        brandCPM,
+        brandOrganicCPV,
+        brandCombinedCPV,
+        completeCpv,
+        totalViews,
+        platformViews,
+        totalEstimatedFollowers,
+        adRateCpv,
+        modifiers,
+        details: state.details,
+        preciseProjectCostsWithMargin,
+        thirdPartyProjectCostsWithMargin,
+        targetBudget,
+      });
+
+      const creatorSummary = buildCreatorSizeSummary(state.campaignLines);
+      const deliverableSummary = buildDeliverableSummary(state.campaignLines);
+      const usageSummary = buildUsageSummary(state.campaignLines);
+      updateInsightTable({
+        totalBudget: totalPrice,
+        creatorSummary,
+        deliverableSummary,
+        totalViews,
+        organicViews: organicViewsAdjusted,
+        paidViews,
+        combinedCpv: brandCombinedCPV,
+        completeCpv,
+        targetBudget,
+        usageSummary,
+      });
+
+      const viewMix = {
+        'Organic Views': organicViewsAdjusted,
+        'Paid Views': paidViews,
+      };
+
+      const investmentMix = {
+        'Influencer Cost to Client': influencerClientCost,
+        'Paid Media Budget (Including Margin)': paidMediaWithMargin,
+      };
+      if (preciseProjectCostsWithMargin > 0) {
+        investmentMix['Precise TV Project Cost inc Margin'] = preciseProjectCostsWithMargin;
+      }
+      if (thirdPartyProjectCostsWithMargin > 0) {
+        investmentMix['3rd Party Project Costs Inc Margin'] = thirdPartyProjectCostsWithMargin;
+      }
+
+      updateCharts(
+        platformBudget,
+        sizeBudget,
+        platformViews,
+        viewMix,
+        investmentMix,
+        sizeContentPieces,
+        verticalBudget,
+        languageBudget,
+      );
+      updateLineTotals(contentLines);
+      saveState();
+    }
+
+    function calculatePaidViews(sourcePaidMedia = state.paidMedia) {
+      const media = sourcePaidMedia || {};
+      const { mode, budget, rate } = media;
+      if (!rate || rate <= 0) return 0;
+      if (mode === 'cpm') {
+        return (budget || 0) / rate * 1000;
+      }
+      return (budget || 0) / rate;
+    }
+
+    function updateSummary(data) {
+      const costGrid = document.getElementById('cost-summary');
+      const metricsGrid = document.getElementById('summary-grid');
+      const budgetStatusCard = document.getElementById('budget-status');
+
+      if (costGrid) {
+        costGrid.innerHTML = '';
+        const costItems = [
+          ['Total COGs', formatCurrency(data.totalCOGs)],
+          ['Total Influencer COGs', formatCurrency(data.influencerCogs)],
+          ['Influencer Margin', formatCurrency(data.influencerMargin)],
+          ['Total Influencer Cost to Client', formatCurrency(data.influencerClientCost)],
+        ];
+        if (data.preciseProjectCostsWithMargin > 0) {
+          costItems.push([
+            'Precise TV Project Cost inc Margin',
+            formatCurrency(data.preciseProjectCostsWithMargin),
+          ]);
+        }
+        if (data.thirdPartyProjectCostsWithMargin > 0) {
+          costItems.push([
+            '3rd Party Project Costs Inc Margin',
+            formatCurrency(data.thirdPartyProjectCostsWithMargin),
+          ]);
+        }
+        costItems.push(
+          ['Paid Media Budget (Including Margin)', formatCurrency(data.paidMediaWithMargin)],
+          ['Total Campaign Budget', formatCurrency(data.totalPrice)],
+        );
+        appendSummaryRows(costGrid, costItems);
+      }
+
+      const paidShareBase = Number(data.targetBudget) > 0 ? data.targetBudget : data.totalPrice;
+      updatePaidBudgetPercentageDisplay(paidShareBase, data.paidMediaWithMargin);
+
+      if (metricsGrid) {
+        metricsGrid.innerHTML = '';
+        const completeCpvDisplay = Number.isFinite(data.completeCpv)
+          ? formatCpv(data.completeCpv)
+          : '—';
+        const brandCombinedCpvDisplay = Number.isFinite(data.brandCombinedCPV)
+          ? formatCpv(data.brandCombinedCPV)
+          : '$0.000';
+        const metricItems = [
+          ['Organic Views (adj.)', data.organicViewsAdjusted],
+          ['Paid Views', data.paidViews],
+          ['Total Estimated Views', data.totalViews],
+          ['Total Content Pieces', data.totalContentPieces],
+          ['Total Creators', data.totalCreators],
+          ['Min Estimated Followers', data.totalEstimatedFollowers],
+          ['Brand CPM', isFinite(data.brandCPM) ? `$${data.brandCPM.toFixed(2)}` : '$0.00'],
+          ['Brand Organic CPV', isFinite(data.brandOrganicCPV) ? formatCpv(data.brandOrganicCPV) : '$0.000'],
+          ['Complete CPV (Target Budget)', completeCpvDisplay],
+          ['Brand Combined CPV', brandCombinedCpvDisplay],
+        ];
+        appendSummaryRows(metricsGrid, metricItems);
+      }
+
+      if (budgetStatusCard) {
+        const targetBudget = parseCurrencyInput(data.details?.budget);
+        const valueEl = budgetStatusCard.querySelector('.budget-status-value');
+        const titleEl = budgetStatusCard.querySelector('.budget-status-title');
+        const subtextEl = budgetStatusCard.querySelector('.budget-status-subtext');
+
+        if (targetBudget > 0) {
+          const difference = targetBudget - data.totalPrice;
+          const differenceAbs = Math.abs(difference);
+          const tolerance = Math.max(1, targetBudget * 0.001);
+          const differenceRatio = targetBudget ? difference / targetBudget : 0;
+          const targetVsEstimate = `Target ${formatCurrency(targetBudget)} vs Est. ${formatCurrency(data.totalPrice)}`;
+          if (data.totalPrice > targetBudget && differenceAbs > tolerance) {
+            budgetStatusCard.className = 'budget-status-card budget-status-over';
+            if (titleEl) titleEl.textContent = 'Over Budget';
+            if (valueEl) valueEl.textContent = `${formatCurrency(differenceAbs)} over target`;
+          } else if (differenceRatio >= 0.1) {
+            budgetStatusCard.className = 'budget-status-card budget-status-under';
+            if (titleEl) titleEl.textContent = 'Significantly Under Budget';
+            if (valueEl) valueEl.textContent = `${formatCurrency(difference)} remaining`;
+          } else if (Math.abs(difference) <= tolerance) {
+            budgetStatusCard.className = 'budget-status-card budget-status-good';
+            if (titleEl) titleEl.textContent = 'On Budget';
+            if (valueEl) valueEl.textContent = 'Spending matches the target.';
+          } else {
+            budgetStatusCard.className = 'budget-status-card budget-status-good';
+            if (titleEl) titleEl.textContent = 'In Budget';
+            if (valueEl) valueEl.textContent = `${formatCurrency(difference)} remaining`;
+          }
+
+          if (subtextEl) {
+            subtextEl.textContent = targetVsEstimate;
+          }
+        } else {
+          budgetStatusCard.className = 'budget-status-card budget-status-neutral';
+          if (titleEl) titleEl.textContent = 'Budget Status';
+          if (valueEl) valueEl.textContent = 'No target budget set';
+          if (subtextEl) subtextEl.textContent = 'Enter a target budget in campaign details to compare.';
+        }
+      }
+
+      const status = document.getElementById('status-badge');
+      if (status) {
+        status.className = 'status-badge status-ok';
+        const details = data.details || {};
+        const brand = (details.brand || '').trim();
+        const campaign = (details.campaignName || '').trim();
+        const budget = (details.budget || '').trim();
+        const quarterLabel = QUARTER_LABELS[(data.modifiers?.quarterIndex ?? 1) - 1] ?? 'Q1';
+        const excitementLabel = BRAND_EXCITEMENT[data.modifiers?.excitementIndex ?? 1]?.label ?? 'Neutral';
+        const meta = [];
+        if (brand) meta.push(brand);
+        if (campaign) meta.push(campaign);
+        if (budget) meta.push(`Budget ${budget}`);
+        meta.push(`Quarter ${quarterLabel}`);
+        meta.push(`Excitement ${excitementLabel}`);
+        status.textContent = meta.join(' • ');
+      }
+
+      const breakdown = document.getElementById('platform-breakdown');
+      breakdown.innerHTML = '<strong style="color:#cbd5f5; font-size:0.85rem;">Platform View Share</strong>';
+      const total = Object.values(data.platformViews).reduce((acc, v) => acc + v, 0) || 1;
+      Object.entries(data.platformViews).forEach(([platform, views]) => {
+        const row = document.createElement('div');
+        const pct = ((views / total) * 100).toFixed(1);
+        row.innerHTML = `<span>${platform}</span><span>${formatNumber(views)} (${pct}%)</span>`;
+        breakdown.appendChild(row);
+      });
+    }
+
+    function updatePaidBudgetPercentageDisplay(totalBudget, paidBudget) {
+      const indicator = document.getElementById('paid-budget-percent');
+      if (!indicator) return;
+      const total = Number(totalBudget || 0);
+      const paid = Number(paidBudget || 0);
+      if (!(total > 0)) {
+        indicator.textContent = '';
+        return;
+      }
+      if (!(paid > 0)) {
+        indicator.textContent = '0% of total';
+        return;
+      }
+      const share = (paid / total) * 100;
+      let formatted;
+      if (!Number.isFinite(share) || share <= 0) {
+        formatted = '0%';
+      } else if (share >= 99.95) {
+        formatted = '100%';
+      } else if (share >= 10) {
+        formatted = `${share.toFixed(0)}%`;
+      } else if (share >= 1) {
+        formatted = `${share.toFixed(1)}%`;
+      } else if (share >= 0.1) {
+        formatted = `${share.toFixed(2)}%`;
+      } else {
+        formatted = '<0.1%';
+      }
+      indicator.textContent = `${formatted} of total`;
+    }
+
+    function buildCreatorSizeSummary(lines) {
+      const counts = {};
+      const source = Array.isArray(lines) ? lines : [];
+      source.forEach(line => {
+        const creators = Number(line.creators || 0);
+        if (!creators) return;
+        const key = line.size || 'Unspecified';
+        counts[key] = (counts[key] || 0) + creators;
+      });
+      const orderedSizes = Object.keys(SIZE_MULT);
+      const ordered = orderedSizes
+        .filter(size => counts[size])
+        .map(size => `${formatNumber(counts[size])} ${size}`);
+      const leftovers = Object.keys(counts)
+        .filter(size => !orderedSizes.includes(size))
+        .sort((a, b) => a.localeCompare(b))
+        .map(size => `${formatNumber(counts[size])} ${size}`);
+      const combined = ordered.concat(leftovers);
+      return combined.length ? combined.join(', ') : '—';
+    }
+
+    function buildDeliverableSummary(lines) {
+      const counts = {};
+      const source = Array.isArray(lines) ? lines : [];
+      source.forEach(line => {
+        const creators = Number(line.creators || 0);
+        const qty = Number(line.qtyPerCreator || 0);
+        const pieces = creators * qty;
+        if (!pieces) return;
+        const platform = line.platform || 'Platform';
+        const deliverable = line.deliverable || 'Deliverable';
+        const key = `${platform} ${deliverable}`;
+        counts[key] = (counts[key] || 0) + pieces;
+      });
+      const entries = Object.entries(counts)
+        .sort((a, b) => {
+          if (b[1] !== a[1]) return b[1] - a[1];
+          return a[0].localeCompare(b[0]);
+        })
+        .map(([label, qty]) => `${label} (${formatNumber(qty)})`);
+      return entries.length ? entries.join(', ') : '—';
+    }
+
+    function buildUsageSummary(lines) {
+      const sizes = new Set();
+      const source = Array.isArray(lines) ? lines : [];
+      source.forEach(line => {
+        if (line.whitelist) {
+          sizes.add(line.size || 'Unspecified');
+        }
+      });
+      if (!sizes.size) {
+        return 'Standard usage';
+      }
+      const labels = Array.from(sizes).sort((a, b) => a.localeCompare(b));
+      const suffix = labels.length ? ` (${labels.join(', ')})` : '';
+      return `Paid media rights for 1 month${suffix}`;
+    }
+
+    function formatViewsSummary(total, organic, paid) {
+      const parts = [];
+      if (organic) {
+        parts.push(`Organic ${formatNumber(organic)}`);
+      }
+      if (paid) {
+        parts.push(`Paid ${formatNumber(paid)}`);
+      }
+      const breakdown = parts.length ? ` (${parts.join(' / ')})` : '';
+      return `${formatNumber(total || 0)}${breakdown}`;
+    }
+
+    function updateInsightTable(snapshot) {
+      const budgetCell = document.getElementById('insight-client-budget');
+      if (!budgetCell) return;
+      const data = snapshot || {};
+      budgetCell.textContent = formatCurrency(data.totalBudget || 0);
+
+      const creatorCell = document.getElementById('insight-creator-summary');
+      if (creatorCell) {
+        creatorCell.textContent = data.creatorSummary || '—';
+      }
+
+      const deliverableCell = document.getElementById('insight-deliverable-summary');
+      if (deliverableCell) {
+        deliverableCell.textContent = data.deliverableSummary || '—';
+      }
+
+      const viewsCell = document.getElementById('insight-views');
+      if (viewsCell) {
+        viewsCell.textContent = formatViewsSummary(
+          data.totalViews || 0,
+          data.organicViews || 0,
+          data.paidViews || 0,
+        );
+      }
+
+      const cpvCell = document.getElementById('insight-cpv');
+      if (cpvCell) {
+        cpvCell.textContent = formatCpv(data.combinedCpv || 0);
+      }
+
+      const completeCpvCell = document.getElementById('insight-complete-cpv');
+      if (completeCpvCell) {
+        if (Number.isFinite(data.completeCpv) && data.completeCpv > 0) {
+          completeCpvCell.textContent = formatCpv(data.completeCpv);
+        } else if (Number(data.targetBudget) > 0) {
+          completeCpvCell.textContent = '—';
+        } else {
+          completeCpvCell.textContent = 'Set target budget';
+        }
+      }
+
+      const usageCell = document.getElementById('insight-usage');
+      if (usageCell) {
+        usageCell.textContent = data.usageSummary || 'Standard usage';
+      }
+
+      const notesField = document.getElementById('insight-notes');
+      if (notesField && document.activeElement !== notesField) {
+        notesField.textContent = state.insightNotes || '';
+      }
+    }
+
+    function appendSummaryRows(container, items) {
+      items.forEach(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'summary-item';
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        const valueSpan = document.createElement('span');
+        if (typeof value === 'number' && !label.toLowerCase().includes('cpm')) {
+          valueSpan.textContent = formatNumber(value);
+        } else {
+          valueSpan.textContent = value;
+        }
+        row.appendChild(labelSpan);
+        row.appendChild(valueSpan);
+        container.appendChild(row);
+      });
+    }
+
+    function parseCurrencyInput(value) {
+      if (value === null || value === undefined) return 0;
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const sanitized = String(value).replace(/[^0-9.-]+/g, '');
+      const parsed = parseFloat(sanitized);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function updateCharts(
+      platformBudget,
+      sizeBudget,
+      platformViews,
+      viewMix,
+      investmentMix,
+      contentPiecesBySize,
+      verticalBudget,
+      languageBudget,
+    ) {
+      const percentageOptions = {
+        decimals: 1,
+        toPercentage: true,
+        tooltipLabelFormatter: defaultPercentTooltipFormatter,
+        datasetLabel: 'Percent of Budget',
+        valueSuffix: '%',
+        maxValue: 100,
+      };
+      updateChart(chartStates.platformBudget, platformBudget, percentageOptions);
+      updateChart(chartStates.languageBudget, languageBudget, percentageOptions);
+      updateChart(chartStates.sizeBudget, sizeBudget, percentageOptions);
+      updateChart(chartStates.verticalBudget, verticalBudget, percentageOptions);
+      updateChart(chartStates.platformViews, platformViews, {
+        decimals: 0,
+        tooltipLabelFormatter: createViewTooltipFormatter('views'),
+      });
+      updateChart(chartStates.sizeContent, contentPiecesBySize, {
+        decimals: 0,
+        tooltipLabelFormatter: createCountTooltipFormatter('pieces'),
+        datasetLabel: 'Content Pieces',
+      });
+      updateChart(chartStates.viewMix, viewMix, {
+        decimals: 0,
+        tooltipLabelFormatter: createViewTooltipFormatter('views'),
+      });
+      updateChart(chartStates.investmentMix, investmentMix);
+    }
+
+    function prepareChartData(source, options = {}) {
+      const { decimals = 2, toPercentage = false } = options;
+      const entries = Object.entries(source || {}).filter(([, value]) => value > 0);
+      if (!entries.length) {
+        return { labels: ['No Data'], values: [1] };
+      }
+      entries.sort((a, b) => b[1] - a[1]);
+      const labels = entries.map(([label]) => label);
+      const total = entries.reduce((acc, [, value]) => acc + value, 0) || 1;
+      const values = entries.map(([, value]) => {
+        const finalValue = toPercentage ? (value / total) * 100 : value;
+        return Number(finalValue.toFixed(decimals));
+      });
+      return { labels, values };
+    }
+
+    function updateChart(state, source, options = {}) {
+      const ctx = document.getElementById(state.canvasId)?.getContext('2d');
+      if (!ctx) return;
+      state.ctx = ctx;
+      const data = prepareChartData(source, options);
+      state.lastData = data;
+      state.chartOptions = options;
+      if (options.tooltipLabelFormatter) {
+        state.tooltipLabelFormatter = options.tooltipLabelFormatter;
+      } else if (!state.tooltipLabelFormatter) {
+        state.tooltipLabelFormatter = defaultCurrencyTooltipFormatter;
+      }
+      renderChartInstance(state, data, options);
+    }
+
+    function renderChartInstance(state, data, options = {}) {
+      if (!state.ctx) return;
+      if (state.instance) {
+        state.instance.destroy();
+      }
+      const chartConfig = createChartConfig(
+        state.currentType,
+        data,
+        state.tooltipLabelFormatter,
+        options
+      );
+      state.instance = new Chart(state.ctx, chartConfig);
+      const canvas = state.instance.canvas;
+      if (canvas) {
+        canvas.style.cursor = 'pointer';
+        const nextType = state.currentType === 'pie' ? 'bar' : 'pie';
+        canvas.title = `Click to switch to ${nextType} chart`;
+        if (!state.listenerAttached) {
+          canvas.addEventListener('click', () => toggleChartType(state));
+          state.listenerAttached = true;
+        }
+      }
+    }
+
+    function toggleChartType(state) {
+      state.currentType = state.currentType === state.defaultType ? state.alternateType : state.defaultType;
+      if (state.lastData) {
+        renderChartInstance(state, state.lastData, state.chartOptions || {});
+      }
+    }
+
+    function createChartConfig(
+      type,
+      data,
+      tooltipLabelFormatter = defaultCurrencyTooltipFormatter,
+      options = {}
+    ) {
+      const palette = ['#38bdf8', '#818cf8', '#f472b6', '#facc15', '#34d399', '#fb7185', '#fbbf24', '#a855f7'];
+      const backgroundColor = data.labels.map((_, idx) => palette[idx % palette.length]);
+      const dataset = {
+        data: data.values,
+        backgroundColor,
+        borderColor: '#0f172a',
+        borderWidth: type === 'pie' ? 2 : 1,
+        label: options.datasetLabel || 'Value',
+      };
+      const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: type === 'pie' ? 'bottom' : 'top',
+            display: type === 'pie',
+            labels: {
+              color: '#cbd5f5',
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                if (context.label === 'No Data') {
+                  return 'No Data';
+                }
+                const value = context.raw || 0;
+                const total = data.values.reduce((acc, v) => acc + v, 0) || 1;
+                return tooltipLabelFormatter(context.label, value, total);
+              },
+            },
+          },
+        },
+      };
+
+      if (type === 'bar') {
+        baseOptions.scales = {
+          x: {
+            beginAtZero: true,
+            ticks: {
+              color: '#cbd5f5',
+            },
+            grid: {
+              color: '#334155',
+            },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#cbd5f5',
+              callback(value) {
+                if (options.valueSuffix) {
+                  return `${value}${options.valueSuffix}`;
+                }
+                return value;
+              },
+            },
+            grid: {
+              display: false,
+              color: '#1e293b',
+            },
+          },
+        };
+        if (options.maxValue) {
+          baseOptions.scales.y.max = options.maxValue;
+        }
+      }
+
+      return {
+        type,
+        data: {
+          labels: data.labels,
+          datasets: [dataset],
+        },
+        options: baseOptions,
+      };
+    }
+
+    function createChartState(canvasId, tooltipLabelFormatter = defaultCurrencyTooltipFormatter) {
+      return {
+        canvasId,
+        instance: null,
+        ctx: null,
+        defaultType: 'pie',
+        alternateType: 'bar',
+        currentType: 'pie',
+        tooltipLabelFormatter,
+        lastData: null,
+        listenerAttached: false,
+        chartOptions: {},
+      };
+    }
+
+    function defaultCurrencyTooltipFormatter(label, value, total) {
+      const pct = ((value / total) * 100).toFixed(1);
+      return `${label}: $${formatNumber(value)} (${pct}%)`;
+    }
+
+    function defaultPercentTooltipFormatter(label, value, total) {
+      const pct = ((value / total) * 100).toFixed(1);
+      return `${label}: ${pct}%`;
+    }
+
+    function createViewTooltipFormatter(unit) {
+      return (label, value, total) => {
+        const pct = ((value / total) * 100).toFixed(1);
+        return `${label}: ${formatNumber(value)} ${unit} (${pct}%)`;
+      };
+    }
+
+    function createCountTooltipFormatter(unit) {
+      return (label, value, total) => {
+        const pct = ((value / total) * 100).toFixed(1);
+        const unitLabel = unit ? ` ${unit}` : '';
+        return `${label}: ${formatNumber(value)}${unitLabel} (${pct}%)`;
+      };
+    }
+
+    function updateLineTotals(contentLines) {
+      const rows = document.querySelectorAll('#campaign-body tr');
+      contentLines.forEach((line, idx) => {
+        const row = rows[idx];
+        if (!row) return;
+        const viewsCell = row.children?.[8];
+        const viewDisplay = viewsCell?.querySelector('.readonly-value');
+        if (viewDisplay) {
+          viewDisplay.textContent = formatNumber(line.viewsPerPiece || 0);
+        }
+        const cogsCpvDisplay = row.querySelector('.cogs-cpv');
+        if (cogsCpvDisplay) {
+          const cogsValue = Number.isFinite(line.cogsCpv)
+            ? line.cogsCpv
+            : Number.isFinite(line.cpvWithWhitelist)
+              ? line.cpvWithWhitelist
+              : line.unitRate || 0;
+          cogsCpvDisplay.textContent = formatCpv(cogsValue);
+        }
+        const clientCpvDisplay = row.querySelector('.client-cpv');
+        if (clientCpvDisplay) {
+          const cpvValue = Number.isFinite(line.effectiveCpv)
+            ? line.effectiveCpv
+            : Number.isFinite(line.cogsCpv)
+              ? line.cogsCpv
+              : Number.isFinite(line.cpvWithWhitelist)
+                ? line.cpvWithWhitelist
+                : line.unitRate || 0;
+          clientCpvDisplay.textContent = formatCpv(cpvValue);
+        }
+        const totalCell = row.children?.[11];
+        if (totalCell) {
+          totalCell.textContent = formatCurrency(line.total);
+        }
+      });
+    }
+
+    function formatCurrency(value) {
+      return `$${formatNumber(value)}`;
+    }
+
+    function formatCpv(value) {
+      if (!isFinite(value) || value <= 0) return '$0.000';
+      return `$${value.toFixed(3)}`;
+    }
+
+    function formatNumber(value) {
+      if (!isFinite(value)) return '0';
+      return Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+
+    const hasReact = typeof React !== 'undefined' && typeof ReactDOM !== 'undefined';
+    const { useState, useEffect, useMemo, useCallback, useRef } = hasReact ? React : {};
+    const h = hasReact ? React.createElement : () => null;
+    const BASE_PATH = deriveBasePath();
+
+    function deriveBasePath() {
+      const path = window.location.pathname || '';
+      if (/\/campaigns\/?$/.test(path)) {
+        return path.replace(/\/campaigns\/?$/, '');
+      }
+      if (/\/campaign\/[^/]+\/?$/.test(path)) {
+        return path.replace(/\/campaign\/[^/]+\/?$/, '');
+      }
+      if (path.endsWith('/index.html')) {
+        return path.slice(0, -'/index.html'.length);
+      }
+      return path !== '/' && path.endsWith('/') ? path.slice(0, -1) : path;
+    }
+
+    function buildRoutePath(segment) {
+      const base = BASE_PATH && BASE_PATH !== '/' ? BASE_PATH.replace(/\/$/, '') : '';
+      if (!segment) {
+        return base || '/';
+      }
+      const normalizedSegment = segment.startsWith('/') ? segment : `/${segment}`;
+      const composed = `${base}${normalizedSegment}`;
+      return composed || normalizedSegment;
+    }
+
+    function parseRoute(campaignList) {
+      const list = Array.isArray(campaignList) ? campaignList : [];
+      const hash = window.location.hash || '';
+      if (hash === '#/campaigns') {
+        return { view: 'dashboard', id: null };
+      }
+      const hashMatch = hash.match(/^#\/campaign\/([^/]+)/);
+      if (hashMatch) {
+        const hashId = decodeURIComponent(hashMatch[1]);
+        if (list.some(campaign => campaign.id === hashId)) {
+          return { view: 'editor', id: hashId };
+        }
+      }
+      const path = window.location.pathname || '';
+      if (/\/campaigns\/?$/.test(path)) {
+        return { view: 'dashboard', id: null };
+      }
+      const pathMatch = path.match(/\/campaign\/([^/]+)\/?$/);
+      if (pathMatch) {
+        const pathId = decodeURIComponent(pathMatch[1]);
+        if (list.some(campaign => campaign.id === pathId)) {
+          return { view: 'editor', id: pathId };
+        }
+      }
+      const fallbackId = list[0]?.id ?? null;
+      return { view: 'dashboard', id: fallbackId };
+    }
+
+    function updateRoute(view, campaignId) {
+      const targetHash = view === 'dashboard'
+        ? '#/campaigns'
+        : campaignId
+          ? `#/campaign/${campaignId}`
+          : '#/campaigns';
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+      }
+      const segment = view === 'dashboard'
+        ? 'campaigns'
+        : campaignId
+          ? `campaign/${encodeURIComponent(campaignId)}`
+          : 'campaigns';
+      const targetPath = buildRoutePath(segment);
+      const currentPath = window.location.pathname || '';
+      const state = { view, id: campaignId };
+      if (currentPath !== targetPath) {
+        history.pushState(state, '', targetPath);
+      } else {
+        history.replaceState(state, '', targetPath);
+      }
+    }
+
+    function PricingMatrixControls({ language, onChangeLanguage }) {
+      const selectId = 'pricing-matrix-country';
+      const languages = useMemo(() => Object.keys(LANGUAGE_MULT), []);
+      return h('div', { className: 'matrix-controls' },
+        h('label', { htmlFor: selectId }, 'Country'),
+        h('select', {
+          id: selectId,
+          value: language,
+          onChange: event => {
+            if (typeof onChangeLanguage === 'function') {
+              onChangeLanguage(event.target.value);
+            }
+          },
+        },
+        languages.map(option => h('option', { key: option, value: option }, option)),
+        ),
+      );
+    }
+
+    const DEFAULT_MATRIX_SIZE = 'Macro';
+
+    function PricingMatrixTable({ verticals, formats, language }) {
+      return h('table', {
+        className: 'matrix-table',
+        'aria-label': 'Pricing matrix — vertical against platform',
+      },
+        h('thead', null,
+          h('tr', null,
+            h('th', { key: 'vertical' }, 'Vertical'),
+            formats.map(format => h('th', { key: format.key },
+              h('div', { className: 'matrix-format' }, format.platform),
+              h('div', { className: 'matrix-sub' }, format.deliverable),
+            )),
+          ),
+        ),
+        h('tbody', null,
+          verticals.map(vertical => h('tr', { key: vertical },
+            h('th', { scope: 'row', className: 'matrix-row-header' },
+              h('span', { className: 'matrix-format' }, vertical),
+            ),
+            formats.map(format => {
+              const defaults = getRateDefaults(
+                format.platform,
+                format.deliverable,
+                DEFAULT_MATRIX_SIZE,
+                vertical,
+                language,
+              );
+              const cpvDisplay = `$${Number(defaults.cpv || 0).toFixed(3)}`;
+              return h('td', { key: `${vertical}-${format.key}`, className: 'matrix-cell' },
+                h('div', { className: 'matrix-cpv' }, cpvDisplay),
+              );
+            }),
+          )),
+        ),
+      );
+    }
+
+    function PricingMatrixDeck() {
+      const [language, setLanguage] = useState('English');
+      const formats = useMemo(() => {
+        const ordered = [];
+        const platforms = Object.keys(RATE_CARD).sort();
+        platforms.forEach(platform => {
+          const deliverables = Object.keys(RATE_CARD[platform]?.deliverables || {}).sort();
+          deliverables.forEach(deliverable => {
+            ordered.push({
+              key: `${platform}-${deliverable}`,
+              platform,
+              deliverable,
+            });
+          });
+        });
+        return ordered;
+      }, []);
+      const verticals = useMemo(() => Object.keys(VERTICAL_MULT), []);
+
+      return h('div', null,
+        h(PricingMatrixControls, { language, onChangeLanguage: setLanguage }),
+        h('div', { className: 'matrix-card' },
+          h('div', { className: 'matrix-head' },
+            h('h5', { className: 'matrix-title' }, 'Vertical vs Platform'),
+          ),
+          h('div', { className: 'matrix-scroller' },
+            h(PricingMatrixTable, { verticals, formats, language }),
+          ),
+        ),
+      );
+    }
+
+    function PricingVariablesMenu({ open, onClose }) {
+      const [showAdvanced, setShowAdvanced] = useState(false);
+      const [viewMode, setViewMode] = useState('tables');
+
+      useEffect(() => {
+        if (!open) return undefined;
+        const handleKeyDown = event => {
+          if (event.key === 'Escape' && typeof onClose === 'function') {
+            onClose();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [open, onClose]);
+
+      useEffect(() => {
+        if (!open) {
+          setShowAdvanced(false);
+          setViewMode('tables');
+        }
+      }, [open]);
+
+      if (!open) return null;
+
+      const { general, paidMedia, multipliers, followers, deliverables } = pricingVariables;
+      const sizeOrder = Object.keys(multipliers.size || {});
+
+      const generalItems = [
+        ['Default margin goal', `${Number(general.marginGoal || 0).toFixed(0)}%`],
+        ['Rush fee uplift', formatPricingUplift(general.rushFeeMultiplier)],
+        ['Travel uplift', formatPricingUplift(general.travelFeeMultiplier)],
+        ['Niche creator uplift', formatPricingUplift(general.nicheCreatorMultiplier)],
+        ['Q4 uplift', formatPricingUplift(general.q4FeeMultiplier)],
+      ];
+
+      const commonSections = [
+        h('div', { className: 'pricing-menu-section', key: 'general' },
+          h('h4', null, 'General Pricing Inputs'),
+          h('p', { className: 'pricing-menu-description' },
+            'High-level assumptions that shape creator compensation and client pricing.',
+          ),
+          h('div', { className: 'pricing-variable-grid' },
+            generalItems.map(([label, value]) => h('div', { key: label, className: 'pricing-variable-item' },
+              h('span', { className: 'pricing-variable-label' }, label),
+              h('span', { className: 'pricing-variable-value' }, value),
+            )),
+          ),
+        ),
+        h('div', { className: 'pricing-menu-section', key: 'paid-media' },
+          h('h4', null, 'Paid Media Defaults'),
+          h('p', { className: 'pricing-menu-description' },
+            'Used when estimating paid amplification budgets and expected views.',
+          ),
+          h('div', { className: 'pricing-menu-table-wrapper' },
+            h('table', null,
+              h('thead', null,
+                h('tr', null,
+                  h('th', null, 'Mode'),
+                  h('th', null, 'Default Rate'),
+                  h('th', null, 'Unit'),
+                ),
+              ),
+              h('tbody', null,
+                Object.entries(paidMedia.defaultRates || {}).map(([mode, rate]) => {
+                  const isCpm = mode.toLowerCase() === 'cpm';
+                  return h('tr', { key: mode },
+                    h('td', null, mode.toUpperCase()),
+                    h('td', null, `$${Number(rate || 0).toFixed(2)}`),
+                    h('td', null, isCpm ? 'Per 1,000 views' : 'Per view'),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+        h('div', { className: 'pricing-menu-section', key: 'sizes' },
+          h('h4', null, 'Creator Size Benchmarks'),
+          h('p', { className: 'pricing-menu-description' },
+            'Baseline view multipliers and follower expectations by creator size.',
+          ),
+          h('div', { className: 'pricing-menu-table-wrapper' },
+            h('table', null,
+              h('thead', null,
+                h('tr', null,
+                  h('th', null, 'Size'),
+                  h('th', null, 'View Multiplier'),
+                  h('th', null, 'Estimated Followers'),
+                ),
+              ),
+              h('tbody', null,
+                sizeOrder.map(size => {
+                  const config = multipliers.size[size] || {};
+                  const followerCount = followers[size];
+                  return h('tr', { key: size },
+                    h('td', null, size),
+                    h('td', null, `${Number(config.views ?? 1).toFixed(2)}x`),
+                    h('td', null, followerCount ? formatNumber(followerCount) : '—'),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+      ];
+
+      const audienceSection = h('div', { className: 'pricing-menu-section', key: 'audience' },
+        h('h4', null, 'Audience Adjustments'),
+        h('p', { className: 'pricing-menu-description' },
+          'Rate and view modifiers applied for vertical or language-specific campaigns.',
+        ),
+        h('div', { className: 'pricing-variable-grid' },
+          h('div', { className: 'pricing-menu-table-wrapper', key: 'vertical' },
+            h('table', null,
+              h('thead', null,
+                h('tr', null,
+                  h('th', null, 'Vertical'),
+                  h('th', null, 'Rate Multiplier'),
+                  h('th', null, 'View Multiplier'),
+                ),
+              ),
+              h('tbody', null,
+                Object.entries(multipliers.vertical || {}).map(([vertical, values]) => h('tr', { key: vertical },
+                  h('td', null, vertical),
+                  h('td', null, `${Number(values.rate ?? 1).toFixed(2)}x`),
+                  h('td', null, `${Number(values.views ?? 1).toFixed(2)}x`),
+                )),
+              ),
+            ),
+          ),
+          h('div', { className: 'pricing-menu-table-wrapper', key: 'language' },
+            h('table', null,
+              h('thead', null,
+                h('tr', null,
+                  h('th', null, 'Language'),
+                  h('th', null, 'Rate Multiplier'),
+                  h('th', null, 'View Multiplier'),
+                ),
+              ),
+              h('tbody', null,
+                Object.entries(multipliers.language || {}).map(([language, values]) => h('tr', { key: language },
+                  h('td', null, language),
+                  h('td', null, `${Number(values.rate ?? 1).toFixed(2)}x`),
+                  h('td', null, `${Number(values.views ?? 1).toFixed(2)}x`),
+                )),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      const feeSection = h('div', { className: 'pricing-menu-section', key: 'fees' },
+        h('h4', null, 'Special Fees & Sentiment'),
+        h('p', { className: 'pricing-menu-description' },
+          'Additional adjustments applied for whitelisting usage or brand sentiment.',
+        ),
+        h('div', { className: 'pricing-variable-grid' },
+          h('div', { className: 'pricing-menu-table-wrapper', key: 'whitelist' },
+            h('table', null,
+              h('thead', null,
+                h('tr', null,
+                  h('th', null, 'Creator Size'),
+                  h('th', null, 'Whitelist Uplift'),
+                ),
+              ),
+              h('tbody', null,
+                Object.entries(multipliers.whitelist || {}).map(([size, uplift]) => h('tr', { key: size },
+                  h('td', null, size),
+                  h('td', null, formatPricingUplift(1 + (uplift || 0))),
+                )),
+              ),
+            ),
+          ),
+          h('div', { className: 'pricing-menu-table-wrapper', key: 'sentiment' },
+            h('table', null,
+              h('thead', null,
+                h('tr', null,
+                  h('th', null, 'Brand Sentiment'),
+                  h('th', null, 'Fee Impact'),
+                ),
+              ),
+              h('tbody', null,
+                (multipliers.brandExcitement || []).map((entry, index) => h('tr', { key: `${entry.label}-${index}` },
+                  h('td', null, entry.label || `Level ${index + 1}`),
+                  h('td', null, formatPricingUplift(entry.multiplier ?? 1)),
+                )),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      const deliverableCards = [];
+      Object.entries(deliverables || {}).forEach(([platform, items]) => {
+        Object.entries(items || {}).forEach(([deliverable, detail]) => {
+          const viewStrings = sizeOrder
+            .filter(size => Number.isFinite(detail.viewsBySize?.[size]))
+            .map(size => `${size}: ${formatNumber(detail.viewsBySize[size])}`);
+          const cpvStrings = Object.entries(detail.cpvByVertical || {})
+            .map(([vertical, cpvValue]) => `${vertical}: ${formatCpv(Number(cpvValue || 0))}`);
+          const baseViewLabel = detail.viewsBySize?.Macro ?? detail.baseViews ?? 0;
+          deliverableCards.push(h('div', { key: `${platform}-${deliverable}`, className: 'pricing-deliverable-card' },
+            h('h5', null, `${platform} — ${deliverable}`),
+            h('div', { className: 'pricing-deliverable-meta' },
+              h('span', null,
+                h('strong', null, 'Base CPV:'),
+                ` ${formatCpv(Number(detail.cpv || 0))}`,
+              ),
+              h('span', null,
+                h('strong', null, 'Macro views:'),
+                ` ${formatNumber(baseViewLabel || 0)}`,
+              ),
+            ),
+            viewStrings.length
+              ? h('div', { className: 'pricing-deliverable-meta' },
+                  h('span', null,
+                    h('strong', null, 'Views by size:'),
+                    ` ${viewStrings.join(' • ')}`,
+                  ),
+                )
+              : null,
+            cpvStrings.length
+              ? h('div', { className: 'pricing-deliverable-meta' },
+                  h('span', null,
+                    h('strong', null, 'CPV by vertical:'),
+                    ` ${cpvStrings.join(' • ')}`,
+                  ),
+                )
+              : null,
+          ));
+        });
+      });
+
+      const advancedSections = [
+        audienceSection,
+        feeSection,
+        h('div', { className: 'pricing-menu-section', key: 'deliverables' },
+          h('h4', null, 'Platform Deliverable Benchmarks'),
+          h('p', { className: 'pricing-menu-description' },
+            'Base views and CPVs that power the deliverable-level rate card.',
+          ),
+          h('div', { className: 'pricing-deliverable-grid' }, deliverableCards),
+        ),
+      ];
+
+      const listViewContent = [
+        h('div', { className: 'pricing-menu-toggle', key: 'advanced-toggle' },
+          h('p', { className: 'pricing-menu-description' },
+            'Review baseline values or expand to inspect advanced adjustments.',
+          ),
+          h('label', null,
+            h('input', {
+              type: 'checkbox',
+              checked: showAdvanced,
+              onChange: event => setShowAdvanced(event.target.checked),
+            }),
+            'Show advanced variables',
+          ),
+        ),
+        ...commonSections,
+        ...(showAdvanced ? advancedSections : []),
+      ];
+
+      const tablesViewContent = [
+        h(PricingMatrixDeck, { key: 'matrix-view' }),
+      ];
+
+      return h('div', {
+        className: 'pricing-menu-backdrop',
+        onClick: () => { if (typeof onClose === 'function') onClose(); },
+      },
+        h('div', {
+          className: 'pricing-menu',
+          role: 'dialog',
+          'aria-modal': 'true',
+          onClick: event => event.stopPropagation(),
+        },
+          h('div', { className: 'pricing-menu-header' },
+            h('div', null,
+              h('h3', null, 'Pricing Variables'),
+              h('p', { className: 'pricing-menu-description' },
+                'Reference-only view of the cost assumptions used across the Precise Influencer Calculator.',
+              ),
+            ),
+            h('div', { className: 'pricing-menu-actions' },
+              h('button', {
+                type: 'button',
+                className: 'secondary',
+                onClick: exportPricingVariablesToCSV,
+              }, 'Download CSV'),
+              h('button', {
+                type: 'button',
+                className: 'pricing-menu-close',
+                onClick: () => { if (typeof onClose === 'function') onClose(); },
+              }, 'Close'),
+            ),
+          ),
+          h('div', { className: 'pricing-menu-viewbar' },
+            h('p', { className: 'pricing-menu-description' },
+              'Switch between the reference list and the new pricing matrices.',
+            ),
+            h('div', { className: 'pricing-menu-view-tabs', role: 'tablist' },
+              ['tables', 'list'].map(mode => h('button', {
+                key: mode,
+                type: 'button',
+                className: `pricing-menu-tab${viewMode === mode ? ' active' : ''}`,
+                onClick: () => setViewMode(mode),
+                role: 'tab',
+                'aria-selected': viewMode === mode,
+              }, mode === 'tables' ? 'Tables' : 'List')),
+            ),
+          ),
+          ...(viewMode === 'tables' ? tablesViewContent : listViewContent),
+        ),
+      );
+    }
+
+    function CampaignCard({ campaign, onEdit, onDuplicate, onDelete, onMoveUp, onMoveDown }) {
+      const budgetDisplay = campaign.budget > 0 ? formatCurrency(campaign.budget) : 'Not set';
+      const creatorLabel = formatNumber(campaign.totalCreators || 0);
+      const viewLabel = formatNumber(Math.round(campaign.estimatedViews || 0));
+      const brandLabel = campaign.brand || 'Brand TBD';
+      const quarterLabel = campaign.quarterLabel || 'Timing TBD';
+      const deliverables = campaign.deliverableCount || 0;
+      const deliverableDisplay = formatNumber(deliverables);
+      const deliverableLabel = deliverables === 1 ? 'Deliverable' : 'Deliverables';
+      const estimatedBudgetLabel = campaign.estimatedBudget > 0
+        ? formatCurrency(campaign.estimatedBudget)
+        : 'TBD';
+      const influencerSpendLabel = campaign.influencerSpend > 0
+        ? formatCurrency(campaign.influencerSpend)
+        : 'TBD';
+      const paidMediaLabel = campaign.paidMediaBudget > 0
+        ? formatCurrency(campaign.paidMediaBudget)
+        : 'None';
+      const grossMarginLabel = formatCurrency(campaign.grossMargin || 0);
+      const organicViewsLabel = formatNumber(Math.round(campaign.organicViews || 0));
+      const paidViewsLabel = formatNumber(Math.round(campaign.paidViews || 0));
+      const contentPiecesLabel = formatNumber(Math.round(campaign.contentPieces || 0));
+      const followerLabel = campaign.estimatedFollowers > 0
+        ? formatNumber(Math.round(campaign.estimatedFollowers))
+        : null;
+      const summaryItems = [
+        { key: 'est-budget', label: 'Est. Budget', value: estimatedBudgetLabel },
+        { key: 'paid-media', label: 'Paid Media', value: paidMediaLabel },
+        { key: 'influencer-spend', label: 'Influencer Spend', value: influencerSpendLabel },
+        { key: 'gross-margin', label: 'Gross Margin', value: grossMarginLabel },
+        { key: 'organic-views', label: 'Organic Views', value: organicViewsLabel },
+        { key: 'paid-views', label: 'Paid Views', value: paidViewsLabel },
+        { key: 'content-pieces', label: 'Content Pieces', value: contentPiecesLabel },
+      ];
+      if (followerLabel) {
+        summaryItems.push({ key: 'followers', label: 'Est. Followers', value: followerLabel });
+      }
+      const flags = [];
+      if (campaign.rush) {
+        flags.push({ key: 'rush', label: 'Rush timeline', urgent: true });
+      }
+      if (campaign.travelNeeded) {
+        flags.push({ key: 'travel', label: 'Travel required' });
+      }
+      if (campaign.nicheCreators) {
+        flags.push({ key: 'niche', label: 'Niche creators' });
+      }
+      const canMoveUp = typeof onMoveUp === 'function';
+      const canMoveDown = typeof onMoveDown === 'function';
+      const campaignLabel = campaign.name ? `"${campaign.name}"` : 'campaign';
+      return h('div', { className: 'campaign-card' },
+        h('div', { className: 'campaign-card-order' },
+          h('button', {
+            className: 'line-action-button move-button campaign-move-button',
+            onClick: () => { if (canMoveUp) onMoveUp(); },
+            disabled: !canMoveUp,
+            'aria-label': `Move ${campaignLabel} up`,
+          }, '▲'),
+          h('button', {
+            className: 'line-action-button move-button campaign-move-button',
+            onClick: () => { if (canMoveDown) onMoveDown(); },
+            disabled: !canMoveDown,
+            'aria-label': `Move ${campaignLabel} down`,
+          }, '▼'),
+        ),
+        h('div', { className: 'campaign-card-main' },
+          h('h3', null, campaign.name || 'Untitled Campaign'),
+          h('div', { className: 'campaign-card-meta' },
+            h('span', null, h('strong', null, brandLabel), 'Brand'),
+            h('span', null, h('strong', null, quarterLabel), 'Timeline'),
+            h('span', null, h('strong', null, deliverableDisplay), deliverableLabel),
+            h('span', null, h('strong', null, budgetDisplay), 'Target Budget'),
+            h('span', null, h('strong', null, creatorLabel), 'Creators'),
+            h('span', null, h('strong', null, viewLabel), 'Estimated Views'),
+          ),
+          summaryItems.length
+            ? h('div', { className: 'campaign-card-summary' },
+                summaryItems.map(item => (
+                  h('div', { key: item.key, className: 'campaign-card-stat' },
+                    h('span', null, item.label),
+                    h('strong', null, item.value),
+                  )
+                )),
+              )
+            : null,
+          flags.length
+            ? h('div', { className: 'campaign-card-flags' }, flags.map(flag =>
+                h('span', {
+                  key: flag.key,
+                  className: flag.urgent ? 'campaign-flag campaign-flag-urgent' : 'campaign-flag',
+                }, flag.label),
+              ))
+            : null,
+        ),
+        h('div', { className: 'campaign-card-actions' },
+          h('button', { onClick: () => onEdit(campaign.id) }, 'Edit'),
+          h('button', {
+            className: 'secondary',
+            onClick: () => exportCampaignToCSV(campaign),
+          }, 'Export CSV'),
+          h('button', {
+            className: 'danger',
+            onClick: () => {
+              const label = campaign.name ? `"${campaign.name}"` : 'this campaign';
+              if (window.confirm(`Delete ${label}? This action cannot be undone.`)) {
+                onDelete(campaign.id);
+              }
+            },
+          }, 'Delete'),
+          h('button', { className: 'secondary', onClick: () => onDuplicate(campaign.id) }, 'Duplicate'),
+        ),
+      );
+    }
+
+    function CampaignDashboard({
+      campaigns,
+      onEdit,
+      onDuplicate,
+      onDelete,
+      onCreate,
+      templates,
+      selectedTemplateId,
+      onTemplateChange,
+      onMove,
+    }) {
+      const [showPricingVariables, setShowPricingVariables] = useState(false);
+      const handleOpenPricing = useCallback(() => setShowPricingVariables(true), []);
+      const handleClosePricing = useCallback(() => setShowPricingVariables(false), []);
+      const options = [
+        h('option', { key: 'blank', value: '' }, 'Start from template (optional)'),
+        ...templates.map(template => h('option', { key: template.id, value: template.id }, template.name)),
+      ];
+      return h(React.Fragment, null,
+        h('div', { className: 'campaign-app' },
+          h('div', { className: 'campaign-toolbar' },
+            h('div', null,
+              h('h2', null, 'Campaigns'),
+              h('p', null, 'Manage saved campaigns, duplicate work, or start something new.'),
+            ),
+            h('div', { className: 'campaign-toolbar-actions' },
+              h('select', {
+                value: selectedTemplateId,
+                onChange: event => onTemplateChange(event.target.value),
+              }, options),
+              h('button', { className: 'secondary', onClick: handleOpenPricing }, 'Pricing Variables'),
+              h('button', { onClick: onCreate }, 'New Campaign'),
+            ),
+          ),
+          campaigns.length
+            ? h('div', { className: 'campaign-list' }, campaigns.map((campaign, index) => {
+                const moveUp = typeof onMove === 'function' && index > 0
+                  ? () => onMove(campaign.id, 'up')
+                  : null;
+                const moveDown = typeof onMove === 'function' && index < campaigns.length - 1
+                  ? () => onMove(campaign.id, 'down')
+                  : null;
+                return h(CampaignCard, {
+                  key: campaign.id,
+                  campaign,
+                  onEdit,
+                  onDuplicate,
+                  onDelete,
+                  onMoveUp: moveUp,
+                  onMoveDown: moveDown,
+                });
+              }))
+            : h('p', { className: 'campaign-dashboard-empty' }, 'No campaigns yet. Create a new campaign to get started.'),
+        ),
+        h(PricingVariablesMenu, { open: showPricingVariables, onClose: handleClosePricing }),
+      );
+    }
+
+    function EditorToolbar({ campaign, onBack, onSaveTemplate }) {
+      const contextLabel = campaign ? `Editing ${campaign.name}` : 'Select a campaign to begin.';
+      return h('div', { className: 'campaign-app' },
+        h('div', { className: 'campaign-toolbar' },
+          h('div', null,
+            h('h2', null, 'Campaign Editor'),
+            h('p', null, contextLabel),
+          ),
+          h('div', { className: 'campaign-toolbar-actions' },
+            h('button', { className: 'secondary', onClick: onBack }, 'Back to Campaigns'),
+            h('button', {
+              className: 'secondary',
+              onClick: () => { if (campaign) exportCampaignToCSV(campaign); },
+              disabled: !campaign,
+            }, 'Export CSV'),
+            h('button', { onClick: onSaveTemplate }, 'Save as Template'),
+          ),
+        ),
+      );
+    }
+
+    function CampaignApp() {
+      const initialRef = useRef(null);
+      if (!initialRef.current) {
+        const initialCampaigns = bootstrapCampaigns();
+        const initialRoute = parseRoute(initialCampaigns);
+        const initialView = initialCampaigns.length ? initialRoute.view : 'dashboard';
+        const initialActiveId = initialView === 'editor'
+          && initialRoute.id
+          && initialCampaigns.some(campaign => campaign.id === initialRoute.id)
+          ? initialRoute.id
+          : initialCampaigns[0]?.id ?? null;
+        initialRef.current = {
+          campaigns: initialCampaigns,
+          view: initialView,
+          activeId: initialActiveId,
+        };
+      }
+
+      const initialData = initialRef.current;
+      const [campaigns, setCampaigns] = useState(initialData.campaigns);
+      const [view, setView] = useState(initialData.view);
+      const [activeCampaignId, setActiveCampaignId] = useState(initialData.activeId);
+      const [templates, setTemplates] = useState(() => loadTemplates());
+      const [selectedTemplateId, setSelectedTemplateId] = useState('');
+      const campaignsRef = useRef(campaigns);
+
+      useEffect(() => {
+        campaignsRef.current = campaigns;
+      }, [campaigns]);
+
+      useEffect(() => {
+        saveCampaigns(campaigns);
+      }, [campaigns]);
+
+      useEffect(() => {
+        saveTemplates(templates);
+      }, [templates]);
+
+      useEffect(() => {
+        document.body.classList.toggle('dashboard-active', view === 'dashboard');
+      }, [view]);
+
+      useEffect(() => {
+        if (!activeCampaignId) {
+          persistActiveCampaign = () => {};
+          return () => {
+            persistActiveCampaign = () => {};
+          };
+        }
+        persistActiveCampaign = updatedState => {
+          setCampaigns(prev => {
+            if (!prev.some(campaign => campaign.id === activeCampaignId)) {
+              return prev;
+            }
+            return prev.map(campaign =>
+              campaign.id === activeCampaignId
+                ? createCampaignRecord(updatedState, activeCampaignId)
+                : campaign,
+            );
+          });
+        };
+        return () => {
+          persistActiveCampaign = () => {};
+        };
+      }, [activeCampaignId]);
+
+      useEffect(() => {
+        if (campaigns.length === 0 && view !== 'dashboard') {
+          setView('dashboard');
+          setActiveCampaignId(null);
+        } else if (
+          view === 'editor'
+          && activeCampaignId
+          && !campaigns.some(campaign => campaign.id === activeCampaignId)
+        ) {
+          const fallback = campaigns[0]?.id ?? null;
+          setActiveCampaignId(fallback);
+          if (!fallback) {
+            setView('dashboard');
+          }
+        }
+      }, [campaigns, view, activeCampaignId]);
+
+      useEffect(() => {
+        if (view !== 'editor' || !activeCampaignId) return;
+        const active = campaignsRef.current.find(campaign => campaign.id === activeCampaignId);
+        if (active) {
+          hydrateActiveCampaign(active.data);
+        }
+      }, [view, activeCampaignId]);
+
+      useEffect(() => {
+        updateRoute(view, activeCampaignId);
+      }, [view, activeCampaignId]);
+
+      useEffect(() => {
+        const handleNavigation = () => {
+          const route = parseRoute(campaignsRef.current);
+          setView(previous => (previous === route.view ? previous : route.view));
+          setActiveCampaignId(previous => {
+            if (route.view !== 'editor') {
+              return null;
+            }
+            const desiredId = route.id ?? campaignsRef.current[0]?.id ?? null;
+            return previous === desiredId ? previous : desiredId;
+          });
+        };
+        window.addEventListener('popstate', handleNavigation);
+        window.addEventListener('hashchange', handleNavigation);
+        return () => {
+          window.removeEventListener('popstate', handleNavigation);
+          window.removeEventListener('hashchange', handleNavigation);
+        };
+      }, []);
+
+      const activeCampaign = useMemo(
+        () => campaigns.find(campaign => campaign.id === activeCampaignId) || null,
+        [campaigns, activeCampaignId],
+      );
+
+      const handleTemplateChange = useCallback(value => {
+        setSelectedTemplateId(value);
+      }, []);
+
+      const handleCreateCampaign = useCallback(() => {
+        const template = templates.find(item => item.id === selectedTemplateId);
+        const seededState = applyTemplateToState(structuredClone(defaultState), template);
+        const label = template ? `${template.name} Campaign` : undefined;
+        const record = createCampaignRecord(seededState, createId(), label);
+        setCampaigns(prev => [...prev, record]);
+        setActiveCampaignId(record.id);
+        setView('editor');
+      }, [templates, selectedTemplateId]);
+
+      const handleEditCampaign = useCallback(id => {
+        setActiveCampaignId(id);
+        setView('editor');
+      }, []);
+
+      const handleDuplicateCampaign = useCallback(id => {
+        let duplicate = null;
+        setCampaigns(prev => {
+          const source = prev.find(campaign => campaign.id === id);
+          if (!source) {
+            return prev;
+          }
+          duplicate = createCampaignRecord(
+            source.data,
+            createId(),
+            `Copy of ${source.name || 'Campaign'}`,
+          );
+          return [...prev, duplicate];
+        });
+        if (duplicate) {
+          setActiveCampaignId(duplicate.id);
+          setView('editor');
+        }
+      }, []);
+
+      const handleMoveCampaign = useCallback((id, direction) => {
+        setCampaigns(prev => {
+          const currentIndex = prev.findIndex(campaign => campaign.id === id);
+          if (currentIndex === -1) {
+            return prev;
+          }
+          const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+          if (targetIndex < 0 || targetIndex >= prev.length) {
+            return prev;
+          }
+          const updated = [...prev];
+          const [moved] = updated.splice(currentIndex, 1);
+          updated.splice(targetIndex, 0, moved);
+          return updated;
+        });
+      }, []);
+
+      const handleDeleteCampaign = useCallback(id => {
+        setCampaigns(prev => prev.filter(campaign => campaign.id !== id));
+        setActiveCampaignId(previous => (previous === id ? null : previous));
+        setView(previous => (previous === 'editor' && activeCampaignId === id ? 'dashboard' : previous));
+      }, [activeCampaignId]);
+
+      const handleBackToDashboard = useCallback(() => {
+        setView('dashboard');
+        setActiveCampaignId(null);
+      }, []);
+
+      const handleSaveTemplate = useCallback(() => {
+        const lines = sanitizeTemplateLines(state);
+        const defaultName = state.details?.campaignName
+          ? `${state.details.campaignName} Template`
+          : 'New Template';
+        const entered = prompt('Template name', defaultName);
+        if (!entered) return;
+        const trimmed = entered.trim();
+        if (!trimmed) return;
+        let newTemplateId = null;
+        setTemplates(prev => {
+          const existing = prev.find(template => template.name.toLowerCase() === trimmed.toLowerCase());
+          const payload = {
+            id: existing?.id ?? createId(),
+            name: trimmed,
+            deliverables: lines,
+          };
+          newTemplateId = payload.id;
+          if (existing) {
+            return prev.map(template => (template.id === existing.id ? payload : template));
+          }
+          return [...prev, payload];
+        });
+        setSelectedTemplateId(newTemplateId);
+      }, []);
+
+      return view === 'dashboard'
+        ? h(CampaignDashboard, {
+            campaigns,
+            onEdit: handleEditCampaign,
+            onDuplicate: handleDuplicateCampaign,
+            onDelete: handleDeleteCampaign,
+            onCreate: handleCreateCampaign,
+            templates,
+            selectedTemplateId,
+            onTemplateChange: handleTemplateChange,
+            onMove: handleMoveCampaign,
+          })
+        : h(React.Fragment, null,
+            h(EditorToolbar, {
+              campaign: activeCampaign,
+              onBack: handleBackToDashboard,
+              onSaveTemplate: handleSaveTemplate,
+            }),
+          );
+    }
+
+    function mountCampaignApp() {
+      if (!hasReact) return;
+      const container = document.getElementById('campaign-app');
+      if (!container) return;
+      if (!container.__picRoot) {
+        container.__picRoot = ReactDOM.createRoot(container);
+      }
+      container.__picRoot.render(h(CampaignApp));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+      mountCampaignApp();
+    });
+
+    // placeholder for future EMPTY workbook parsing hook
+    function parseEmptyDump(text) {
+      console.log('Parser placeholder for EMPTY tab dump', text);
+    }
+  </script>
+</body>
+</html>
