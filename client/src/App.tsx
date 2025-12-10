@@ -35,9 +35,11 @@ export default function App() {
       <div className="tab-content">
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route index element={<LandingPage />} />
           <Route path="/campaigns" element={<CalculatorTab />} />
           <Route path="/brand-safety" element={<BrandSafetyTab />} />
           <Route path="/settings" element={<SettingsTab />} />
+          <Route path="*" element={<LandingPage />} />
         </Routes>
       </div>
     </Router>
