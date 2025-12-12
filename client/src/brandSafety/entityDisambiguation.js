@@ -18,12 +18,16 @@ const CREATOR_CONTEXT_TERMS = [
   'streamer',
   'twitch',
   'gaming',
+  'fortnite',
   'beauty',
   'vlog',
+  'tiktok',
   'commentary',
   'fashion',
   'lifestyle',
   'creator',
+  'youtube channel',
+  'profile',
   'social media personality',
   'video',
   'stream'
@@ -103,6 +107,57 @@ function buildIdentifierSet(creatorData = {}) {
   return Array.from(new Set(pool));
 }
 
+function extractPathTokens(url = '') {
+  try {
+    const parsed = new URL(url);
+    return tokenise(parsed.pathname.replace(/[/?#]/g, ' '));
+  } catch (err) {
+    return tokenise(url);
+  }
+}
+
+// Title/URL matching is a high-precision identity signal that should bypass noisy snippet heuristics.
+export function detectTitleOrUrlIdentity(context = {}, creatorData = {}) {
+  const { title = '', url = '', snippet = '' } = context;
+  const identifiers = buildIdentifierSet(creatorData).map((id) => id.toLowerCase().trim());
+  const titleTokens = tokenise(title.toLowerCase());
+  const pathTokens = extractPathTokens(url.toLowerCase());
+  const snippetHasContext = hasContextTerm(snippet);
+
+  const identitySignals = {
+    titleMatch: false,
+    urlMatch: false,
+    fuzzyTitle: false,
+    contextualFuzzyTitle: false
+  };
+
+  for (const id of identifiers) {
+    if (!id) continue;
+
+    const boundary = new RegExp(`\\b${escapeRegExp(id)}\\b`, 'i');
+
+    if (!identitySignals.titleMatch && boundary.test(title)) {
+      identitySignals.titleMatch = true;
+    }
+
+    if (!identitySignals.urlMatch && pathTokens.some((token) => token === id)) {
+      identitySignals.urlMatch = true;
+    }
+
+    if (!identitySignals.fuzzyTitle) {
+      const close = titleTokens.some((token) => levenshtein(token, id) <= 2);
+      if (close) identitySignals.fuzzyTitle = true;
+    }
+
+    if (!identitySignals.contextualFuzzyTitle && snippetHasContext) {
+      const contextual = titleTokens.some((token) => levenshtein(token, id) <= 3);
+      if (contextual) identitySignals.contextualFuzzyTitle = true;
+    }
+  }
+
+  return { ...identitySignals, matched: Object.values(identitySignals).some(Boolean) };
+}
+
 /**
  * Local heuristic stage: reject obvious false positives before paying for GPT tokens.
  * - Filters misleading terms (alias, aliexpress, analysis, etc.).
@@ -122,6 +177,12 @@ export function isLikelyAboutCreator(snippetOrContext = '', creatorData = {}) {
   const identifiers = buildIdentifierSet(creatorData);
   const normalisedPrimary = (creatorData.primaryName || '').toLowerCase().trim();
   const contextTermPresent = hasContextTerm(lowerCombined);
+
+  // Title and URL are strong identity anchors; if they mention the creator we shouldn't over-filter.
+  const identitySignals = detectTitleOrUrlIdentity(context, creatorData);
+  if (identitySignals.matched) {
+    return true;
+  }
 
   for (const rawName of identifiers) {
     const name = rawName.toLowerCase().trim();

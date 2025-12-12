@@ -8,6 +8,7 @@ import { ApiKeys, BrandSafetyEvidence, Creator } from '../types';
 
 function buildQueryStrings(creator: Creator): string[] {
   const creatorToken = [creator.name, creator.handle].filter(Boolean).join(' ').trim();
+  // Expanded identity-focused templates give the validator benign anchors to confirm the right person before scanning drama.
   return SEARCH_QUERY_TEMPLATES.map((template) =>
     template.replace('${creator}', creatorToken || creator.name)
   );

@@ -3,7 +3,7 @@ import { classifyEvidenceBatch } from './nlpClassifier';
 import { performSmartSearch } from './searchEngine';
 import { countBy, normaliseScore } from './utils';
 import { deriveRiskLevel, enrichEvidenceRisk } from './riskScoring';
-import { isLikelyAboutCreator, verifyEntityWithGPT } from './entityDisambiguation';
+import { detectTitleOrUrlIdentity, isLikelyAboutCreator, verifyEntityWithGPT } from './entityDisambiguation';
 import { MODEL_DEFAULT } from './brandSafetyConfig';
 
 const RESULTS_STORAGE_KEY = 'brand_safety_results_cache_v3';
@@ -88,32 +88,45 @@ function buildSnippetContext(item: BrandSafetyEvidence) {
   };
 }
 
+type ValidationOutcome = {
+  accepted: boolean;
+  heuristicMatch: boolean;
+  gptMatch: boolean;
+  identitySignals: ReturnType<typeof detectTitleOrUrlIdentity>;
+};
+
 async function validateSnippet(
   item: BrandSafetyEvidence,
   creatorData: CreatorEntityData,
   keys: ApiKeys
-): Promise<boolean> {
+): Promise<ValidationOutcome> {
   const context = buildSnippetContext(item);
-  const heuristicPass = isLikelyAboutCreator(context, creatorData);
+  const identitySignals = detectTitleOrUrlIdentity(context, creatorData);
 
-  if (heuristicPass) {
-    return true;
+  // Local heuristic stays cheap and helps gate obvious mismatches.
+  const heuristicMatch = isLikelyAboutCreator(context, creatorData);
+
+  let gptMatch = false;
+  if (!heuristicMatch && !identitySignals.matched) {
+    const verification = await verifyEntityWithGPT(context, creatorData, {
+      apiKey: keys.openAiApiKey,
+      model: keys.openAiModel || MODEL_DEFAULT
+    });
+    gptMatch = verification.matchesCreator;
   }
 
-  const verification = await verifyEntityWithGPT(context, creatorData, {
-    apiKey: keys.openAiApiKey,
-    model: keys.openAiModel || MODEL_DEFAULT
-  });
+  // Updated acceptance: title/URL anchors OR heuristics OR GPT can validate identity.
+  const accepted = identitySignals.matched || heuristicMatch || gptMatch;
 
-  return verification.matchesCreator;
+  return { accepted, heuristicMatch, gptMatch, identitySignals };
 }
 
 async function shouldClassifySnippet(
   item: BrandSafetyEvidence,
   creatorData: CreatorEntityData,
   keys: ApiKeys
-): Promise<boolean> {
-  // Flexible OR logic: accept if either heuristic OR GPT agrees. Reject only when both fail.
+): Promise<ValidationOutcome> {
+  // Reject only when every signal fails; any positive match should flow to classification.
   return validateSnippet(item, creatorData, keys);
 }
 
@@ -121,16 +134,30 @@ async function validateEntities(
   evidence: BrandSafetyEvidence[],
   creatorData: CreatorEntityData,
   keys: ApiKeys
-): Promise<BrandSafetyEvidence[]> {
+): Promise<{ validated: BrandSafetyEvidence[]; signals: {
+  titleMatch: boolean;
+  urlMatch: boolean;
+  titleOrUrlMatch: boolean;
+  gptLikely: boolean;
+} }> {
   const validated: BrandSafetyEvidence[] = [];
+  const signals = { titleMatch: false, urlMatch: false, titleOrUrlMatch: false, gptLikely: false };
+
   for (const item of evidence) {
     // The entity disambiguation layer prevents false positives like "Alias" when scanning Ali-A.
-    const keep = await shouldClassifySnippet(item, creatorData, keys);
-    if (keep) {
+    const outcome = await shouldClassifySnippet(item, creatorData, keys);
+
+    signals.titleMatch ||= outcome.identitySignals.titleMatch;
+    signals.urlMatch ||= outcome.identitySignals.urlMatch;
+    signals.titleOrUrlMatch ||= outcome.identitySignals.matched;
+    signals.gptLikely ||= outcome.gptMatch;
+
+    if (outcome.accepted) {
       validated.push(item);
     }
   }
-  return validated;
+
+  return { validated, signals };
 }
 
 export async function runBrandSafetyEngine(
@@ -174,41 +201,51 @@ export async function runBrandSafetyEngine(
 
   // 2) Deduplicate URLs and run the Entity Disambiguation Layer BEFORE any semantic classification.
   const deduped = deduplicateEvidence(searchResults);
-  const entityValidated = await validateEntities(deduped, creatorData, keys);
+  const { validated: entityValidated, signals: validationSignals } = await validateEntities(
+    deduped,
+    creatorData,
+    keys
+  );
 
   if (!entityValidated.length) {
-    const mentionInMetadata = deduped.some((item) =>
-      isLikelyAboutCreator(
-        {
-          title: item.title,
-          url: item.url,
-          metaDescription: (item as any).metaDescription,
-          richSnippet: (item as any).richSnippet,
-          snippet: ''
-        },
-        creatorData
-      )
-    );
+    // Soft fallback: when identity is confirmed via title/URL/GPT but snippets are empty, avoid over-filtering.
+    const fallbackTriggered =
+      validationSignals.titleOrUrlMatch || validationSignals.titleMatch || validationSignals.urlMatch || validationSignals.gptLikely;
 
-    const fallbackSnippet: BrandSafetyEvidence | null = mentionInMetadata
-      ? {
-          title: 'Search mention detected',
-          snippet: 'Basic search mentions located but insufficient snippet text for verification.',
-          url: deduped[0]?.url || '',
-          source: 'fallback',
-          classificationLabel: 'insufficient_data',
-          classification: {
-            stance: 'Unrelated',
-            category: '',
-            severity: 0,
-            sentiment: 'neutral',
-            mitigation: false,
-            summary: 'insufficient_data'
-          },
-          recency: 0,
-          riskContribution: 0
-        }
-      : null;
+    if (fallbackTriggered) {
+      const fallbackSnippet: BrandSafetyEvidence = {
+        source: 'fallback',
+        title: 'General creator profile',
+        snippet: 'Search results confirm identity but lack analyzable snippet text.',
+        url: deduped[0]?.url || '#',
+        classificationLabel: 'insufficient_data',
+        classification: {
+          stance: 'Unrelated',
+          category: 'insufficient_data',
+          severity: 0,
+          sentiment: 'neutral',
+          mitigation: false,
+          summary: 'insufficient_data'
+        },
+        recency: 0.5,
+        riskContribution: 0
+      };
+
+      // Returning "unknown" avoids falsely reassuring users with a green flag when evidence is too thin.
+      return {
+        creatorId: creator.id,
+        creatorName: creator.name,
+        creatorHandle: creator.handle,
+        riskLevel: 'unknown',
+        riskScore: null,
+        finalScore: null,
+        summary: 'Limited validated data available; risk could not be fully assessed.',
+        evidence: [fallbackSnippet],
+        lastChecked: new Date().toISOString(),
+        confidence: 0.3,
+        categoriesDetected: {}
+      };
+    }
 
     return {
       creatorId: creator.id,
@@ -217,9 +254,8 @@ export async function runBrandSafetyEngine(
       riskLevel: 'unknown',
       riskScore: null,
       finalScore: null,
-      summary:
-        fallbackSnippet?.snippet || 'Insufficient validated data to determine risk.',
-      evidence: fallbackSnippet ? [fallbackSnippet] : [],
+      summary: 'Insufficient validated data to determine risk.',
+      evidence: [],
       lastChecked: new Date().toISOString(),
       confidence: 0.1,
       categoriesDetected: {}

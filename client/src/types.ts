@@ -44,7 +44,8 @@ export type RiskCategory =
   | 'fraudOrScam'
   | 'misinformation'
   | 'guidelineViolations'
-  | 'personalDrama';
+  | 'personalDrama'
+  | 'insufficient_data';
 
 export type Sentiment = 'negative' | 'neutral' | 'positive';
 

@@ -20,7 +20,16 @@ export const SEARCH_QUERY_TEMPLATES = [
   '${creator} financial fraud',
   '${creator} racism accusation',
   '${creator} hate speech',
-  '${creator} sexual misconduct'
+  '${creator} sexual misconduct',
+  // Identity anchors ensure the engine has non-controversial references it can validate against.
+  '${creator}',
+  '${creator} youtube',
+  '${creator} influencer',
+  '${creator} interview',
+  '${creator} biography',
+  '${creator} profile',
+  '${creator} channel',
+  '${creator} news'
 ];
 
 export const MITIGATION_KEYWORDS = [
@@ -53,7 +62,8 @@ export const SEVERITY_WEIGHT: Record<RiskCategory, number> = {
   fraudOrScam: 3,
   misinformation: 3,
   guidelineViolations: 2,
-  personalDrama: 1
+  personalDrama: 1,
+  insufficient_data: 0
 };
 
 export const SENTIMENT_ADJUSTMENT: Record<Sentiment, number> = {
