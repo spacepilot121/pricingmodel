@@ -35,6 +35,10 @@ function persistCache(cache: CacheMap) {
 
 const cacheStore: CacheMap = loadCache();
 
+// Entity disambiguation happens upstream. Callers should pass only validated evidence, e.g.:
+// const validated = await validateEntities(searchResults, creatorData, keys);
+// const classified = await classifyEvidenceBatch(validated, creator, keys);
+
 function buildUserPrompt(evidence: BrandSafetyEvidence, creator: Creator) {
   return `You are a brand safety intelligence classifier for advertisers.
 Given text describing a creator, perform the following:
@@ -151,6 +155,8 @@ export async function classifyEvidenceBatch(
   creator: Creator,
   keys: ApiKeys
 ): Promise<BrandSafetyEvidence[]> {
+  // Only entity-validated snippets reach this layer; anything unrelated was already discarded
+  // to avoid wasting GPT tokens on false positives.
   const batches = [] as BrandSafetyEvidence[][];
   for (let i = 0; i < evidence.length; i += CLASSIFICATION_BATCH_SIZE) {
     batches.push(evidence.slice(i, i + CLASSIFICATION_BATCH_SIZE));
