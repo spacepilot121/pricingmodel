@@ -71,13 +71,23 @@ export async function performSmartSearch(
   const queries = buildQueryStrings(creator);
   const batches = chunk(queries, SEARCH_BATCH_SIZE);
   const collected: BrandSafetyEvidence[] = [];
+  const errors: string[] = [];
   for (const batch of batches) {
     const results = await Promise.allSettled(batch.map((q) => searchOnce(q, keys)));
     results.forEach((res) => {
       if (res.status === 'fulfilled') {
         collected.push(...res.value);
+      } else {
+        const reason = (res.reason as any)?.message || String(res.reason || 'Unknown error');
+        errors.push(reason);
       }
     });
+  }
+
+  if (!collected.length && errors.length) {
+    const uniqueErrors = Array.from(new Set(errors.filter(Boolean)));
+    const message = uniqueErrors[0] || 'Google search request failed';
+    throw new Error(`${message}. Check your Google API key and CX configuration.`);
   }
 
   const unique = collected.filter(
