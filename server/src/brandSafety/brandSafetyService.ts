@@ -32,6 +32,25 @@ function resolveModel(apiKeys?: ApiKeys): string {
   return apiKeys?.openAiModel || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 }
 
+function uniqueStrings(values: (string | undefined)[]): string[] {
+  const set = new Set(values.map((v) => v?.trim()).filter(Boolean) as string[]);
+  return Array.from(set).slice(0, 5);
+}
+
+function normaliseHandle(handle?: string): string | undefined {
+  if (!handle) return undefined;
+  const trimmed = handle.trim();
+  if (!trimmed) return undefined;
+  return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
+function extractHandleFromUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  const handleMatch = url.match(/youtube\.com\/(?:@)([A-Za-z0-9_\-\.]+)/);
+  if (handleMatch) return `@${handleMatch[1]}`;
+  return undefined;
+}
+
 function pickRiskLevel(score: number): 'Green' | 'Amber' | 'Red' {
   if (score <= RISK_THRESHOLDS.greenMax) return 'Green';
   if (score <= RISK_THRESHOLDS.amberMax) return 'Amber';
@@ -106,21 +125,35 @@ export async function evaluateCreatorRisk(creator: Creator, apiKeys: ApiKeys = {
 }
 
 async function resolveCreatorProfile(creator: Creator, apiKeys: ApiKeys): Promise<CreatorProfile> {
+  const providedHandle = normaliseHandle(creator.handle);
   if (creator.platform === 'YouTube') {
     const youtubeKey = apiKeys.youtubeApiKey || process.env.YOUTUBE_API_KEY;
     if (youtubeKey && (creator.channelId || creator.channelUrl)) {
       const channelId = await resolveYouTubeChannelId(creator, youtubeKey);
       if (channelId) {
         const profile = await fetchYouTubeProfile(channelId, youtubeKey);
-        if (profile) return profile;
+        if (profile) {
+          const handles = uniqueStrings([
+            ...profile.handles,
+            providedHandle,
+            extractHandleFromUrl(creator.channelUrl)
+          ]);
+          const altNames = uniqueStrings([
+            ...profile.altNames,
+            creator.name,
+            providedHandle?.replace(/^@/, ''),
+            ...handles.map((h) => h.replace(/^@/, ''))
+          ]);
+          return { ...profile, handles, altNames };
+        }
       }
     }
   }
   return {
     id: creator.id,
     primaryName: creator.name,
-    altNames: [],
-    handles: [],
+    altNames: uniqueStrings([creator.name, providedHandle?.replace(/^@/, '')]),
+    handles: uniqueStrings([providedHandle, extractHandleFromUrl(creator.channelUrl)]),
     platform: creator.platform,
     channelUrl: creator.channelUrl,
     channelId: creator.channelId,
@@ -154,7 +187,7 @@ async function fetchYouTubeProfile(channelId: string, apiKey: string): Promise<C
   if (!channel) return undefined;
   const snippet = channel.snippet;
   const handles: string[] = [];
-  if (snippet.customUrl) handles.push(snippet.customUrl);
+  if (snippet.customUrl) handles.push(normaliseHandle(snippet.customUrl) || snippet.customUrl);
   return {
     id: channelId,
     primaryName: snippet.title,
@@ -171,13 +204,20 @@ async function searchReputationForCreator(profile: CreatorProfile, apiKeys: ApiK
   const apiKey = requireKey(apiKeys.googleCseApiKey, 'GOOGLE_CSE_API_KEY');
   const cx = requireKey(apiKeys.googleCseCx, 'GOOGLE_CSE_CX');
   const results: SearchResultItem[] = [];
-  for (const keyword of CONTROVERSY_KEYWORDS) {
-    const query = `"${profile.primaryName}" ${keyword}`;
+  const searchNames = uniqueStrings([
+    profile.primaryName,
+    ...profile.altNames,
+    ...profile.handles,
+    profile.channelUrl
+  ]).map((name) => name.replace(/^https?:\/\//, ''));
+
+  async function pushGoogleResults(query: string, keyword: string) {
     const res = await axios.get('https://www.googleapis.com/customsearch/v1', {
       params: { key: apiKey, cx, q: query, num: 3 }
     });
     const items = res.data.items || [];
     items.forEach((item: any) => {
+      if (!item?.link) return;
       results.push({
         keyword,
         title: item.title,
@@ -188,7 +228,66 @@ async function searchReputationForCreator(profile: CreatorProfile, apiKeys: ApiK
       });
     });
   }
-  return results;
+
+  for (const name of searchNames) {
+    for (const keyword of CONTROVERSY_KEYWORDS) {
+      const baseQuery = `"${name}" ${keyword}`;
+      await pushGoogleResults(baseQuery, keyword);
+      if (profile.platform === 'YouTube') {
+        await pushGoogleResults(`site:youtube.com ${baseQuery}`, keyword);
+      }
+    }
+  }
+
+  const youtubeResults = await searchYouTubeForControversy(profile, apiKeys, searchNames);
+  const deduped = results
+    .concat(youtubeResults)
+    .filter((item, idx, arr) => arr.findIndex((i) => i.link === item.link) === idx);
+  return deduped;
+}
+
+async function searchYouTubeForControversy(
+  profile: CreatorProfile,
+  apiKeys: ApiKeys,
+  searchNames: string[]
+): Promise<SearchResultItem[]> {
+  if (!apiKeys.youtubeApiKey || profile.platform !== 'YouTube') return [];
+  try {
+    const scopedKeywords = CONTROVERSY_KEYWORDS.slice(0, 6);
+    const names = searchNames.slice(0, 2);
+    const results: SearchResultItem[] = [];
+    for (const name of names) {
+      for (const keyword of scopedKeywords) {
+        const q = `${name} ${keyword}`;
+        const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+          params: {
+            part: 'snippet',
+            q,
+            type: 'video',
+            maxResults: 2,
+            key: apiKeys.youtubeApiKey
+          }
+        });
+        const items: any[] = res.data.items || [];
+        items.forEach((item) => {
+          const videoId = item.id?.videoId;
+          if (!videoId) return;
+          results.push({
+            keyword,
+            title: item.snippet?.title || 'YouTube result',
+            snippet: item.snippet?.description || '',
+            link: `https://www.youtube.com/watch?v=${videoId}`,
+            displayLink: 'youtube.com',
+            searchQuery: q
+          });
+        });
+      }
+    }
+    return results;
+  } catch (err) {
+    console.error('YouTube controversy search failed', err);
+    return [];
+  }
 }
 
 async function classifySearchResultsWithOpenAI(

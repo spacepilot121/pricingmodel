@@ -4,6 +4,7 @@ export type Creator = {
   platform: 'YouTube' | 'Twitch' | 'TikTok' | 'Other';
   channelUrl?: string;
   channelId?: string;
+  handle?: string;
 };
 
 export type CreatorProfile = {
