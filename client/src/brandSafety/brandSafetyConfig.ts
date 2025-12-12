@@ -78,7 +78,7 @@ export const MAX_RESULTS = 40;
 export const GOOGLE_SEARCH_ENDPOINT = 'https://www.googleapis.com/customsearch/v1';
 export const OPENAI_CHAT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
-export const RISK_BANDS: { band: RiskLevel; min: number; max: number }[] = [
+export const RISK_BANDS: { band: Exclude<RiskLevel, 'unknown'>; min: number; max: number }[] = [
   { band: 'green', min: 0, max: 25 },
   { band: 'amber', min: 26, max: 60 },
   { band: 'red', min: 61, max: 100 }
@@ -89,7 +89,7 @@ export const SOURCE_INDEX_WEIGHT = 1.5;
 export const OUTPUT_STRUCTURE = {
   creator: '',
   riskLevel: '' as RiskLevel,
-  finalScore: 0,
+  finalScore: null as number | null,
   confidence: 0,
   categoriesDetected: {} as Partial<Record<RiskCategory, number>>,
   evidence: [] as any[]

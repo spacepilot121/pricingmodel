@@ -56,7 +56,7 @@ function buildSummary(evidence: BrandSafetyEvidence[]): string {
 }
 
 function computeConfidence(evidence: BrandSafetyEvidence[]): number {
-  if (!evidence.length) return 0.2;
+  if (!evidence.length) return 0.1;
   const offenderEvidence = evidence.filter((e) => e.classification.stance === 'Offender');
   const severityAvg = offenderEvidence.reduce((acc, e) => acc + e.classification.severity, 0) /
     Math.max(1, offenderEvidence.length);
@@ -77,6 +77,46 @@ function deduplicateEvidence(evidence: BrandSafetyEvidence[]): BrandSafetyEviden
   return evidence.filter((item, idx, arr) => arr.findIndex((other) => other.url === item.url) === idx);
 }
 
+function buildSnippetContext(item: BrandSafetyEvidence) {
+  return {
+    snippet: item.snippet,
+    title: item.title,
+    url: item.url,
+    // Optional rich metadata if present from upstream search providers
+    metaDescription: (item as any).metaDescription,
+    richSnippet: (item as any).richSnippet
+  };
+}
+
+async function validateSnippet(
+  item: BrandSafetyEvidence,
+  creatorData: CreatorEntityData,
+  keys: ApiKeys
+): Promise<boolean> {
+  const context = buildSnippetContext(item);
+  const heuristicPass = isLikelyAboutCreator(context, creatorData);
+
+  if (heuristicPass) {
+    return true;
+  }
+
+  const verification = await verifyEntityWithGPT(context, creatorData, {
+    apiKey: keys.openAiApiKey,
+    model: keys.openAiModel || MODEL_DEFAULT
+  });
+
+  return verification.matchesCreator;
+}
+
+async function shouldClassifySnippet(
+  item: BrandSafetyEvidence,
+  creatorData: CreatorEntityData,
+  keys: ApiKeys
+): Promise<boolean> {
+  // Flexible OR logic: accept if either heuristic OR GPT agrees. Reject only when both fail.
+  return validateSnippet(item, creatorData, keys);
+}
+
 async function validateEntities(
   evidence: BrandSafetyEvidence[],
   creatorData: CreatorEntityData,
@@ -85,16 +125,10 @@ async function validateEntities(
   const validated: BrandSafetyEvidence[] = [];
   for (const item of evidence) {
     // The entity disambiguation layer prevents false positives like "Alias" when scanning Ali-A.
-    const textForCheck = `${item.title}. ${item.snippet}`;
-    if (!isLikelyAboutCreator(textForCheck, creatorData)) continue;
-
-    const verification = await verifyEntityWithGPT(textForCheck, creatorData, {
-      apiKey: keys.openAiApiKey,
-      model: keys.openAiModel || MODEL_DEFAULT
-    });
-
-    if (!verification.matchesCreator) continue;
-    validated.push(item);
+    const keep = await shouldClassifySnippet(item, creatorData, keys);
+    if (keep) {
+      validated.push(item);
+    }
   }
   return validated;
 }
@@ -127,13 +161,13 @@ export async function runBrandSafetyEngine(
       creatorId: creator.id,
       creatorName: creator.name,
       creatorHandle: creator.handle,
-      riskLevel: 'green',
-      riskScore: 0,
-      finalScore: 0,
-      summary: 'Search returned no notable articles.',
+      riskLevel: 'unknown',
+      riskScore: null,
+      finalScore: null,
+      summary: 'Insufficient validated data to determine risk.',
       evidence: [],
       lastChecked: new Date().toISOString(),
-      confidence: 0.2,
+      confidence: 0.1,
       categoriesDetected: {}
     };
   }
@@ -143,17 +177,51 @@ export async function runBrandSafetyEngine(
   const entityValidated = await validateEntities(deduped, creatorData, keys);
 
   if (!entityValidated.length) {
+    const mentionInMetadata = deduped.some((item) =>
+      isLikelyAboutCreator(
+        {
+          title: item.title,
+          url: item.url,
+          metaDescription: (item as any).metaDescription,
+          richSnippet: (item as any).richSnippet,
+          snippet: ''
+        },
+        creatorData
+      )
+    );
+
+    const fallbackSnippet: BrandSafetyEvidence | null = mentionInMetadata
+      ? {
+          title: 'Search mention detected',
+          snippet: 'Basic search mentions located but insufficient snippet text for verification.',
+          url: deduped[0]?.url || '',
+          source: 'fallback',
+          classificationLabel: 'insufficient_data',
+          classification: {
+            stance: 'Unrelated',
+            category: '',
+            severity: 0,
+            sentiment: 'neutral',
+            mitigation: false,
+            summary: 'insufficient_data'
+          },
+          recency: 0,
+          riskContribution: 0
+        }
+      : null;
+
     return {
       creatorId: creator.id,
       creatorName: creator.name,
       creatorHandle: creator.handle,
-      riskLevel: 'green',
-      riskScore: 0,
-      finalScore: 0,
-      summary: 'All search snippets were discarded by entity disambiguation (likely unrelated).',
-      evidence: [],
+      riskLevel: 'unknown',
+      riskScore: null,
+      finalScore: null,
+      summary:
+        fallbackSnippet?.snippet || 'Insufficient validated data to determine risk.',
+      evidence: fallbackSnippet ? [fallbackSnippet] : [],
       lastChecked: new Date().toISOString(),
-      confidence: 0.2,
+      confidence: 0.1,
       categoriesDetected: {}
     };
   }
