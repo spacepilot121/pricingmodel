@@ -4,6 +4,7 @@ export type Creator = {
   platform: 'YouTube' | 'Twitch' | 'TikTok' | 'Instagram' | 'Other';
   channelUrl?: string;
   channelId?: string;
+  handle?: string;
 };
 
 export type CreatorProfile = {
@@ -17,38 +18,20 @@ export type CreatorProfile = {
   description?: string;
 };
 
-export type Incident = {
-  aboutSamePerson: boolean;
-  category:
-    | 'racism'
-    | 'harassment'
-    | 'fraud'
-    | 'sexual_misconduct'
-    | 'hate_speech'
-    | 'grooming'
-    | 'abuse'
-    | 'scam'
-    | 'lawsuit'
-    | 'other'
-    | 'none';
-  severity: 1 | 2 | 3;
-  credibility: 1 | 2 | 3;
-  approxYear?: number | null;
-  summary: string;
-  sourceDomain: string;
-  sourceTitle: string;
-  sourceUrl: string;
+export type BrandSafetyEvidence = {
+  title: string;
+  snippet: string;
+  url: string;
 };
 
 export type BrandSafetyResult = {
   creatorId: string;
-  creatorProfile: CreatorProfile;
+  creatorName: string;
+  creatorHandle?: string;
   riskScore: number;
-  riskLevel: 'Green' | 'Amber' | 'Red';
-  incidentCategories: string[];
-  topSourceDomains: string[];
-  incidents: Incident[];
+  riskLevel: 'Low' | 'Medium' | 'High';
   summary: string;
+  evidence: BrandSafetyEvidence[];
   lastChecked: string;
 };
 

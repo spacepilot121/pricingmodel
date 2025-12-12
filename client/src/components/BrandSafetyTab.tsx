@@ -1,89 +1,98 @@
 import { useEffect, useMemo, useState } from 'react';
-import { scanManyCreators, getAllBrandSafetyResults } from '../api/brandSafetyApi';
-import { BrandSafetyResult, Creator, Incident } from '../types';
+import { loadApiKeys, saveApiKeys } from '../api/apiKeyStorage';
+import { loadCachedResults, scanManyCreators } from '../api/brandSafetyApi';
+import { ApiKeys, BrandSafetyResult, Creator } from '../types';
 
 const riskColors: Record<string, string> = {
-  Green: 'badge green',
-  Amber: 'badge amber',
-  Red: 'badge red'
+  Low: 'badge green',
+  Medium: 'badge amber',
+  High: 'badge red'
 };
 
 type ScanningStatus = Record<string, 'Pending' | 'Scanning' | 'Done' | 'Error'>;
 
+const DEFAULT_PLATFORM: Creator['platform'] = 'Other';
+
 export default function BrandSafetyTab() {
-  const [pastedUrls, setPastedUrls] = useState('');
+  const [creatorInput, setCreatorInput] = useState('');
   const [creators, setCreators] = useState<Creator[]>([]);
   const [resultsByCreatorId, setResultsByCreatorId] = useState<Record<string, BrandSafetyResult>>({});
   const [isScanning, setIsScanning] = useState(false);
-  const [filterRiskLevel, setFilterRiskLevel] = useState<'All' | 'Green' | 'Amber' | 'Red'>('All');
+  const [filterRiskLevel, setFilterRiskLevel] = useState<'All' | 'Low' | 'Medium' | 'High'>('All');
   const [error, setError] = useState<string | null>(null);
   const [detailsModalCreatorId, setDetailsModalCreatorId] = useState<string | null>(null);
   const [scanningStatus, setScanningStatus] = useState<ScanningStatus>({});
+  const [apiKeys, setApiKeys] = useState<ApiKeys>({});
+  const [keysSavedMessage, setKeysSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Attempt to load cached results on mount
-    getAllBrandSafetyResults()
-      .then((results) => {
-        const map: Record<string, BrandSafetyResult> = {};
-        results.forEach((r) => (map[r.creatorId] = r));
-        setResultsByCreatorId(map);
-      })
-      .catch(() => {});
+    const storedResults = loadCachedResults();
+    const map: Record<string, BrandSafetyResult> = {};
+    storedResults.forEach((r) => (map[r.creatorId] = r));
+    setResultsByCreatorId(map);
+
+    const storedKeys = loadApiKeys();
+    setApiKeys({
+      googleCseApiKey: storedKeys.googleCseApiKey || import.meta.env?.VITE_GOOGLE_CSE_API_KEY?.trim(),
+      googleCseCx: storedKeys.googleCseCx || import.meta.env?.VITE_GOOGLE_CSE_CX?.trim(),
+      openAiApiKey: storedKeys.openAiApiKey || import.meta.env?.VITE_OPENAI_API_KEY?.trim(),
+      openAiModel: storedKeys.openAiModel || import.meta.env?.VITE_OPENAI_MODEL?.trim()
+    });
   }, []);
+
+  const missingKeys = useMemo(() => {
+    return !apiKeys.googleCseApiKey || !apiKeys.googleCseCx || !apiKeys.openAiApiKey;
+  }, [apiKeys]);
 
   const filteredCreators = useMemo(() => {
     if (filterRiskLevel === 'All') return creators;
     return creators.filter((creator) => resultsByCreatorId[creator.id]?.riskLevel === filterRiskLevel);
   }, [creators, filterRiskLevel, resultsByCreatorId]);
 
-  function inferPlatform(url: string): Creator['platform'] {
-    const lower = url.toLowerCase();
-    if (lower.includes('youtube.com') || lower.includes('youtu.be')) return 'YouTube';
-    if (lower.includes('tiktok.com')) return 'TikTok';
-    if (lower.includes('instagram.com')) return 'Instagram';
-    return 'Other';
-  }
-
-  function prepareCreators(urls: string[]): Creator[] {
-    return urls.map((url) => {
-      let name = url;
-      try {
-        const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
-        name = parsed.hostname.replace(/^www\./, '');
-      } catch {}
-
-      return {
-        id: `url-${encodeURIComponent(url)}`,
-        name,
-        platform: inferPlatform(url),
-        channelUrl: url
-      };
-    });
-  }
-
-  function parseUrls(): string[] {
-    return pastedUrls
-      .split(/\r?\n/) // split on newlines
+  function parseCreators(): Creator[] {
+    return creatorInput
+      .split(/\r?\n/)
       .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+      .filter(Boolean)
+      .map((line, idx) => {
+        const [namePart, handlePart] = line.split(',');
+        const name = namePart?.trim();
+        const handle = handlePart?.trim();
+        return {
+          id: `creator-${idx}-${encodeURIComponent(line)}`,
+          name: name || line,
+          handle: handle || undefined,
+          platform: DEFAULT_PLATFORM
+        } as Creator;
+      });
   }
 
-  function loadUrls() {
-    const urls = Array.from(new Set(parseUrls()));
-    if (!urls.length) {
-      setError('Paste at least one URL to scan.');
+  function loadCreators() {
+    const parsed = parseCreators();
+    if (!parsed.length) {
+      setError('Enter at least one creator name.');
       return;
     }
-    const preparedCreators = prepareCreators(urls);
     setError(null);
-    setCreators(preparedCreators);
+    setCreators(parsed);
     setScanningStatus({});
-    handleScan(preparedCreators);
+    handleScan(parsed);
+  }
+
+  function persistKeys(nextKeys: ApiKeys) {
+    const merged = saveApiKeys(nextKeys);
+    setApiKeys(merged);
+    setKeysSavedMessage('API keys saved in your browser.');
+    setTimeout(() => setKeysSavedMessage(null), 2500);
   }
 
   async function handleScan(targetCreators: Creator[]) {
     if (!targetCreators.length) {
-      setError('Paste URLs and press Load URLs before scanning.');
+      setError('Add at least one creator before scanning.');
+      return;
+    }
+    if (missingKeys) {
+      setError('Enter your API keys to run brand safety checks.');
       return;
     }
     setIsScanning(true);
@@ -92,21 +101,21 @@ export default function BrandSafetyTab() {
     targetCreators.forEach((c) => (status[c.id] = 'Scanning'));
     setScanningStatus(status);
     try {
-      const results = await scanManyCreators(targetCreators);
+      const results = await scanManyCreators(targetCreators, apiKeys);
       const nextMap = { ...resultsByCreatorId } as Record<string, BrandSafetyResult>;
       const nextStatus = { ...status } as ScanningStatus;
-      results.forEach((r: any) => {
-        if (r.error) {
+      results.forEach((r: BrandSafetyResult) => {
+        if (!r.evidence.length && r.riskScore === 0 && r.summary.includes('failed')) {
           nextStatus[r.creatorId] = 'Error';
           return;
         }
         nextStatus[r.creatorId] = 'Done';
-        nextMap[r.creatorId] = r as BrandSafetyResult;
+        nextMap[r.creatorId] = r;
       });
       setResultsByCreatorId(nextMap);
       setScanningStatus(nextStatus);
     } catch (err: any) {
-      setError(err.message || 'Scan failed. Check server logs.');
+      setError(err.message || 'Scan failed.');
     } finally {
       setIsScanning(false);
     }
@@ -116,54 +125,109 @@ export default function BrandSafetyTab() {
     <div className="card">
       <h2>Brand Safety</h2>
       <p className="text-muted">
-        Indicative reputational scan using public search and platform metadata. Scores are not
-        determinations of fact.
+        Indicative reputational scan using public search and platform metadata. Scores are not determinations of fact.
       </p>
+
+      <div className="badge amber" style={{ marginBottom: 12 }}>
+        Enter your API keys to run brand safety checks. Keys stay in your browser and are used directly from this page.
+      </div>
 
       {error && <div className="badge red">{error}</div>}
 
-      <div className="flex-row" style={{ gap: 12, marginTop: 12, alignItems: 'flex-start' }}>
+      <div className="flex-row" style={{ gap: 12, marginTop: 12, alignItems: 'stretch' }}>
         <div style={{ flex: 1 }}>
           <label className="text-muted" style={{ display: 'block', marginBottom: 4 }}>
-            Paste creator profile URLs (one per line)
+            Creator names (one per line). Add a comma to include a handle or ID.
           </label>
           <textarea
-            value={pastedUrls}
-            onChange={(e) => setPastedUrls(e.target.value)}
-            placeholder="https://www.youtube.com/@example\nhttps://www.tiktok.com/@example"
+            value={creatorInput}
+            onChange={(e) => setCreatorInput(e.target.value)}
+            placeholder="Example Person, @handle"
             style={{ width: '100%', minHeight: 140, padding: 12 }}
           />
-        </div>
-        <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button className="button" onClick={loadUrls} disabled={isScanning}>
-            Load URLs
-          </button>
-          <button className="button secondary" onClick={() => handleScan(creators)} disabled={isScanning || !creators.length}>
-            Scan loaded URLs
-          </button>
-          <label>
-            Risk filter:
-            <select
-              style={{ marginLeft: 8 }}
-              value={filterRiskLevel}
-              onChange={(e) => setFilterRiskLevel(e.target.value as any)}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            <button className="button" onClick={loadCreators} disabled={isScanning}>
+              Load creators
+            </button>
+            <button
+              className="button secondary"
+              onClick={() => handleScan(creators)}
+              disabled={isScanning || !creators.length || missingKeys}
+              title={missingKeys ? 'Add Google and OpenAI keys first' : undefined}
             >
-              <option value="All">All</option>
-              <option value="Green">Green</option>
-              <option value="Amber">Amber</option>
-              <option value="Red">Red</option>
-            </select>
-          </label>
+              Scan loaded creators
+            </button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Risk filter:
+              <select value={filterRiskLevel} onChange={(e) => setFilterRiskLevel(e.target.value as any)}>
+                <option value="All">All</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </label>
+          </div>
+          {missingKeys && (
+            <p className="status-text" style={{ marginTop: 8 }}>
+              Add your Google and OpenAI credentials to enable scanning.
+            </p>
+          )}
+          {isScanning && <p className="status-text">Scanning... please wait.</p>}
+        </div>
+
+        <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="card" style={{ padding: 12 }}>
+            <h3 style={{ marginTop: 0 }}>API configuration</h3>
+            <label>
+              Google Search API Key
+              <input
+                type="text"
+                placeholder="AIza..."
+                value={apiKeys.googleCseApiKey || ''}
+                onChange={(e) => setApiKeys((prev) => ({ ...prev, googleCseApiKey: e.target.value }))}
+              />
+            </label>
+            <label>
+              Google Search Engine ID (CX)
+              <input
+                type="text"
+                placeholder="Custom search CX"
+                value={apiKeys.googleCseCx || ''}
+                onChange={(e) => setApiKeys((prev) => ({ ...prev, googleCseCx: e.target.value }))}
+              />
+            </label>
+            <label>
+              OpenAI API Key
+              <input
+                type="text"
+                placeholder="sk-..."
+                value={apiKeys.openAiApiKey || ''}
+                onChange={(e) => setApiKeys((prev) => ({ ...prev, openAiApiKey: e.target.value }))}
+              />
+            </label>
+            <label>
+              OpenAI model (optional)
+              <input
+                type="text"
+                placeholder="gpt-4o-mini"
+                value={apiKeys.openAiModel || ''}
+                onChange={(e) => setApiKeys((prev) => ({ ...prev, openAiModel: e.target.value }))}
+              />
+            </label>
+            <button className="button" type="button" onClick={() => persistKeys(apiKeys)}>
+              Save keys
+            </button>
+            {keysSavedMessage && <p className="status-text success">{keysSavedMessage}</p>}
+            {!missingKeys && <p className="status-text success">Ready to scan in the browser.</p>}
+          </div>
         </div>
       </div>
 
-      {isScanning && <p className="status-text">Scanning... please wait.</p>}
-
-      <table className="table">
+      <table className="table" style={{ marginTop: 16 }}>
         <thead>
           <tr>
-            <th>URL</th>
-            <th>Platform</th>
+            <th>Creator</th>
+            <th>Handle/ID</th>
             <th>Last checked</th>
             <th>Risk score</th>
             <th>Risk level</th>
@@ -177,8 +241,8 @@ export default function BrandSafetyTab() {
             const status = scanningStatus[creator.id];
             return (
               <tr key={creator.id}>
-                <td>{creator.channelUrl || creator.name}</td>
-                <td>{creator.platform}</td>
+                <td>{creator.name}</td>
+                <td>{creator.handle || '—'}</td>
                 <td>{result?.lastChecked ? new Date(result.lastChecked).toLocaleString() : '—'}</td>
                 <td>{result?.riskScore ?? '—'}</td>
                 <td>
@@ -193,11 +257,7 @@ export default function BrandSafetyTab() {
                 <td style={{ maxWidth: 280 }}>{result?.summary || 'No scan yet'}</td>
                 <td>
                   <div className="table-actions">
-                    <button
-                      className="button secondary"
-                      onClick={() => handleScan([creator])}
-                      disabled={isScanning}
-                    >
+                    <button className="button secondary" onClick={() => handleScan([creator])} disabled={isScanning || missingKeys}>
                       Rescan
                     </button>
                     <button
@@ -215,7 +275,7 @@ export default function BrandSafetyTab() {
           {!filteredCreators.length && (
             <tr>
               <td colSpan={7} className="text-muted">
-                No URLs loaded yet.
+                No creators loaded yet.
               </td>
             </tr>
           )}
@@ -233,42 +293,35 @@ export default function BrandSafetyTab() {
 }
 
 function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose: () => void }) {
-  const incidentsByCategory = result.incidents.reduce<Record<string, Incident[]>>((acc, incident) => {
-    const key = incident.category || 'other';
-    acc[key] = acc[key] ? [...acc[key], incident] : [incident];
-    return acc;
-  }, {});
-
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Details for {result.creatorProfile.primaryName}</h3>
+          <h3>Details for {result.creatorName}</h3>
           <button className="button secondary" onClick={onClose}>
             Close
           </button>
         </div>
-        <p className="text-muted">
-          Platform: {result.creatorProfile.platform} | Risk: {result.riskLevel} ({result.riskScore})
-        </p>
+        <p className="text-muted">Risk: {result.riskLevel} ({result.riskScore})</p>
         <p>{result.summary}</p>
-        <h4>Incidents</h4>
-        {Object.entries(incidentsByCategory).map(([category, incidents]) => (
-          <div key={category} style={{ marginBottom: 12 }}>
-            <strong>{category}</strong>
-            <ul>
-              {incidents.map((incident, idx) => (
-                <li key={idx}>
-                  <div>{incident.summary}</div>
-                  <div className="text-muted">
-                    {incident.approxYear ? `Year: ${incident.approxYear} | ` : ''}
-                    Source: <a href={incident.sourceUrl} target="_blank" rel="noreferrer">{incident.sourceDomain}</a>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        <h4>Evidence</h4>
+        {result.evidence.length ? (
+          <ul>
+            {result.evidence.map((item, idx) => (
+              <li key={idx} style={{ marginBottom: 8 }}>
+                <div style={{ fontWeight: 600 }}>{item.title}</div>
+                <div className="text-muted" style={{ marginBottom: 4 }}>
+                  {item.snippet}
+                </div>
+                <a href={item.url} target="_blank" rel="noreferrer">
+                  {item.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted">No evidence collected for this scan.</p>
+        )}
       </div>
     </div>
   );
