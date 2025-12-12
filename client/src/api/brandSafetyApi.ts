@@ -1,5 +1,5 @@
 import { runBrandSafetyEngine, loadBrandSafetyCache } from '../brandSafety/brandSafetyEngine';
-import { ApiKeys, BrandSafetyResult, Creator } from '../types';
+import { ApiKeys, BrandSafetyResult, Creator, CreatorEntityData } from '../types';
 import { loadApiKeys } from './apiKeyStorage';
 
 const DEFAULT_OPENAI_MODEL = import.meta.env?.VITE_OPENAI_MODEL?.trim() || 'gpt-4o-mini';
@@ -19,17 +19,25 @@ export function loadCachedResults(): BrandSafetyResult[] {
   return loadBrandSafetyCache();
 }
 
-export async function scanOneCreator(creator: Creator, providedKeys?: ApiKeys): Promise<BrandSafetyResult> {
+export async function scanOneCreator(
+  creator: Creator,
+  providedKeys?: ApiKeys,
+  creatorData?: CreatorEntityData
+): Promise<BrandSafetyResult> {
   const keys = ensureKeys(providedKeys);
-  return runBrandSafetyEngine(creator, keys);
+  return runBrandSafetyEngine(creator, keys, creatorData || creator.entityData);
 }
 
-export async function scanManyCreators(creators: Creator[], keys?: ApiKeys): Promise<BrandSafetyResult[]> {
+export async function scanManyCreators(
+  creators: Creator[],
+  keys?: ApiKeys,
+  entityDataByCreatorId?: Record<string, CreatorEntityData>
+): Promise<BrandSafetyResult[]> {
   const mergedKeys = ensureKeys(keys);
   const results: BrandSafetyResult[] = [];
   for (const creator of creators) {
     try {
-      const result = await scanOneCreator(creator, mergedKeys);
+      const result = await scanOneCreator(creator, mergedKeys, entityDataByCreatorId?.[creator.id]);
       results.push(result);
     } catch (err: any) {
       results.push({

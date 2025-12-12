@@ -10,6 +10,8 @@ import {
 import { BrandSafetyEvidence, ClassificationResult, RiskCategory, RiskLevel } from '../types';
 import { normaliseScore } from './utils';
 
+// Risk scoring operates only on content that survived entity disambiguation and semantic
+// classification; at this point we assume every snippet truly refers to the target creator.
 function monthsSince(year: number): number {
   const now = new Date();
   const then = new Date(year, 0, 1);

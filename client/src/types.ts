@@ -5,6 +5,24 @@ export type Creator = {
   channelUrl?: string;
   channelId?: string;
   handle?: string;
+  /**
+   * Optional entity profile used by the disambiguation layer to avoid false positives.
+   */
+  entityData?: CreatorEntityData;
+};
+
+/**
+ * Reusable entity profile passed into the brand safety engine. Example:
+ * {
+ *   primaryName: 'Ali-A',
+ *   realName: 'Alastair Aiken',
+ *   identifiers: ['Ali-A', 'Ali A', "Alastair 'Ali-A' Aiken", 'MrAliA', 'MoreAliA', 'AliA']
+ * }
+ */
+export type CreatorEntityData = {
+  primaryName: string;
+  realName?: string;
+  identifiers: string[];
 };
 
 export type CreatorProfile = {
