@@ -1,5 +1,5 @@
 import { ApiKeys, BrandSafetyEvidence, BrandSafetyResult, Creator } from '../types';
-import { loadApiKeys, saveApiKeys } from './apiKeyStorage';
+import { loadApiKeys } from './apiKeyStorage';
 
 const GOOGLE_SEARCH_ENDPOINT = 'https://www.googleapis.com/customsearch/v1';
 const OPENAI_CHAT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
@@ -22,16 +22,6 @@ type GoogleSearchResponse = {
 };
 
 type Classification = { riskLevel: BrandSafetyResult['riskLevel']; summary: string };
-
-function mergeWithEnvKeys(keys: ApiKeys): ApiKeys {
-  return {
-    googleCseApiKey: keys.googleCseApiKey || import.meta.env?.VITE_GOOGLE_CSE_API_KEY?.trim(),
-    googleCseCx: keys.googleCseCx || import.meta.env?.VITE_GOOGLE_CSE_CX?.trim(),
-    openAiApiKey: keys.openAiApiKey || import.meta.env?.VITE_OPENAI_API_KEY?.trim(),
-    openAiModel: keys.openAiModel || DEFAULT_OPENAI_MODEL,
-    youtubeApiKey: keys.youtubeApiKey
-  };
-}
 
 export function loadCachedResults(): BrandSafetyResult[] {
   if (typeof window === 'undefined') return [];
@@ -58,9 +48,14 @@ function persistResult(result: BrandSafetyResult) {
 }
 
 function ensureKeys(keys?: ApiKeys): ApiKeys {
-  const merged = mergeWithEnvKeys(keys || loadApiKeys());
-  saveApiKeys(merged);
-  return merged;
+  const stored = keys || loadApiKeys();
+  return {
+    googleCseApiKey: stored.googleCseApiKey,
+    googleCseCx: stored.googleCseCx,
+    openAiApiKey: stored.openAiApiKey,
+    openAiModel: stored.openAiModel || DEFAULT_OPENAI_MODEL,
+    youtubeApiKey: stored.youtubeApiKey
+  };
 }
 
 function buildQueries(creator: Creator): string[] {

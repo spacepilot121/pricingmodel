@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { loadApiKeys, saveApiKeys } from '../api/apiKeyStorage';
+import { testApiKeys, ApiKeyTestResults } from '../api/apiKeyTests';
 import { ApiKeys } from '../types';
 
 export default function SettingsTab() {
   const [formState, setFormState] = useState<ApiKeys>({});
   const [status, setStatus] = useState<string>('');
+  const [testResults, setTestResults] = useState<ApiKeyTestResults | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     const stored = loadApiKeys();
@@ -13,14 +16,32 @@ export default function SettingsTab() {
 
   function handleChange<K extends keyof ApiKeys>(key: K, value: ApiKeys[K]) {
     setFormState((prev) => ({ ...prev, [key]: value }));
+    setTestResults(null);
   }
 
   function handleSave() {
+    if (!allValid) return;
     const merged = saveApiKeys(formState);
     setFormState(merged);
     setStatus('API keys saved locally. Brand Safety runs entirely in your browser.');
     setTimeout(() => setStatus(''), 2500);
   }
+
+  async function handleTest() {
+    setIsTesting(true);
+    setStatus('');
+    setTestResults(null);
+    try {
+      const results = await testApiKeys(formState);
+      setTestResults(results);
+    } catch (err: any) {
+      setStatus(err?.message || 'Unable to run tests.');
+    } finally {
+      setIsTesting(false);
+    }
+  }
+
+  const allValid = Boolean(testResults?.googleTest.ok && testResults?.openAiTest.ok);
 
   return (
     <div className="card">
@@ -109,9 +130,35 @@ export default function SettingsTab() {
         </section>
       </div>
 
-      <button type="button" className="button" onClick={handleSave}>
-        Save settings
-      </button>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button type="button" className="button secondary" onClick={handleTest} disabled={isTesting}>
+          {isTesting ? 'Testing...' : 'Test API Keys'}
+        </button>
+        <button type="button" className="button" onClick={handleSave} disabled={!allValid || isTesting}>
+          Save settings
+        </button>
+        {!allValid && testResults && (
+          <span className="status-text">Fix errors above before saving.</span>
+        )}
+      </div>
+
+      {testResults && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <h4 style={{ marginTop: 0 }}>Test results</h4>
+          <ul style={{ listStyle: 'none', paddingLeft: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <li className={testResults.googleTest.keyOk && testResults.googleTest.ok ? 'status-text success' : 'status-text error'}>
+              Google Search API: {testResults.googleTest.ok ? 'OK' : testResults.googleTest.message}
+            </li>
+            <li className={testResults.googleTest.cxOk && testResults.googleTest.ok ? 'status-text success' : 'status-text error'}>
+              Google CX: {testResults.googleTest.ok ? 'OK' : testResults.googleTest.message}
+            </li>
+            <li className={testResults.openAiTest.ok ? 'status-text success' : 'status-text error'}>
+              OpenAI API: {testResults.openAiTest.ok ? 'OK' : testResults.openAiTest.message}
+            </li>
+          </ul>
+        </div>
+      )}
+
       {status && <p className="status-text success">{status}</p>}
     </div>
   );

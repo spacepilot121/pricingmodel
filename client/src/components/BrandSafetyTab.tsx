@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadApiKeys, saveApiKeys } from '../api/apiKeyStorage';
+import { loadApiKeys } from '../api/apiKeyStorage';
 import { loadCachedResults, scanManyCreators } from '../api/brandSafetyApi';
 import { ApiKeys, BrandSafetyResult, Creator } from '../types';
 
@@ -23,7 +23,6 @@ export default function BrandSafetyTab() {
   const [detailsModalCreatorId, setDetailsModalCreatorId] = useState<string | null>(null);
   const [scanningStatus, setScanningStatus] = useState<ScanningStatus>({});
   const [apiKeys, setApiKeys] = useState<ApiKeys>({});
-  const [keysSavedMessage, setKeysSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const storedResults = loadCachedResults();
@@ -31,13 +30,7 @@ export default function BrandSafetyTab() {
     storedResults.forEach((r) => (map[r.creatorId] = r));
     setResultsByCreatorId(map);
 
-    const storedKeys = loadApiKeys();
-    setApiKeys({
-      googleCseApiKey: storedKeys.googleCseApiKey || import.meta.env?.VITE_GOOGLE_CSE_API_KEY?.trim(),
-      googleCseCx: storedKeys.googleCseCx || import.meta.env?.VITE_GOOGLE_CSE_CX?.trim(),
-      openAiApiKey: storedKeys.openAiApiKey || import.meta.env?.VITE_OPENAI_API_KEY?.trim(),
-      openAiModel: storedKeys.openAiModel || import.meta.env?.VITE_OPENAI_MODEL?.trim()
-    });
+    setApiKeys(loadApiKeys());
   }, []);
 
   const missingKeys = useMemo(() => {
@@ -79,20 +72,13 @@ export default function BrandSafetyTab() {
     handleScan(parsed);
   }
 
-  function persistKeys(nextKeys: ApiKeys) {
-    const merged = saveApiKeys(nextKeys);
-    setApiKeys(merged);
-    setKeysSavedMessage('API keys saved in your browser.');
-    setTimeout(() => setKeysSavedMessage(null), 2500);
-  }
-
   async function handleScan(targetCreators: Creator[]) {
     if (!targetCreators.length) {
       setError('Add at least one creator before scanning.');
       return;
     }
     if (missingKeys) {
-      setError('Enter your API keys to run brand safety checks.');
+      setError('Enter your API keys in Settings to run brand safety checks.');
       return;
     }
     setIsScanning(true);
@@ -128,9 +114,15 @@ export default function BrandSafetyTab() {
         Indicative reputational scan using public search and platform metadata. Scores are not determinations of fact.
       </p>
 
-      <div className="badge amber" style={{ marginBottom: 12 }}>
-        Enter your API keys to run brand safety checks. Keys stay in your browser and are used directly from this page.
-      </div>
+      {missingKeys ? (
+        <div className="badge red" style={{ marginBottom: 12 }}>
+          Missing Google Search or OpenAI credentials. Add them in Settings to enable scanning.
+        </div>
+      ) : (
+        <div className="badge green" style={{ marginBottom: 12 }}>
+          Keys loaded from Settings. Scans run fully in your browser.
+        </div>
+      )}
 
       {error && <div className="badge red">{error}</div>}
 
@@ -146,7 +138,7 @@ export default function BrandSafetyTab() {
             style={{ width: '100%', minHeight: 140, padding: 12 }}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-            <button className="button" onClick={loadCreators} disabled={isScanning}>
+            <button className="button" onClick={loadCreators} disabled={isScanning || missingKeys}>
               Load creators
             </button>
             <button
@@ -169,7 +161,7 @@ export default function BrandSafetyTab() {
           </div>
           {missingKeys && (
             <p className="status-text" style={{ marginTop: 8 }}>
-              Add your Google and OpenAI credentials to enable scanning.
+              Add your Google and OpenAI credentials in Settings to enable scanning.
             </p>
           )}
           {isScanning && <p className="status-text">Scanning... please wait.</p>}
@@ -178,47 +170,18 @@ export default function BrandSafetyTab() {
         <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div className="card" style={{ padding: 12 }}>
             <h3 style={{ marginTop: 0 }}>API configuration</h3>
-            <label>
-              Google Search API Key
-              <input
-                type="text"
-                placeholder="AIza..."
-                value={apiKeys.googleCseApiKey || ''}
-                onChange={(e) => setApiKeys((prev) => ({ ...prev, googleCseApiKey: e.target.value }))}
-              />
-            </label>
-            <label>
-              Google Search Engine ID (CX)
-              <input
-                type="text"
-                placeholder="Custom search CX"
-                value={apiKeys.googleCseCx || ''}
-                onChange={(e) => setApiKeys((prev) => ({ ...prev, googleCseCx: e.target.value }))}
-              />
-            </label>
-            <label>
-              OpenAI API Key
-              <input
-                type="text"
-                placeholder="sk-..."
-                value={apiKeys.openAiApiKey || ''}
-                onChange={(e) => setApiKeys((prev) => ({ ...prev, openAiApiKey: e.target.value }))}
-              />
-            </label>
-            <label>
-              OpenAI model (optional)
-              <input
-                type="text"
-                placeholder="gpt-4o-mini"
-                value={apiKeys.openAiModel || ''}
-                onChange={(e) => setApiKeys((prev) => ({ ...prev, openAiModel: e.target.value }))}
-              />
-            </label>
-            <button className="button" type="button" onClick={() => persistKeys(apiKeys)}>
-              Save keys
-            </button>
-            {keysSavedMessage && <p className="status-text success">{keysSavedMessage}</p>}
-            {!missingKeys && <p className="status-text success">Ready to scan in the browser.</p>}
+            <p className="text-muted" style={{ marginBottom: 8 }}>
+              Keys are managed in Settings and loaded from your browser storage.
+            </p>
+            {missingKeys ? (
+              <p className="status-text error" style={{ marginTop: 0 }}>
+                Missing Google or OpenAI credentials. Add them in Settings.
+              </p>
+            ) : (
+              <p className="status-text success" style={{ marginTop: 0 }}>
+                Keys loaded from browser storage. Ready to scan.
+              </p>
+            )}
           </div>
         </div>
       </div>
