@@ -8,6 +8,7 @@ export type ApiKeyService = 'google' | 'openai' | 'youtube';
 async function handleResponse(res: Response) {
   const text = await res.text();
   let data: any = null;
+  const contentType = res.headers.get('content-type') || '';
   try {
     data = text ? JSON.parse(text) : null;
   } catch (err) {
@@ -15,11 +16,21 @@ async function handleResponse(res: Response) {
   }
 
   if (!res.ok) {
-    const message = data?.error || data?.message || text || 'Request failed';
+    const message = data?.error || data?.message || buildFallbackError(res, text, contentType);
     throw new Error(message);
   }
 
   return data;
+}
+
+function buildFallbackError(res: Response, text: string, contentType: string) {
+  const htmlError = contentType.includes('text/html') || /<html/i.test(text);
+
+  if (res.status === 405 || htmlError) {
+    return 'This action needs the backend server running. The hosted demo cannot test API keys — run the app locally with the server started to verify them.';
+  }
+
+  return text || 'Request failed';
 }
 
 export async function scanManyCreators(creators: Creator[]): Promise<BrandSafetyResult[]> {
