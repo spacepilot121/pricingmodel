@@ -25,12 +25,19 @@ async function handleResponse(res: Response) {
 
 function buildFallbackError(res: Response, text: string, contentType: string) {
   const htmlError = contentType.includes('text/html') || /<html/i.test(text);
+  const sanitizedText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const backendMessage =
+    'Testing API keys requires the backend server running locally. The hosted demo cannot perform this check — run the server and retry.';
 
-  if (res.status === 405 || htmlError) {
-    return 'This action needs the backend server running. The hosted demo cannot test API keys — run the app locally with the server started to verify them.';
+  if (res.status === 405) {
+    return backendMessage;
   }
 
-  return text || 'Request failed';
+  if (htmlError) {
+    return backendMessage;
+  }
+
+  return sanitizedText || 'Request failed';
 }
 
 export async function scanManyCreators(creators: Creator[]): Promise<BrandSafetyResult[]> {
