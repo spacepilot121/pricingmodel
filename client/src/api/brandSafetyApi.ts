@@ -1,3 +1,4 @@
+import { loadApiKeys } from './apiKeyStorage';
 import { BrandSafetyResult, Creator } from '../types';
 
 const BASE_URL = '/api/brand-safety';
@@ -23,7 +24,7 @@ export async function scanManyCreators(creators: Creator[]): Promise<BrandSafety
   const res = await fetch(`${BASE_URL}/scan-many`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ creators })
+    body: JSON.stringify({ creators, apiKeys: loadApiKeys() })
   });
   const data = await handleResponse(res);
   return data.results;
@@ -33,7 +34,7 @@ export async function scanOneCreator(creator: Creator): Promise<BrandSafetyResul
   const res = await fetch(`${BASE_URL}/scan-one`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ creator })
+    body: JSON.stringify({ creator, apiKeys: loadApiKeys() })
   });
   const data = await handleResponse(res);
   return data.result;

@@ -7,18 +7,27 @@ import {
   CreatorProfile,
   Incident,
   SearchResultItem,
-  BrandSafetyError
+  BrandSafetyError,
+  ApiKeys
 } from './brandSafetyTypes.js';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-function ensureEnv(vars: string[]): void {
-  const missing = vars.filter((key) => !process.env[key]);
-  if (missing.length) {
-    const err: BrandSafetyError = new Error(`Missing required environment variables: ${missing.join(', ')}`);
+function requireKey(value: string | undefined, envKey: string, label?: string): string {
+  const resolved = value || process.env[envKey];
+  if (!resolved) {
+    const err: BrandSafetyError = new Error(`Missing required environment variables: ${label || envKey}`);
     err.status = 500;
     throw err;
   }
+  return resolved;
+}
+
+function createOpenAIClient(apiKeys?: ApiKeys): OpenAI {
+  const apiKey = requireKey(apiKeys?.openAiApiKey, 'OPENAI_API_KEY');
+  return new OpenAI({ apiKey });
+}
+
+function resolveModel(apiKeys?: ApiKeys): string {
+  return apiKeys?.openAiModel || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
 }
 
 function pickRiskLevel(score: number): 'Green' | 'Amber' | 'Red' {
@@ -27,14 +36,14 @@ function pickRiskLevel(score: number): 'Green' | 'Amber' | 'Red' {
   return 'Red';
 }
 
-export async function evaluateCreatorRisk(creator: Creator): Promise<BrandSafetyResult> {
-  const profile = await resolveCreatorProfile(creator);
-  const searchItems = await searchReputationForCreator(profile);
-  const searchIncidents = await classifySearchResultsWithOpenAI(profile, searchItems);
-  const youtubeIncidents = await scanYouTubeMetadataForSignals(profile);
+export async function evaluateCreatorRisk(creator: Creator, apiKeys: ApiKeys = {}): Promise<BrandSafetyResult> {
+  const profile = await resolveCreatorProfile(creator, apiKeys);
+  const searchItems = await searchReputationForCreator(profile, apiKeys);
+  const searchIncidents = await classifySearchResultsWithOpenAI(profile, searchItems, apiKeys);
+  const youtubeIncidents = await scanYouTubeMetadataForSignals(profile, apiKeys);
   const incidents = [...searchIncidents, ...youtubeIncidents];
   const { riskScore, riskLevel, categories, topDomains } = aggregateRiskScore(incidents);
-  const summary = await summariseCreatorRiskWithOpenAI(profile, incidents, riskScore, riskLevel);
+  const summary = await summariseCreatorRiskWithOpenAI(profile, incidents, riskScore, riskLevel, apiKeys);
 
   return {
     creatorId: creator.id,
@@ -49,9 +58,9 @@ export async function evaluateCreatorRisk(creator: Creator): Promise<BrandSafety
   };
 }
 
-async function resolveCreatorProfile(creator: Creator): Promise<CreatorProfile> {
+async function resolveCreatorProfile(creator: Creator, apiKeys: ApiKeys): Promise<CreatorProfile> {
   if (creator.platform === 'YouTube') {
-    const youtubeKey = process.env.YOUTUBE_API_KEY;
+    const youtubeKey = apiKeys.youtubeApiKey || process.env.YOUTUBE_API_KEY;
     if (youtubeKey && (creator.channelId || creator.channelUrl)) {
       const channelId = await resolveYouTubeChannelId(creator, youtubeKey);
       if (channelId) {
@@ -111,10 +120,9 @@ async function fetchYouTubeProfile(channelId: string, apiKey: string): Promise<C
   };
 }
 
-async function searchReputationForCreator(profile: CreatorProfile): Promise<SearchResultItem[]> {
-  ensureEnv(['GOOGLE_CSE_API_KEY', 'GOOGLE_CSE_CX']);
-  const apiKey = process.env.GOOGLE_CSE_API_KEY as string;
-  const cx = process.env.GOOGLE_CSE_CX as string;
+async function searchReputationForCreator(profile: CreatorProfile, apiKeys: ApiKeys): Promise<SearchResultItem[]> {
+  const apiKey = requireKey(apiKeys.googleCseApiKey, 'GOOGLE_CSE_API_KEY');
+  const cx = requireKey(apiKeys.googleCseCx, 'GOOGLE_CSE_CX');
   const results: SearchResultItem[] = [];
   for (const keyword of CONTROVERSY_KEYWORDS) {
     const query = `"${profile.primaryName}" ${keyword}`;
@@ -136,9 +144,13 @@ async function searchReputationForCreator(profile: CreatorProfile): Promise<Sear
   return results;
 }
 
-async function classifySearchResultsWithOpenAI(profile: CreatorProfile, items: SearchResultItem[]): Promise<Incident[]> {
+async function classifySearchResultsWithOpenAI(
+  profile: CreatorProfile,
+  items: SearchResultItem[],
+  apiKeys: ApiKeys
+): Promise<Incident[]> {
   if (!items.length) return [];
-  ensureEnv(['OPENAI_API_KEY']);
+  const openai = createOpenAIClient(apiKeys);
   const promptItems = items
     .map(
       (item, idx) =>
@@ -147,7 +159,7 @@ async function classifySearchResultsWithOpenAI(profile: CreatorProfile, items: S
     .join('\n\n');
   try {
     const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+      model: resolveModel(apiKeys),
       input: [
         {
           role: 'system',
@@ -160,9 +172,9 @@ async function classifySearchResultsWithOpenAI(profile: CreatorProfile, items: S
         }
       ],
       response_format: { type: 'json_object' }
-    });
+    } as any);
 
-    const text = response.output[0]?.content?.[0]?.text || '';
+    const text = (response as any).output?.[0]?.content?.[0]?.text || '';
     const parsed = JSON.parse(text.trim());
     return Array.isArray(parsed.incidents) ? (parsed.incidents as Incident[]) : [];
   } catch (err) {
@@ -171,10 +183,9 @@ async function classifySearchResultsWithOpenAI(profile: CreatorProfile, items: S
   }
 }
 
-async function scanYouTubeMetadataForSignals(profile: CreatorProfile): Promise<Incident[]> {
+async function scanYouTubeMetadataForSignals(profile: CreatorProfile, apiKeys: ApiKeys): Promise<Incident[]> {
   if (profile.platform !== 'YouTube' || !profile.channelId) return [];
-  ensureEnv(['YOUTUBE_API_KEY']);
-  const apiKey = process.env.YOUTUBE_API_KEY as string;
+  const apiKey = requireKey(apiKeys.youtubeApiKey, 'YOUTUBE_API_KEY', 'YOUTUBE_API_KEY (or provide via settings)');
   try {
     const res = await axios.get('https://www.googleapis.com/youtube/v3/search', {
       params: {
@@ -199,7 +210,7 @@ async function scanYouTubeMetadataForSignals(profile: CreatorProfile): Promise<I
         )
       );
     if (!candidateVideos.length) return [];
-    return classifyYouTubeSignalsWithOpenAI(profile, candidateVideos);
+    return classifyYouTubeSignalsWithOpenAI(profile, candidateVideos, apiKeys);
   } catch (err) {
     console.error('YouTube metadata scan failed', err);
     return [];
@@ -208,9 +219,10 @@ async function scanYouTubeMetadataForSignals(profile: CreatorProfile): Promise<I
 
 async function classifyYouTubeSignalsWithOpenAI(
   profile: CreatorProfile,
-  videos: { videoId: string; title: string; description: string; publishedAt?: string }[]
+  videos: { videoId: string; title: string; description: string; publishedAt?: string }[],
+  apiKeys: ApiKeys
 ): Promise<Incident[]> {
-  ensureEnv(['OPENAI_API_KEY']);
+  const openai = createOpenAIClient(apiKeys);
   try {
     const videoList = videos
       .map(
@@ -219,7 +231,7 @@ async function classifyYouTubeSignalsWithOpenAI(
       )
       .join('\n\n');
     const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+      model: resolveModel(apiKeys),
       input: [
         {
           role: 'system',
@@ -232,8 +244,8 @@ async function classifyYouTubeSignalsWithOpenAI(
         }
       ],
       response_format: { type: 'json_object' }
-    });
-    const text = response.output[0]?.content?.[0]?.text || '';
+    } as any);
+    const text = (response as any).output?.[0]?.content?.[0]?.text || '';
     const parsed = JSON.parse(text.trim());
     return Array.isArray(parsed.incidents) ? (parsed.incidents as Incident[]) : [];
   } catch (err) {
@@ -272,9 +284,10 @@ async function summariseCreatorRiskWithOpenAI(
   profile: CreatorProfile,
   incidents: Incident[],
   riskScore: number,
-  riskLevel: 'Green' | 'Amber' | 'Red'
+  riskLevel: 'Green' | 'Amber' | 'Red',
+  apiKeys: ApiKeys
 ): Promise<string> {
-  ensureEnv(['OPENAI_API_KEY']);
+  const openai = createOpenAIClient(apiKeys);
   const simplified = incidents.map((i) => ({
     category: i.category,
     summary: i.summary,
@@ -286,7 +299,7 @@ async function summariseCreatorRiskWithOpenAI(
   }));
   try {
     const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+      model: resolveModel(apiKeys),
       input: [
         {
           role: 'system',
@@ -300,8 +313,8 @@ async function summariseCreatorRiskWithOpenAI(
           )}\nProvide 2-3 sentences.`
         }
       ]
-    });
-    const text = response.output[0]?.content?.[0]?.text || '';
+    } as any);
+    const text = (response as any).output?.[0]?.content?.[0]?.text || '';
     return text.trim();
   } catch (err) {
     console.error('OpenAI summary failed', err);

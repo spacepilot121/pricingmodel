@@ -62,3 +62,11 @@ export type SearchResultItem = {
 };
 
 export type BrandSafetyError = Error & { status?: number };
+
+export type ApiKeys = {
+  googleCseApiKey?: string;
+  googleCseCx?: string;
+  openAiApiKey?: string;
+  openAiModel?: string;
+  youtubeApiKey?: string;
+};

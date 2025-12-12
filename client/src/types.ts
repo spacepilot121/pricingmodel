@@ -51,3 +51,11 @@ export type BrandSafetyResult = {
   summary: string;
   lastChecked: string;
 };
+
+export type ApiKeys = {
+  googleCseApiKey?: string;
+  googleCseCx?: string;
+  openAiApiKey?: string;
+  openAiModel?: string;
+  youtubeApiKey?: string;
+};
