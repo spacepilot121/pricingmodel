@@ -60,6 +60,7 @@ export type SearchResultItem = {
   link: string;
   displayLink: string;
   searchQuery: string;
+  pagemap?: { metatags?: Record<string, string>[] };
 };
 
 export type BrandSafetyError = Error & { status?: number };

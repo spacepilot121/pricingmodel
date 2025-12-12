@@ -1,6 +1,7 @@
 import axios from 'axios';
 import OpenAI from 'openai';
 import { APOLOGY_SIGNAL_KEYWORDS, CONTROVERSY_KEYWORDS, RISK_THRESHOLDS, YOUTUBE_MAX_RECENT_VIDEOS } from './brandSafetyConfig.js';
+import { dedupeResults, fetchSearchResults } from './searchEngine.js';
 function requireKey(value, envKey, label) {
     const resolved = value || process.env[envKey];
     if (!resolved) {
@@ -185,45 +186,19 @@ async function fetchYouTubeProfile(channelId, apiKey) {
 async function searchReputationForCreator(profile, apiKeys) {
     const apiKey = requireKey(apiKeys.googleCseApiKey, 'GOOGLE_CSE_API_KEY');
     const cx = requireKey(apiKeys.googleCseCx, 'GOOGLE_CSE_CX');
-    const results = [];
-    const searchNames = uniqueStrings([
+    // Build the identifier set once; the optimised engine will OR them into three boolean mega-queries.
+    const identifiers = uniqueStrings([
         profile.primaryName,
         ...profile.altNames,
-        ...profile.handles,
-        profile.channelUrl
-    ]).map((name) => name.replace(/^https?:\/\//, ''));
-    async function pushGoogleResults(query, keyword) {
-        const res = await axios.get('https://www.googleapis.com/customsearch/v1', {
-            params: { key: apiKey, cx, q: query, num: 3 }
-        });
-        const items = res.data.items || [];
-        items.forEach((item) => {
-            if (!item?.link)
-                return;
-            results.push({
-                keyword,
-                title: item.title,
-                snippet: item.snippet,
-                link: item.link,
-                displayLink: item.displayLink,
-                searchQuery: query
-            });
-        });
-    }
-    for (const name of searchNames) {
-        for (const keyword of CONTROVERSY_KEYWORDS) {
-            const baseQuery = `"${name}" ${keyword}`;
-            await pushGoogleResults(baseQuery, keyword);
-            if (profile.platform === 'YouTube') {
-                await pushGoogleResults(`site:youtube.com ${baseQuery}`, keyword);
-            }
-        }
-    }
-    const youtubeResults = await searchYouTubeForControversy(profile, apiKeys, searchNames);
-    const deduped = results
-        .concat(youtubeResults)
-        .filter((item, idx, arr) => arr.findIndex((i) => i.link === item.link) === idx);
-    return deduped;
+        ...profile.handles.map((h) => h.replace(/^@/, '')),
+        profile.channelUrl?.replace(/^https?:\/\//, '')
+    ]);
+    const creatorData = { identifiers };
+    // Three consolidated Google calls keep us inside quota while still surfacing rich context for disambiguation.
+    const googleResults = await fetchSearchResults(creatorData, apiKey, cx);
+    const youtubeResults = await searchYouTubeForControversy(profile, apiKeys, identifiers);
+    // Deduped results retain title/link/snippet/pagemap for the entity disambiguation layer to validate identity and context.
+    return dedupeResults([...googleResults, ...youtubeResults]);
 }
 async function searchYouTubeForControversy(profile, apiKeys, searchNames) {
     if (!apiKeys.youtubeApiKey || profile.platform !== 'YouTube')
