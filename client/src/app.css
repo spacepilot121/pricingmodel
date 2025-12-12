@@ -271,3 +271,56 @@ textarea:focus {
 .status-text.error {
   color: #ff9a9a;
 }
+
+.heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.heatmap-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+}
+
+.heatmap-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255, 110, 110, 0.85), rgba(255, 206, 86, 0.85));
+}
+
+.evidence-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evidence-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-bar {
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  height: 10px;
+  margin: 6px 0;
+}
+
+.timeline-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--teal), var(--purple));
+}

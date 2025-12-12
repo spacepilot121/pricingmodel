@@ -2,27 +2,31 @@ import { useEffect, useMemo, useState } from 'react';
 import { loadApiKeys } from '../api/apiKeyStorage';
 import { loadCachedResults, scanManyCreators } from '../api/brandSafetyApi';
 import { ApiKeys, BrandSafetyResult, Creator } from '../types';
+import {
+  buildCategoryHeatmap,
+  exportToCsv,
+  formatRiskLabel,
+  riskBadgeClass,
+  topSevereEvidence
+} from '../brandSafety/brandSafetyUI';
 
-const riskColors: Record<string, string> = {
-  Low: 'badge green',
-  Medium: 'badge amber',
-  High: 'badge red'
-};
+const DEFAULT_PLATFORM: Creator['platform'] = 'Other';
 
 type ScanningStatus = Record<string, 'Pending' | 'Scanning' | 'Done' | 'Error'>;
 
-const DEFAULT_PLATFORM: Creator['platform'] = 'Other';
+type Stage = 'idle' | 'searching' | 'classifying';
 
 export default function BrandSafetyTab() {
   const [creatorInput, setCreatorInput] = useState('');
   const [creators, setCreators] = useState<Creator[]>([]);
   const [resultsByCreatorId, setResultsByCreatorId] = useState<Record<string, BrandSafetyResult>>({});
   const [isScanning, setIsScanning] = useState(false);
-  const [filterRiskLevel, setFilterRiskLevel] = useState<'All' | 'Low' | 'Medium' | 'High'>('All');
+  const [filterRiskLevel, setFilterRiskLevel] = useState<'All' | 'green' | 'amber' | 'red'>('All');
   const [error, setError] = useState<string | null>(null);
   const [detailsModalCreatorId, setDetailsModalCreatorId] = useState<string | null>(null);
   const [scanningStatus, setScanningStatus] = useState<ScanningStatus>({});
   const [apiKeys, setApiKeys] = useState<ApiKeys>({});
+  const [stage, setStage] = useState<Stage>('idle');
 
   useEffect(() => {
     const storedResults = loadCachedResults();
@@ -82,12 +86,15 @@ export default function BrandSafetyTab() {
       return;
     }
     setIsScanning(true);
+    setStage('searching');
     setError(null);
     const status: ScanningStatus = {};
     targetCreators.forEach((c) => (status[c.id] = 'Scanning'));
     setScanningStatus(status);
     try {
-      const results = await scanManyCreators(targetCreators, apiKeys);
+      const resultsPromise = scanManyCreators(targetCreators, apiKeys);
+      setStage('classifying');
+      const results = await resultsPromise;
       const nextMap = { ...resultsByCreatorId } as Record<string, BrandSafetyResult>;
       const nextStatus = { ...status } as ScanningStatus;
       results.forEach((r: BrandSafetyResult) => {
@@ -104,8 +111,11 @@ export default function BrandSafetyTab() {
       setError(err.message || 'Scan failed.');
     } finally {
       setIsScanning(false);
+      setStage('idle');
     }
   }
+
+  const exportableResults = useMemo(() => Object.values(resultsByCreatorId), [resultsByCreatorId]);
 
   return (
     <div className="card">
@@ -149,13 +159,20 @@ export default function BrandSafetyTab() {
             >
               Scan loaded creators
             </button>
+            <button
+              className="button secondary"
+              onClick={() => exportToCsv(exportableResults)}
+              disabled={!exportableResults.length}
+            >
+              Export CSV
+            </button>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Risk filter:
               <select value={filterRiskLevel} onChange={(e) => setFilterRiskLevel(e.target.value as any)}>
                 <option value="All">All</option>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
+                <option value="green">Low</option>
+                <option value="amber">Medium</option>
+                <option value="red">High</option>
               </select>
             </label>
           </div>
@@ -164,7 +181,13 @@ export default function BrandSafetyTab() {
               Add your Google and OpenAI credentials in Settings to enable scanning.
             </p>
           )}
-          {isScanning && <p className="status-text">Scanning... please wait.</p>}
+          {isScanning && (
+            <p className="status-text">
+              {stage === 'searching'
+                ? 'Running enriched Google queries...'
+                : 'Classifying articles with GPT...'}
+            </p>
+          )}
         </div>
 
         <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -182,6 +205,18 @@ export default function BrandSafetyTab() {
                 Keys loaded from browser storage. Ready to scan.
               </p>
             )}
+            <p className="text-muted" style={{ marginBottom: 0 }}>
+              Default model: gpt-4o-mini. Switch to gpt-4o in Settings for higher fidelity.
+            </p>
+          </div>
+          <div className="card" style={{ padding: 12 }}>
+            <h4 style={{ marginTop: 0 }}>Status</h4>
+            <p className="status-text" style={{ marginTop: 4 }}>
+              {isScanning ? `Scanning ${creators.length} creators...` : 'Idle'}
+            </p>
+            <p className="text-muted" style={{ marginTop: 4 }}>
+              Stage: {stage === 'idle' ? 'Ready' : stage === 'searching' ? 'Search enrichment' : 'Semantic classification'}
+            </p>
           </div>
         </div>
       </div>
@@ -194,6 +229,7 @@ export default function BrandSafetyTab() {
             <th>Last checked</th>
             <th>Risk score</th>
             <th>Risk level</th>
+            <th>Confidence</th>
             <th>Summary</th>
             <th>Actions</th>
           </tr>
@@ -207,16 +243,17 @@ export default function BrandSafetyTab() {
                 <td>{creator.name}</td>
                 <td>{creator.handle || '—'}</td>
                 <td>{result?.lastChecked ? new Date(result.lastChecked).toLocaleString() : '—'}</td>
-                <td>{result?.riskScore ?? '—'}</td>
+                <td>{result?.finalScore?.toFixed ? result.finalScore.toFixed(1) : result?.finalScore ?? '—'}</td>
                 <td>
                   {result ? (
-                    <span className={riskColors[result.riskLevel]}>{result.riskLevel}</span>
+                    <span className={riskBadgeClass(result.riskLevel)}>{formatRiskLabel(result.riskLevel)}</span>
                   ) : status ? (
                     <span className="status-text">{status}</span>
                   ) : (
                     '—'
                   )}
                 </td>
+                <td>{result ? `${Math.round((result.confidence || 0) * 100)}%` : '—'}</td>
                 <td style={{ maxWidth: 280 }}>{result?.summary || 'No scan yet'}</td>
                 <td>
                   <div className="table-actions">
@@ -237,7 +274,7 @@ export default function BrandSafetyTab() {
           })}
           {!filteredCreators.length && (
             <tr>
-              <td colSpan={7} className="text-muted">
+              <td colSpan={8} className="text-muted">
                 No creators loaded yet.
               </td>
             </tr>
@@ -246,16 +283,15 @@ export default function BrandSafetyTab() {
       </table>
 
       {detailsModalCreatorId && resultsByCreatorId[detailsModalCreatorId] && (
-        <DetailsModal
-          result={resultsByCreatorId[detailsModalCreatorId]}
-          onClose={() => setDetailsModalCreatorId(null)}
-        />
+        <DetailsModal result={resultsByCreatorId[detailsModalCreatorId]} onClose={() => setDetailsModalCreatorId(null)} />
       )}
     </div>
   );
 }
 
 function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose: () => void }) {
+  const heatmap = buildCategoryHeatmap(result);
+  const topEvidence = topSevereEvidence(result, 5);
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -265,9 +301,55 @@ function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose:
             Close
           </button>
         </div>
-        <p className="text-muted">Risk: {result.riskLevel} ({result.riskScore})</p>
+        <p className="text-muted">Risk: {formatRiskLabel(result.riskLevel)} ({result.finalScore.toFixed(1)})</p>
+        <p className="text-muted">Confidence: {Math.round((result.confidence || 0) * 100)}%</p>
         <p>{result.summary}</p>
-        <h4>Evidence</h4>
+
+        <h4>Category heatmap</h4>
+        {heatmap.length ? (
+          <div className="heatmap">
+            {heatmap.map((row) => (
+              <div key={row.category} className="heatmap-row">
+                <span>{row.category}</span>
+                <div className="heatmap-bar" style={{ width: `${Math.min(row.count * 20, 100)}%` }} />
+                <span className="text-muted">{row.count}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted">No flagged categories.</p>
+        )}
+
+        <h4>Top severity evidence</h4>
+        {topEvidence.length ? (
+          <ul className="evidence-list">
+            {topEvidence.map((item, idx) => (
+              <li key={idx}>
+                <div className="evidence-header">
+                  <strong>{item.title}</strong>
+                  <span className="badge secondary">Score +{item.riskContribution.toFixed(1)}</span>
+                </div>
+                <div className="text-muted" style={{ marginBottom: 4 }}>
+                  {item.snippet}
+                </div>
+                <div className="text-muted" style={{ marginBottom: 4 }}>
+                  {item.classification.stance} • {item.classification.category || 'unclassified'} • Severity {item.classification.severity}
+                </div>
+                <div className="timeline-bar">
+                  <div className="timeline-fill" style={{ width: `${item.recency * 100}%` }} />
+                  <span className="text-muted">Recency weight {item.recency.toFixed(2)}</span>
+                </div>
+                <a href={item.url} target="_blank" rel="noreferrer">
+                  {item.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted">No evidence collected for this scan.</p>
+        )}
+
+        <h4>All evidence</h4>
         {result.evidence.length ? (
           <ul>
             {result.evidence.map((item, idx) => (
@@ -275,6 +357,9 @@ function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose:
                 <div style={{ fontWeight: 600 }}>{item.title}</div>
                 <div className="text-muted" style={{ marginBottom: 4 }}>
                   {item.snippet}
+                </div>
+                <div className="text-muted" style={{ marginBottom: 4 }}>
+                  {item.classification.summary}
                 </div>
                 <a href={item.url} target="_blank" rel="noreferrer">
                   {item.url}
