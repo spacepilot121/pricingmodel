@@ -24,3 +24,12 @@ GitHub Pages can serve the calculator from the repository root (`/index.html`) o
 ## Pricing variables reference
 
 Select “Pricing Variables” from either the dashboard or the campaign editor to review the rate card inputs that power the calculator. Toggle advanced variables to reveal less common adjustments such as whitelisting, travel, or niche creator fees.
+
+## Brand safety from static hosts
+
+The Brand Safety tab calls an Express backend (`/api/brand-safety/*`) that lives in the `server/` directory. If you open the app only from GitHub Pages (or any static host) there is no backend on that origin, so the tests and scans cannot succeed unless you point the UI at a deployed server.
+
+To make it work when you can’t run the server locally:
+
+- **Host the backend somewhere** – Deploy the `server/` folder to a small host (Render, Railway, Fly, Vercel, etc.), enable CORS, and set `VITE_BRAND_SAFETY_API_BASE` or use **Settings → API endpoint** (or `?apiBase=...`) to target that host from GitHub Pages.
+- **Same-origin deployments still work** – Leave the endpoint blank if you are serving both the frontend and backend from the same origin (local dev or a combined deployment).

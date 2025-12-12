@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { loadApiKeys, saveApiKeys } from '../api/apiKeyStorage';
 import { ApiKeyService, testApiKey } from '../api/brandSafetyApi';
+import {
+  clearBrandSafetyBaseUrl,
+  getBrandSafetyBaseUrl,
+  getCustomBrandSafetyBaseUrl,
+  isUsingDefaultBrandSafetyBase,
+  setBrandSafetyBaseUrl
+} from '../api/brandSafetyConfig';
 import { ApiKeys } from '../types';
 
 type ServiceStatus = {
@@ -12,9 +19,12 @@ export default function SettingsTab() {
   const [formState, setFormState] = useState<ApiKeys>({});
   const [statusByService, setStatusByService] = useState<Partial<Record<ApiKeyService, ServiceStatus>>>({});
   const [activeTest, setActiveTest] = useState<ApiKeyService | null>(null);
+  const [apiBaseInput, setApiBaseInput] = useState('');
+  const [apiBaseStatus, setApiBaseStatus] = useState<ServiceStatus | null>(null);
 
   useEffect(() => {
     setFormState(loadApiKeys());
+    setApiBaseInput(getCustomBrandSafetyBaseUrl() || '');
   }, []);
 
   function handleChange<K extends keyof ApiKeys>(key: K, value: ApiKeys[K]) {
@@ -75,6 +85,33 @@ export default function SettingsTab() {
     return <p className={`status-text ${status.tone}`}>{status.message}</p>;
   }
 
+  function handleSaveApiBase() {
+    const normalized = apiBaseInput.trim();
+    if (!normalized) {
+      clearBrandSafetyBaseUrl();
+      setApiBaseStatus({ tone: 'info', message: 'Reset to default (same origin) API endpoint.' });
+      setApiBaseInput('');
+      return;
+    }
+
+    try {
+      const parsed = new URL(normalized.startsWith('http') ? normalized : `https://${normalized}`);
+      const clean = `${parsed.origin}${parsed.pathname}`.replace(/\/$/, '');
+      setBrandSafetyBaseUrl(clean);
+      setApiBaseStatus({ tone: 'success', message: `Saved API base: ${clean}` });
+      setApiBaseInput(clean);
+    } catch (err) {
+      console.error(err);
+      setApiBaseStatus({ tone: 'error', message: 'Enter a valid URL (example: https://your-host.com/api/brand-safety).' });
+    }
+  }
+
+  function handleResetApiBase() {
+    clearBrandSafetyBaseUrl();
+    setApiBaseStatus({ tone: 'info', message: 'Reverted to default same-origin API base.' });
+    setApiBaseInput('');
+  }
+
   return (
     <div className="card">
       <h2>Settings</h2>
@@ -82,6 +119,11 @@ export default function SettingsTab() {
         Provide the API credentials needed for the influencer safety checker. Keys stay in your browser and are sent
         with each scan and test request.
       </p>
+
+      <div className="badge amber" style={{ marginBottom: 12 }}>
+        If you're opening this from GitHub Pages, point the UI at a hosted backend (with your keys) using the API
+        endpoint field below. Same-origin calls only work when you run the backend on the same host/port as this page.
+      </div>
 
       <div className="settings-form">
         <section className="setting-block">
@@ -189,6 +231,46 @@ export default function SettingsTab() {
             {activeTest === 'youtube' ? 'Testing YouTube...' : 'Save & Test YouTube'}
           </button>
           {renderStatus('youtube')}
+        </section>
+
+        <section className="setting-block">
+          <div className="setting-header">
+            <div>
+              <h3>API endpoint</h3>
+              <p className="text-muted">
+                Brand safety needs the Express backend. When you load the app from GitHub Pages or another static host,
+                add the URL of a deployed backend with CORS enabled. Leave blank to use the same-origin default
+                {getBrandSafetyBaseUrl()}.
+              </p>
+            </div>
+          </div>
+
+          <label>
+            Brand safety API base URL
+            <input
+              type="text"
+              placeholder="https://your-host.com/api/brand-safety"
+              value={apiBaseInput}
+              onChange={(e) => setApiBaseInput(e.target.value)}
+            />
+          </label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="button" onClick={handleSaveApiBase}>
+              Save API endpoint
+            </button>
+            <button type="button" className="button secondary" onClick={handleResetApiBase}>
+              Reset to default
+            </button>
+            {!isUsingDefaultBrandSafetyBase() && (
+              <span className="badge amber">Using custom endpoint</span>
+            )}
+          </div>
+          {apiBaseStatus && <p className={`status-text ${apiBaseStatus.tone}`}>{apiBaseStatus.message}</p>}
+
+          <p className="text-muted" style={{ marginTop: 8 }}>
+            Tip: you can also append <code>?apiBase=https://your-host.com/api/brand-safety</code> to the page URL. The
+            value is stored locally in your browser and reused until you reset it.
+          </p>
         </section>
       </div>
     </div>
