@@ -95,7 +95,7 @@ export default function SettingsTab() {
           <label>
             Google Custom Search API Key
             <input
-              type="password"
+              type="text"
               placeholder="AIza..."
               value={formState.googleCseApiKey || ''}
               onChange={(e) => handleChange('googleCseApiKey', e.target.value)}
@@ -134,7 +134,7 @@ export default function SettingsTab() {
           <label>
             OpenAI API Key
             <input
-              type="password"
+              type="text"
               placeholder="sk-..."
               value={formState.openAiApiKey || ''}
               onChange={(e) => handleChange('openAiApiKey', e.target.value)}
@@ -173,7 +173,7 @@ export default function SettingsTab() {
           <label>
             YouTube Data API Key
             <input
-              type="password"
+              type="text"
               placeholder="AIza..."
               value={formState.youtubeApiKey || ''}
               onChange={(e) => handleChange('youtubeApiKey', e.target.value)}
