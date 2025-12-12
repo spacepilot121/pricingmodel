@@ -1,5 +1,5 @@
 import express from 'express';
-import { evaluateCreatorRisk } from './brandSafetyService.js';
+import { evaluateCreatorRisk, testApiKey } from './brandSafetyService.js';
 import { getAllResults, getResult, setResult } from './brandSafetyCache.js';
 const router = express.Router();
 router.post('/scan-one', async (req, res) => {
@@ -41,6 +41,21 @@ router.post('/scan-many', async (req, res) => {
     }
     catch (err) {
         console.error('scan-many failed', err);
+        res.status(err.status || 500).json({ error: err.message || 'Unexpected error' });
+    }
+});
+router.post('/test-key', async (req, res) => {
+    try {
+        const service = req.body.service;
+        const apiKeys = req.body.apiKeys;
+        if (!service) {
+            return res.status(400).json({ error: 'service is required' });
+        }
+        const result = await testApiKey(service, apiKeys);
+        res.json(result);
+    }
+    catch (err) {
+        console.error('test-key failed', err);
         res.status(err.status || 500).json({ error: err.message || 'Unexpected error' });
     }
 });

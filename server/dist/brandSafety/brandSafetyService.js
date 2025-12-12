@@ -24,6 +24,46 @@ function pickRiskLevel(score) {
         return 'Amber';
     return 'Red';
 }
+function buildError(message, status = 500) {
+    const err = new Error(message);
+    err.status = status;
+    return err;
+}
+export async function testApiKey(service, apiKeys = {}) {
+    try {
+        if (service === 'google') {
+            const key = requireKey(apiKeys.googleCseApiKey, 'GOOGLE_CSE_API_KEY');
+            const cx = requireKey(apiKeys.googleCseCx, 'GOOGLE_CSE_CX');
+            await axios.get('https://www.googleapis.com/customsearch/v1', {
+                params: { key, cx, q: 'brand safety connectivity test', num: 1 }
+            });
+            return { ok: true, message: 'Google Custom Search key responded successfully.' };
+        }
+        if (service === 'openai') {
+            const openai = createOpenAIClient(apiKeys);
+            await openai.responses.create({
+                model: resolveModel(apiKeys),
+                input: [{ role: 'user', content: 'Return the word ok.' }],
+                max_output_tokens: 1
+            });
+            return { ok: true, message: 'OpenAI key authenticated successfully.' };
+        }
+        if (service === 'youtube') {
+            const apiKey = requireKey(apiKeys.youtubeApiKey, 'YOUTUBE_API_KEY', 'YOUTUBE_API_KEY (or provide via settings)');
+            await axios.get('https://www.googleapis.com/youtube/v3/search', {
+                params: { part: 'snippet', q: 'brand safety test', type: 'channel', maxResults: 1, key: apiKey }
+            });
+            return { ok: true, message: 'YouTube Data API key responded successfully.' };
+        }
+    }
+    catch (err) {
+        console.error(`API key test failed for ${service}`, err?.response?.data || err);
+        const status = err?.response?.status || err?.status || 500;
+        const message = err?.response?.data?.error?.message || err?.response?.data?.error || err?.message || 'Key test failed';
+        throw buildError(message, status);
+    }
+    throw buildError('Unsupported service for API key test', 400);
+}
 export async function evaluateCreatorRisk(creator, apiKeys = {}) {
     const profile = await resolveCreatorProfile(creator, apiKeys);
     const searchItems = await searchReputationForCreator(profile, apiKeys);

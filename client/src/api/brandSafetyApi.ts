@@ -3,6 +3,8 @@ import { BrandSafetyResult, Creator } from '../types';
 
 const BASE_URL = '/api/brand-safety';
 
+export type ApiKeyService = 'google' | 'openai' | 'youtube';
+
 async function handleResponse(res: Response) {
   const text = await res.text();
   let data: any = null;
@@ -44,4 +46,13 @@ export async function getAllBrandSafetyResults(): Promise<BrandSafetyResult[]> {
   const res = await fetch(`${BASE_URL}/results`);
   const data = await handleResponse(res);
   return data.results;
+}
+
+export async function testApiKey(service: ApiKeyService): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${BASE_URL}/test-key`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service, apiKeys: loadApiKeys() })
+  });
+  return handleResponse(res);
 }
