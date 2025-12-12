@@ -14,10 +14,16 @@ export function loadApiKeys(): ApiKeys {
   return {};
 }
 
-export function saveApiKeys(keys: ApiKeys): void {
+export function saveApiKeys(keys: ApiKeys): ApiKeys {
+  const merged = { ...loadApiKeys(), ...keys };
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   } catch (err) {
     console.warn('Unable to persist API keys', err);
   }
+  return merged;
+}
+
+export function saveApiKey<K extends keyof ApiKeys>(key: K, value: ApiKeys[K]): ApiKeys {
+  return saveApiKeys({ [key]: value } as ApiKeys);
 }
