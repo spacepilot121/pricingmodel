@@ -6,12 +6,22 @@ import {
 } from './brandSafetyConfig';
 import { ApiKeys, BrandSafetyEvidence, Creator } from '../types';
 
+function buildIdentityTokens(creator: Creator): string[] {
+  const cleanedHandle = creator.handle?.replace(/^@/, '')?.trim();
+  const cleanedChannel = creator.channelUrl?.replace(/^https?:\/\//, '').trim();
+  const tokens = [creator.name, cleanedHandle, creator.channelId, cleanedChannel]
+    .filter(Boolean)
+    .map((token) => token!.trim()) as string[];
+  return Array.from(new Set(tokens)).filter(Boolean);
+}
+
 function buildQueryStrings(creator: Creator): string[] {
-  const creatorToken = [creator.name, creator.handle].filter(Boolean).join(' ').trim();
+  const identityTokens = buildIdentityTokens(creator);
+  const combined = identityTokens.join(' ').trim();
+  const seeds = Array.from(new Set([combined, ...identityTokens].filter(Boolean)));
+
   // Expanded identity-focused templates give the validator benign anchors to confirm the right person before scanning drama.
-  return SEARCH_QUERY_TEMPLATES.map((template) =>
-    template.replace('${creator}', creatorToken || creator.name)
-  );
+  return seeds.flatMap((seed) => SEARCH_QUERY_TEMPLATES.map((template) => template.replace('${creator}', seed)));
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
