@@ -72,7 +72,8 @@ export function calculateRiskContribution(
   return normaliseScore(rawScore);
 }
 
-export function deriveRiskLevel(score: number): RiskLevel {
+export function deriveRiskLevel(score: number | null): RiskLevel {
+  if (score === null || Number.isNaN(score)) return 'unknown';
   const band = RISK_BANDS.find((b) => score >= b.min && score <= b.max);
   return band?.band || 'green';
 }

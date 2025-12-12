@@ -21,7 +21,9 @@ export default function BrandSafetyTab() {
   const [creators, setCreators] = useState<Creator[]>([]);
   const [resultsByCreatorId, setResultsByCreatorId] = useState<Record<string, BrandSafetyResult>>({});
   const [isScanning, setIsScanning] = useState(false);
-  const [filterRiskLevel, setFilterRiskLevel] = useState<'All' | 'green' | 'amber' | 'red'>('All');
+  const [filterRiskLevel, setFilterRiskLevel] = useState<'All' | 'green' | 'amber' | 'red' | 'unknown'>(
+    'All'
+  );
   const [error, setError] = useState<string | null>(null);
   const [detailsModalCreatorId, setDetailsModalCreatorId] = useState<string | null>(null);
   const [scanningStatus, setScanningStatus] = useState<ScanningStatus>({});
@@ -98,7 +100,7 @@ export default function BrandSafetyTab() {
       const nextMap = { ...resultsByCreatorId } as Record<string, BrandSafetyResult>;
       const nextStatus = { ...status } as ScanningStatus;
       results.forEach((r: BrandSafetyResult) => {
-        if (!r.evidence.length && r.riskScore === 0 && r.summary.includes('failed')) {
+        if (!r.evidence.length && (r.riskScore === 0 || r.riskScore === null) && r.summary.includes('failed')) {
           nextStatus[r.creatorId] = 'Error';
           return;
         }
@@ -173,6 +175,7 @@ export default function BrandSafetyTab() {
                 <option value="green">Low</option>
                 <option value="amber">Medium</option>
                 <option value="red">High</option>
+                <option value="unknown">Unknown</option>
               </select>
             </label>
           </div>
@@ -243,7 +246,11 @@ export default function BrandSafetyTab() {
                 <td>{creator.name}</td>
                 <td>{creator.handle || '—'}</td>
                 <td>{result?.lastChecked ? new Date(result.lastChecked).toLocaleString() : '—'}</td>
-                <td>{result?.finalScore?.toFixed ? result.finalScore.toFixed(1) : result?.finalScore ?? '—'}</td>
+                <td>
+                  {result?.finalScore?.toFixed
+                    ? result.finalScore.toFixed(1)
+                    : result?.finalScore ?? '—'}
+                </td>
                 <td>
                   {result ? (
                     <span className={riskBadgeClass(result.riskLevel)}>{formatRiskLabel(result.riskLevel)}</span>
@@ -301,7 +308,10 @@ function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose:
             Close
           </button>
         </div>
-        <p className="text-muted">Risk: {formatRiskLabel(result.riskLevel)} ({result.finalScore.toFixed(1)})</p>
+        <p className="text-muted">
+          Risk: {formatRiskLabel(result.riskLevel)} (
+          {result.finalScore?.toFixed ? result.finalScore.toFixed(1) : 'n/a'})
+        </p>
         <p className="text-muted">Confidence: {Math.round((result.confidence || 0) * 100)}%</p>
         <p>{result.summary}</p>
 

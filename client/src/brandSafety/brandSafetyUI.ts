@@ -6,6 +6,8 @@ export function riskBadgeClass(level: RiskLevel): string {
       return 'badge red';
     case 'amber':
       return 'badge amber';
+    case 'unknown':
+      return 'badge secondary';
     default:
       return 'badge green';
   }
@@ -14,6 +16,7 @@ export function riskBadgeClass(level: RiskLevel): string {
 export function formatRiskLabel(level: RiskLevel): string {
   if (level === 'red') return 'High (Red)';
   if (level === 'amber') return 'Medium (Amber)';
+  if (level === 'unknown') return 'Unknown';
   return 'Low (Green)';
 }
 
@@ -39,7 +42,7 @@ export function exportToCsv(results: BrandSafetyResult[]) {
     result.evidence.map((ev) => [
       result.creatorName,
       result.riskLevel,
-      result.finalScore,
+      result.finalScore ?? '',
       result.confidence,
       ev.classification.category,
       ev.url,

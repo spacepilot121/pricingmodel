@@ -61,19 +61,23 @@ export type BrandSafetyEvidence = {
   title: string;
   snippet: string;
   url: string;
+  source?: string;
+  metaDescription?: string;
+  richSnippet?: string;
+  classificationLabel?: 'insufficient_data';
   classification: ClassificationResult;
   recency: number; // 0-1
   riskContribution: number;
 };
 
-export type RiskLevel = 'green' | 'amber' | 'red';
+export type RiskLevel = 'green' | 'amber' | 'red' | 'unknown';
 
 export type BrandSafetyResult = {
   creatorId: string;
   creatorName: string;
   creatorHandle?: string;
-  riskScore: number;
-  finalScore: number;
+  riskScore: number | null;
+  finalScore: number | null;
   riskLevel: RiskLevel;
   summary: string;
   evidence: BrandSafetyEvidence[];
