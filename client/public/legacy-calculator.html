@@ -4659,44 +4659,6 @@
       const deliverables = campaign.deliverableCount || 0;
       const deliverableDisplay = formatNumber(deliverables);
       const deliverableLabel = deliverables === 1 ? 'Deliverable' : 'Deliverables';
-      const estimatedBudgetLabel = campaign.estimatedBudget > 0
-        ? formatCurrency(campaign.estimatedBudget)
-        : 'TBD';
-      const influencerSpendLabel = campaign.influencerSpend > 0
-        ? formatCurrency(campaign.influencerSpend)
-        : 'TBD';
-      const paidMediaLabel = campaign.paidMediaBudget > 0
-        ? formatCurrency(campaign.paidMediaBudget)
-        : 'None';
-      const grossMarginLabel = formatCurrency(campaign.grossMargin || 0);
-      const organicViewsLabel = formatNumber(Math.round(campaign.organicViews || 0));
-      const paidViewsLabel = formatNumber(Math.round(campaign.paidViews || 0));
-      const contentPiecesLabel = formatNumber(Math.round(campaign.contentPieces || 0));
-      const followerLabel = campaign.estimatedFollowers > 0
-        ? formatNumber(Math.round(campaign.estimatedFollowers))
-        : null;
-      const summaryItems = [
-        { key: 'est-budget', label: 'Est. Budget', value: estimatedBudgetLabel },
-        { key: 'paid-media', label: 'Paid Media', value: paidMediaLabel },
-        { key: 'influencer-spend', label: 'Influencer Spend', value: influencerSpendLabel },
-        { key: 'gross-margin', label: 'Gross Margin', value: grossMarginLabel },
-        { key: 'organic-views', label: 'Organic Views', value: organicViewsLabel },
-        { key: 'paid-views', label: 'Paid Views', value: paidViewsLabel },
-        { key: 'content-pieces', label: 'Content Pieces', value: contentPiecesLabel },
-      ];
-      if (followerLabel) {
-        summaryItems.push({ key: 'followers', label: 'Est. Followers', value: followerLabel });
-      }
-      const flags = [];
-      if (campaign.rush) {
-        flags.push({ key: 'rush', label: 'Rush timeline', urgent: true });
-      }
-      if (campaign.travelNeeded) {
-        flags.push({ key: 'travel', label: 'Travel required' });
-      }
-      if (campaign.nicheCreators) {
-        flags.push({ key: 'niche', label: 'Niche creators' });
-      }
       const canMoveUp = typeof onMoveUp === 'function';
       const canMoveDown = typeof onMoveDown === 'function';
       const campaignLabel = campaign.name ? `"${campaign.name}"` : 'campaign';
@@ -4725,24 +4687,6 @@
             h('span', null, h('strong', null, creatorLabel), 'Creators'),
             h('span', null, h('strong', null, viewLabel), 'Estimated Views'),
           ),
-          summaryItems.length
-            ? h('div', { className: 'campaign-card-summary' },
-                summaryItems.map(item => (
-                  h('div', { key: item.key, className: 'campaign-card-stat' },
-                    h('span', null, item.label),
-                    h('strong', null, item.value),
-                  )
-                )),
-              )
-            : null,
-          flags.length
-            ? h('div', { className: 'campaign-card-flags' }, flags.map(flag =>
-                h('span', {
-                  key: flag.key,
-                  className: flag.urgent ? 'campaign-flag campaign-flag-urgent' : 'campaign-flag',
-                }, flag.label),
-              ))
-            : null,
         ),
         h('div', { className: 'campaign-card-actions' },
           h('button', { onClick: () => onEdit(campaign.id) }, 'Edit'),
