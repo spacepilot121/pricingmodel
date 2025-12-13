@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadApiKeys } from '../api/apiKeyStorage';
-import { loadCachedResults, scanManyCreators } from '../api/brandSafetyApi';
+import { loadCachedResults, scanManyCreators, scanSingleCreator } from '../api/brandSafetyApi';
 import { ApiKeys, BrandSafetyResult, Creator } from '../types';
 import {
   buildCategoryHeatmap,
@@ -9,10 +9,11 @@ import {
   riskBadgeClass,
   topSevereEvidence
 } from '../brandSafety/brandSafetyUI';
+import * as localCache from '../brandSafety/localCache';
 
 const DEFAULT_PLATFORM: Creator['platform'] = 'Other';
 
-type ScanningStatus = Record<string, 'Pending' | 'Scanning' | 'Done' | 'Error'>;
+type ScanningStatus = Record<string, 'Pending' | 'Scanning' | 'Done' | 'Error' | 'Cached' | 'Stale'>;
 
 type Stage = 'idle' | 'searching' | 'classifying';
 
@@ -29,6 +30,10 @@ export default function BrandSafetyTab() {
   const [scanningStatus, setScanningStatus] = useState<ScanningStatus>({});
   const [apiKeys, setApiKeys] = useState<ApiKeys>({});
   const [stage, setStage] = useState<Stage>('idle');
+  const currentlyScanning = useMemo(
+    () => Object.values(scanningStatus).filter((status) => status === 'Scanning').length,
+    [scanningStatus]
+  );
 
   useEffect(() => {
     const storedResults = loadCachedResults();
@@ -74,8 +79,27 @@ export default function BrandSafetyTab() {
     }
     setError(null);
     setCreators(parsed);
-    setScanningStatus({});
-    handleScan(parsed);
+    const nextStatus: ScanningStatus = {};
+    const nextResults: Record<string, BrandSafetyResult> = {};
+
+    parsed.forEach((creator) => {
+      const cached = localCache.get(creator.name);
+      if (cached && localCache.isFresh(creator.name, 30)) {
+        // Preserve UI mapping to the current creator row while reusing cached evidence.
+        nextResults[creator.id] = {
+          ...cached.data,
+          creatorId: creator.id,
+          creatorName: creator.name,
+          creatorHandle: creator.handle
+        };
+        nextStatus[creator.id] = 'Cached';
+      } else {
+        nextStatus[creator.id] = 'Stale';
+      }
+    });
+
+    setResultsByCreatorId(nextResults);
+    setScanningStatus(nextStatus);
   }
 
   async function handleScan(targetCreators: Creator[]) {
@@ -92,13 +116,13 @@ export default function BrandSafetyTab() {
     setError(null);
     const status: ScanningStatus = {};
     targetCreators.forEach((c) => (status[c.id] = 'Scanning'));
-    setScanningStatus(status);
+    setScanningStatus((prev) => ({ ...prev, ...status }));
     try {
       const resultsPromise = scanManyCreators(targetCreators, apiKeys);
       setStage('classifying');
       const results = await resultsPromise;
       const nextMap = { ...resultsByCreatorId } as Record<string, BrandSafetyResult>;
-      const nextStatus = { ...status } as ScanningStatus;
+      const nextStatus = { ...scanningStatus, ...status } as ScanningStatus;
       results.forEach((r: BrandSafetyResult) => {
         if (!r.evidence.length && (r.riskScore === 0 || r.riskScore === null) && r.summary.includes('failed')) {
           nextStatus[r.creatorId] = 'Error';
@@ -106,6 +130,7 @@ export default function BrandSafetyTab() {
         }
         nextStatus[r.creatorId] = 'Done';
         nextMap[r.creatorId] = r;
+        localCache.set(r.creatorName, r);
       });
       setResultsByCreatorId(nextMap);
       setScanningStatus(nextStatus);
@@ -115,6 +140,61 @@ export default function BrandSafetyTab() {
       setIsScanning(false);
       setStage('idle');
     }
+  }
+
+  async function handleRescan(creator: Creator) {
+    if (missingKeys) {
+      setError('Enter your API keys in Settings to run brand safety checks.');
+      return;
+    }
+
+    setStage('searching');
+    setIsScanning(true);
+    setScanningStatus((prev) => ({ ...prev, [creator.id]: 'Scanning' }));
+    try {
+      const result = await scanSingleCreator(creator, apiKeys);
+      const mappedResult = { ...result, creatorId: creator.id } as BrandSafetyResult;
+      setResultsByCreatorId((prev) => ({ ...prev, [creator.id]: mappedResult }));
+      localCache.set(creator.name, mappedResult);
+      setScanningStatus((prev) => ({ ...prev, [creator.id]: 'Done' }));
+    } catch (err: any) {
+      setError(err.message || 'Scan failed.');
+      setScanningStatus((prev) => ({ ...prev, [creator.id]: 'Error' }));
+    } finally {
+      setIsScanning(false);
+      setStage('idle');
+    }
+  }
+
+  function renderScanState(creator: Creator, result?: BrandSafetyResult) {
+    const status = scanningStatus[creator.id];
+    const cachedFresh = status === 'Cached' || localCache.isFresh(creator.name, 30);
+
+    if (status === 'Scanning') {
+      return (
+        <span className="status-text" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="spinner" aria-label="Scanning" /> Scanning...
+        </span>
+      );
+    }
+
+    if (cachedFresh && result?.lastChecked) {
+      return (
+        <span className="status-text success" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span aria-hidden>🟢</span> Last scanned on {new Date(result.lastChecked).toLocaleString()}
+        </span>
+      );
+    }
+
+    if (status === 'Stale' || !result) {
+      return (
+        <span className="status-text" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#b26a00' }}>
+          <span aria-hidden>🟠</span> Not scanned in last 30 days
+        </span>
+      );
+    }
+
+    return result?.lastChecked ? new Date(result.lastChecked).toLocaleString() : '—';
   }
 
   const exportableResults = useMemo(() => Object.values(resultsByCreatorId), [resultsByCreatorId]);
@@ -215,7 +295,7 @@ export default function BrandSafetyTab() {
           <div className="card" style={{ padding: 12 }}>
             <h4 style={{ marginTop: 0 }}>Status</h4>
             <p className="status-text" style={{ marginTop: 4 }}>
-              {isScanning ? `Scanning ${creators.length} creators...` : 'Idle'}
+              {isScanning ? `Scanning ${currentlyScanning || creators.length} creators...` : 'Idle'}
             </p>
             <p className="text-muted" style={{ marginTop: 4 }}>
               Stage: {stage === 'idle' ? 'Ready' : stage === 'searching' ? 'Search enrichment' : 'Semantic classification'}
@@ -245,7 +325,7 @@ export default function BrandSafetyTab() {
               <tr key={creator.id}>
                 <td>{creator.name}</td>
                 <td>{creator.handle || '—'}</td>
-                <td>{result?.lastChecked ? new Date(result.lastChecked).toLocaleString() : '—'}</td>
+                <td>{renderScanState(creator, result)}</td>
                 <td>
                   {result?.finalScore?.toFixed
                     ? result.finalScore.toFixed(1)
@@ -264,7 +344,11 @@ export default function BrandSafetyTab() {
                 <td style={{ maxWidth: 280 }}>{result?.summary || 'No scan yet'}</td>
                 <td>
                   <div className="table-actions">
-                    <button className="button secondary" onClick={() => handleScan([creator])} disabled={isScanning || missingKeys}>
+                    <button
+                      className="button secondary"
+                      onClick={() => handleRescan(creator)}
+                      disabled={missingKeys || status === 'Scanning'}
+                    >
                       Rescan
                     </button>
                     <button
