@@ -227,7 +227,7 @@ export default function BrandSafetyTab() {
             value={creatorInput}
             onChange={(e) => setCreatorInput(e.target.value)}
             placeholder="Example Person, @handle"
-            style={{ width: '100%', minHeight: 140, padding: 12 }}
+            style={{ width: 'calc(100% - 20px)', minHeight: 140, padding: 12 }}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <button className="button" onClick={loadCreators} disabled={isScanning || missingKeys}>
@@ -274,24 +274,6 @@ export default function BrandSafetyTab() {
         </div>
 
         <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="card" style={{ padding: 12 }}>
-            <h3 style={{ marginTop: 0 }}>API configuration</h3>
-            <p className="text-muted" style={{ marginBottom: 8 }}>
-              Keys are managed in Settings and loaded from your browser storage.
-            </p>
-            {missingKeys ? (
-              <p className="status-text error" style={{ marginTop: 0 }}>
-                Missing Google or OpenAI credentials. Add them in Settings.
-              </p>
-            ) : (
-              <p className="status-text success" style={{ marginTop: 0 }}>
-                Keys loaded from browser storage. Ready to scan.
-              </p>
-            )}
-            <p className="text-muted" style={{ marginBottom: 0 }}>
-              Default model: gpt-4o-mini. Switch to gpt-4o in Settings for higher fidelity.
-            </p>
-          </div>
           <div className="card" style={{ padding: 12 }}>
             <h4 style={{ marginTop: 0 }}>Status</h4>
             <p className="status-text" style={{ marginTop: 4 }}>
