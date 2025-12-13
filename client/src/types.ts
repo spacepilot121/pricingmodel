@@ -68,6 +68,7 @@ export type BrandSafetyEvidence = {
   classificationLabel?: 'insufficient_data';
   classification: ClassificationResult;
   recency: number; // 0-1
+  recencyMonths?: number | null;
   riskContribution: number;
 };
 

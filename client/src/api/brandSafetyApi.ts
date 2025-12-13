@@ -19,6 +19,14 @@ export function loadCachedResults(): BrandSafetyResult[] {
   return loadBrandSafetyCache();
 }
 
+export async function scanSingleCreator(
+  creator: Creator,
+  providedKeys?: ApiKeys,
+  creatorData?: CreatorEntityData
+): Promise<BrandSafetyResult> {
+  return scanOneCreator(creator, providedKeys, creatorData);
+}
+
 export async function scanOneCreator(
   creator: Creator,
   providedKeys?: ApiKeys,

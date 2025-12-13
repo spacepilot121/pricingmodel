@@ -1,8 +1,8 @@
 import { ApiKeys, BrandSafetyEvidence, BrandSafetyResult, Creator, CreatorEntityData } from '../types';
 import { classifyEvidenceBatch } from './nlpClassifier';
 import { performSmartSearch } from './searchEngine';
-import { countBy, normaliseScore } from './utils';
-import { deriveRiskLevel, enrichEvidenceRisk } from './riskScoring';
+import { countBy } from './utils';
+import { enrichEvidenceRisk, evaluateRiskOutcome } from './riskScoring';
 import { detectTitleOrUrlIdentity, isLikelyAboutCreator, verifyEntityWithGPT } from './entityDisambiguation';
 import { MODEL_DEFAULT } from './brandSafetyConfig';
 
@@ -53,24 +53,6 @@ function buildSummary(evidence: BrandSafetyEvidence[]): string {
   return top
     .map((item) => item.classification.summary || item.snippet.slice(0, 120))
     .join(' ');
-}
-
-function computeConfidence(evidence: BrandSafetyEvidence[]): number {
-  if (!evidence.length) return 0.1;
-  const offenderEvidence = evidence.filter((e) => e.classification.stance === 'Offender');
-  const severityAvg = offenderEvidence.reduce((acc, e) => acc + e.classification.severity, 0) /
-    Math.max(1, offenderEvidence.length);
-  const density = Math.min(1, evidence.length / 10);
-  return Number((0.4 * density + 0.6 * (severityAvg / 5)).toFixed(2));
-}
-
-function computeFinalScore(evidence: BrandSafetyEvidence[]): number {
-  if (!evidence.length) return 0;
-  const sorted = [...evidence].sort((a, b) => b.riskContribution - a.riskContribution);
-  const top = sorted.slice(0, 5);
-  const avg = top.reduce((acc, e) => acc + e.riskContribution, 0) / Math.max(1, top.length);
-  const evidenceBonus = Math.min(20, sorted.length * 2);
-  return normaliseScore(avg + evidenceBonus);
 }
 
 function deduplicateEvidence(evidence: BrandSafetyEvidence[]): BrandSafetyEvidence[] {
@@ -271,10 +253,8 @@ export async function runBrandSafetyEngine(
       .map((e) => e.classification.category as any)
   );
 
-  const finalScore = computeFinalScore(enriched);
-  const riskLevel = deriveRiskLevel(finalScore);
+  const { finalScore, riskLevel, confidence } = evaluateRiskOutcome(enriched);
   const summary = buildSummary(enriched);
-  const confidence = computeConfidence(enriched);
 
   const result: BrandSafetyResult = {
     creatorId: creator.id,
