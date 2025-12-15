@@ -290,9 +290,7 @@ export default function BrandSafetyTab() {
         <thead>
           <tr>
             <th>Creator</th>
-            <th>Handle/ID</th>
             <th>Last checked</th>
-            <th>Risk score</th>
             <th>Risk level</th>
             <th>Confidence</th>
             <th>Summary</th>
@@ -306,13 +304,7 @@ export default function BrandSafetyTab() {
             return (
               <tr key={creator.id}>
                 <td>{creator.name}</td>
-                <td>{creator.handle || '—'}</td>
                 <td>{renderScanState(creator, result)}</td>
-                <td>
-                  {result?.finalScore?.toFixed
-                    ? result.finalScore.toFixed(1)
-                    : result?.finalScore ?? '—'}
-                </td>
                 <td>
                   {result ? (
                     <span className={riskBadgeClass(result.riskLevel)}>{formatRiskLabel(result.riskLevel)}</span>
@@ -323,9 +315,9 @@ export default function BrandSafetyTab() {
                   )}
                 </td>
                 <td>{result ? `${Math.round((result.confidence || 0) * 100)}%` : '—'}</td>
-                <td style={{ maxWidth: 280 }}>{result?.summary || 'No scan yet'}</td>
+                <td style={{ minWidth: 320, maxWidth: 520 }}>{result?.summary || 'No scan yet'}</td>
                 <td>
-                  <div className="table-actions">
+                  <div className="table-actions" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                     <button
                       className="button secondary"
                       onClick={() => handleRescan(creator)}
@@ -347,7 +339,7 @@ export default function BrandSafetyTab() {
           })}
           {!filteredCreators.length && (
             <tr>
-              <td colSpan={8} className="text-muted">
+              <td colSpan={6} className="text-muted">
                 No creators loaded yet.
               </td>
             </tr>
@@ -374,12 +366,20 @@ function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose:
             Close
           </button>
         </div>
-        <p className="text-muted">
-          Risk: {formatRiskLabel(result.riskLevel)} (
-          {result.finalScore?.toFixed ? result.finalScore.toFixed(1) : 'n/a'})
-        </p>
-        <p className="text-muted">Confidence: {Math.round((result.confidence || 0) * 100)}%</p>
-        <p>{result.summary}</p>
+        <div className="details-meta">
+          <div>
+            <div className="text-muted">Risk</div>
+            <div className="details-value">
+              {formatRiskLabel(result.riskLevel)} (
+              {result.finalScore?.toFixed ? result.finalScore.toFixed(1) : 'n/a'})
+            </div>
+          </div>
+          <div>
+            <div className="text-muted">Confidence</div>
+            <div className="details-value">{Math.round((result.confidence || 0) * 100)}%</div>
+          </div>
+        </div>
+        <p className="details-summary">{result.summary}</p>
 
         <h4>Category heatmap</h4>
         {heatmap.length ? (
@@ -400,16 +400,16 @@ function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose:
         {topEvidence.length ? (
           <ul className="evidence-list">
             {topEvidence.map((item, idx) => (
-              <li key={idx}>
+              <li key={idx} className="evidence-card">
                 <div className="evidence-header">
                   <strong>{item.title}</strong>
                   <span className="badge secondary">Score +{item.riskContribution.toFixed(1)}</span>
                 </div>
-                <div className="text-muted" style={{ marginBottom: 4 }}>
-                  {item.snippet}
-                </div>
-                <div className="text-muted" style={{ marginBottom: 4 }}>
-                  {item.classification.stance} • {item.classification.category || 'unclassified'} • Severity {item.classification.severity}
+                <div className="text-muted">{item.snippet}</div>
+                <div className="text-muted evidence-meta">
+                  <span>{item.classification.stance}</span>
+                  <span>• {item.classification.category || 'unclassified'}</span>
+                  <span>• Severity {item.classification.severity}</span>
                 </div>
                 <div className="timeline-bar">
                   <div className="timeline-fill" style={{ width: `${item.recency * 100}%` }} />
@@ -427,16 +427,12 @@ function DetailsModal({ result, onClose }: { result: BrandSafetyResult; onClose:
 
         <h4>All evidence</h4>
         {result.evidence.length ? (
-          <ul>
+          <ul className="evidence-list">
             {result.evidence.map((item, idx) => (
-              <li key={idx} style={{ marginBottom: 8 }}>
+              <li key={idx} className="evidence-card">
                 <div style={{ fontWeight: 600 }}>{item.title}</div>
-                <div className="text-muted" style={{ marginBottom: 4 }}>
-                  {item.snippet}
-                </div>
-                <div className="text-muted" style={{ marginBottom: 4 }}>
-                  {item.classification.summary}
-                </div>
+                <div className="text-muted">{item.snippet}</div>
+                <div className="text-muted">{item.classification.summary}</div>
                 <a href={item.url} target="_blank" rel="noreferrer">
                   {item.url}
                 </a>
