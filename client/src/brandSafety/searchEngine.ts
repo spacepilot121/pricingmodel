@@ -2,7 +2,8 @@ import {
   GOOGLE_SEARCH_ENDPOINT,
   MAX_RESULTS,
   SEARCH_BATCH_SIZE,
-  SEARCH_QUERY_TEMPLATES
+  SEARCH_IDENTITY_BOOSTERS,
+  SEARCH_QUERY_BLOCKS
 } from './brandSafetyConfig';
 import { ApiKeys, BrandSafetyEvidence, Creator } from '../types';
 
@@ -16,12 +17,24 @@ function buildIdentityTokens(creator: Creator): string[] {
 }
 
 function buildQueryStrings(creator: Creator): string[] {
+  // Build one identity-anchored query that aggregates all reputational themes to keep calls to a
+  // single Google request per creator.
   const identityTokens = buildIdentityTokens(creator);
-  const combined = identityTokens.join(' ').trim();
-  const seeds = Array.from(new Set([combined, ...identityTokens].filter(Boolean)));
+  const identityClause = identityTokens
+    .map((token) => `"${token}"`)
+    .filter(Boolean)
+    .join(' OR ');
 
-  // Expanded identity-focused templates give the validator benign anchors to confirm the right person before scanning drama.
-  return seeds.flatMap((seed) => SEARCH_QUERY_TEMPLATES.map((template) => template.replace('${creator}', seed)));
+  const boosters = SEARCH_IDENTITY_BOOSTERS.map((token) => `"${token}"`).join(' OR ');
+  const fallbackIdentity = (creator.name || creator.handle || identityTokens[0] || 'creator').trim();
+  const base = identityClause ? `(${identityClause})` : `"${fallbackIdentity}"`;
+  const identityAnchors = boosters ? `${base} (${boosters})` : base;
+
+  const termClause = Array.from(new Set(SEARCH_QUERY_BLOCKS.flat()))
+    .map((term) => `"${term}"`)
+    .join(' OR ');
+
+  return [`${identityAnchors} (${termClause})`.trim()];
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {

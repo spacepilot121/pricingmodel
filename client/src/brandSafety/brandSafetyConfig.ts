@@ -1,35 +1,20 @@
 import { RiskCategory, RiskLevel, Sentiment } from '../types';
 
-export const SEARCH_QUERY_TEMPLATES = [
-  '${creator} allegations',
-  '${creator} scandal',
-  '${creator} police investigation',
-  '${creator} accused of',
-  '${creator} controversy explained',
-  '${creator} backlash',
-  '${creator} misconduct',
-  '${creator} drama timeline',
-  '${creator} apology video',
-  '${creator} lawsuit',
-  '${creator} charges',
-  '${creator} exposed',
-  '${creator} statement addressing',
-  '${creator} incident',
-  '${creator} grooming controversy',
-  '${creator} minor-related allegations',
-  '${creator} financial fraud',
-  '${creator} racism accusation',
-  '${creator} hate speech',
-  '${creator} sexual misconduct',
-  // Identity anchors ensure the engine has non-controversial references it can validate against.
-  '${creator}',
-  '${creator} youtube',
-  '${creator} influencer',
-  '${creator} interview',
-  '${creator} biography',
-  '${creator} profile',
-  '${creator} channel',
-  '${creator} news'
+// Identity anchors boost precision so we can run fewer overall Google queries.
+export const SEARCH_IDENTITY_BOOSTERS = [
+  'youtube',
+  'tiktok',
+  'instagram',
+  'channel',
+  'creator',
+  'influencer'
+];
+
+// Compact query blocks keep scans precise; we now combine them into one aggregated query per creator.
+export const SEARCH_QUERY_BLOCKS = [
+  ['allegations', 'controversy', 'scandal', 'backlash', 'exposed'],
+  ['lawsuit', 'charges', 'arrest', 'investigation', 'police report', 'accused'],
+  ['apology', 'statement', 'profile', 'interview', 'news']
 ];
 
 export const MITIGATION_KEYWORDS = [
