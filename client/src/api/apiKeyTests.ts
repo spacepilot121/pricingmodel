@@ -92,11 +92,19 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
       return { ok: false, message: data?.error?.message || 'Influencers.club validation failed' };
     }
 
-    if (res.ok) {
-      return { ok: true, message: 'Valid' };
+    if (res.status === 429) {
+      return { ok: false, message: 'Influencers.club rate limited the request. Please retry shortly.' };
     }
 
-    return { ok: true, message: data?.error?.message || 'Influencers.club key accepted' };
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: data?.error?.message || `Influencers.club responded with ${res.status}`
+      };
+    }
+
+    const hasData = Boolean(data && Object.keys(data).length > 0);
+    return { ok: hasData, message: hasData ? 'Valid' : 'Influencers.club returned an empty response' };
   } catch (err: any) {
     return { ok: false, message: err?.message || 'Influencers.club validation failed' };
   }

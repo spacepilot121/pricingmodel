@@ -147,12 +147,24 @@ export default function SettingsTab() {
           <label>
             Influencers.club API Key
             <input
-              type="password"
+              type="text"
               placeholder="iclive_..."
               value={formState.influencersClubApiKey || ''}
               onChange={(e) => handleChange('influencersClubApiKey', e.target.value)}
             />
           </label>
+          <details className="helper">
+            <summary>Influencers.club API guide</summary>
+            <ol style={{ marginTop: 8, marginBottom: 8, paddingLeft: 18 }}>
+              <li>Visit the Influencers.club dashboard and open the API access page.</li>
+              <li>Create or copy an API key that starts with <code>iclive_</code>.</li>
+              <li>Paste the key above, then use “Test API Keys” to verify connectivity.</li>
+            </ol>
+            <p className="text-muted" style={{ marginBottom: 0 }}>
+              The test performs a lightweight profile lookup. If it fails, double-check the key,
+              confirm your plan includes API access, or retry later if you recently generated the key.
+            </p>
+          </details>
           <button type="button" className="button secondary" onClick={handleSaveInfluencersKey}>
             Save Influencers.club key
           </button>
