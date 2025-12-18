@@ -4,6 +4,7 @@ const STORAGE_KEY_LEGACY = 'brand_safety_api_keys';
 const GOOGLE_KEY_STORAGE = 'brandSafety_googleKey';
 const GOOGLE_CX_STORAGE = 'brandSafety_googleCx';
 const OPENAI_KEY_STORAGE = 'brandSafety_openAiKey';
+const INFLUENCERS_CLUB_KEY_STORAGE = 'influencersClub_apiKey';
 
 function persistValue(storageKey: string, value?: string) {
   if (typeof window === 'undefined') return;
@@ -30,6 +31,7 @@ export function loadApiKeys(): ApiKeys {
   const googleCseApiKey = localStorage.getItem(GOOGLE_KEY_STORAGE)?.trim();
   const googleCseCx = localStorage.getItem(GOOGLE_CX_STORAGE)?.trim();
   const openAiApiKey = localStorage.getItem(OPENAI_KEY_STORAGE)?.trim();
+  const influencersClubApiKey = localStorage.getItem(INFLUENCERS_CLUB_KEY_STORAGE)?.trim();
   const legacy = loadLegacyObject();
 
   return {
@@ -37,7 +39,8 @@ export function loadApiKeys(): ApiKeys {
     googleCseCx: googleCseCx || legacy.googleCseCx,
     openAiApiKey: openAiApiKey || legacy.openAiApiKey,
     openAiModel: legacy.openAiModel,
-    youtubeApiKey: legacy.youtubeApiKey
+    youtubeApiKey: legacy.youtubeApiKey,
+    influencersClubApiKey: influencersClubApiKey || legacy.influencersClubApiKey
   };
 }
 
@@ -48,6 +51,7 @@ export function saveApiKeys(keys: ApiKeys): ApiKeys {
     persistValue(GOOGLE_KEY_STORAGE, merged.googleCseApiKey?.trim());
     persistValue(GOOGLE_CX_STORAGE, merged.googleCseCx?.trim());
     persistValue(OPENAI_KEY_STORAGE, merged.openAiApiKey?.trim());
+    persistValue(INFLUENCERS_CLUB_KEY_STORAGE, merged.influencersClubApiKey?.trim());
 
     // Persist optional keys to legacy object for backwards compatibility.
     const legacyPayload: ApiKeys = {
@@ -55,7 +59,8 @@ export function saveApiKeys(keys: ApiKeys): ApiKeys {
       googleCseCx: merged.googleCseCx,
       openAiApiKey: merged.openAiApiKey,
       openAiModel: merged.openAiModel,
-      youtubeApiKey: merged.youtubeApiKey
+      youtubeApiKey: merged.youtubeApiKey,
+      influencersClubApiKey: merged.influencersClubApiKey
     };
     localStorage.setItem(STORAGE_KEY_LEGACY, JSON.stringify(legacyPayload));
   } catch (err) {
