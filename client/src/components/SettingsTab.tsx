@@ -27,6 +27,13 @@ export default function SettingsTab() {
     setTimeout(() => setStatus(''), 2500);
   }
 
+  function handleSaveInfluencersKey() {
+    const merged = saveApiKeys({ influencersClubApiKey: formState.influencersClubApiKey });
+    setFormState((prev) => ({ ...prev, influencersClubApiKey: merged.influencersClubApiKey }));
+    setStatus('Influencers.club key saved locally for Commercial Momentum.');
+    setTimeout(() => setStatus(''), 2500);
+  }
+
   async function handleTest() {
     setIsTesting(true);
     setStatus('');
@@ -127,6 +134,28 @@ export default function SettingsTab() {
               onChange={(e) => handleChange('youtubeApiKey', e.target.value)}
             />
           </label>
+        </section>
+
+        <section className="setting-block">
+          <div className="setting-header">
+            <div>
+              <h3>Influencers.club API</h3>
+              <p className="text-muted">Required to unlock Commercial Momentum analysis. Key is stored locally.</p>
+            </div>
+          </div>
+
+          <label>
+            Influencers.club API Key
+            <input
+              type="password"
+              placeholder="iclive_..."
+              value={formState.influencersClubApiKey || ''}
+              onChange={(e) => handleChange('influencersClubApiKey', e.target.value)}
+            />
+          </label>
+          <button type="button" className="button secondary" onClick={handleSaveInfluencersKey}>
+            Save Influencers.club key
+          </button>
         </section>
       </div>
 

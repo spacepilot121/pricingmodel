@@ -94,4 +94,55 @@ export type ApiKeys = {
   openAiApiKey?: string;
   openAiModel?: string;
   youtubeApiKey?: string;
+  influencersClubApiKey?: string;
+};
+
+export type CommercialPost = {
+  id: string;
+  caption?: string;
+  createdAt?: string;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  views?: number;
+  clicks?: number;
+  link?: string;
+  isSponsored?: boolean;
+};
+
+export type SponsoredTone = 'authentic' | 'neutral' | 'overly commercial' | 'audience resistant';
+
+export type CommercialSemanticSummary = {
+  toneCounts: Partial<Record<SponsoredTone, number>>;
+  audienceSummary: string;
+};
+
+export type CommercialMomentumSignals = {
+  daysSinceLastSponsoredPost: number | null;
+  sponsoredPostsLast30Days: number;
+  sponsoredPostsLast60Days: number;
+  sponsoredPostsLast90Days: number;
+  averageDaysBetweenSponsoredPosts: number | null;
+  avgSponsoredEngagement: number;
+  avgOrganicEngagement: number;
+  engagementRatio: number;
+  followerGrowthRate?: number | null;
+  engagementTrend?: number | null;
+  semanticSummary?: CommercialSemanticSummary;
+};
+
+export type CommercialMomentumResult = {
+  creatorId: string;
+  creatorName: string;
+  creatorHandle?: string;
+  platform?: Creator['platform'];
+  score: number;
+  recommendation: string;
+  signals: CommercialMomentumSignals;
+  lastSponsoredPostDate?: string | null;
+  lastChecked: string;
+  keyDrivers: string[];
+  semanticSummary?: CommercialSemanticSummary;
+  status?: 'ok' | 'stale' | 'error';
+  summary?: string;
 };
