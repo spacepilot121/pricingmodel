@@ -13,6 +13,84 @@ import * as localCache from '../brandSafety/localCache';
 
 const DEFAULT_PLATFORM: Creator['platform'] = 'Other';
 
+function stripTrailingSlash(value?: string) {
+  return value?.replace(/\/+$/, '');
+}
+
+function tryParseUrl(candidate?: string): URL | null {
+  if (!candidate) return null;
+  const trimmed = candidate.trim();
+  if (!trimmed) return null;
+  try {
+    return new URL(trimmed);
+  } catch (err) {
+    // Support schemeless inputs like "youtube.com/@handle".
+    try {
+      return new URL(`https://${trimmed}`);
+    } catch (err) {
+      return null;
+    }
+  }
+}
+
+function inferPlatformFromUrl(urlObj: URL): {
+  platform: Creator['platform'];
+  handle?: string;
+  channelId?: string;
+  channelUrl: string;
+} {
+  const hostname = urlObj.hostname.toLowerCase();
+  const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+  let platform: Creator['platform'] = DEFAULT_PLATFORM;
+  let handle: string | undefined;
+  let channelId: string | undefined;
+
+  const normaliseHandle = (value?: string) => {
+    const cleaned = value?.replace(/\/+$/, '').replace(/^@/, '');
+    return cleaned ? `@${cleaned}` : undefined;
+  };
+
+  if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
+    platform = 'YouTube';
+    const atSegment = pathSegments.find((segment) => segment.startsWith('@'));
+    if (atSegment) {
+      handle = normaliseHandle(atSegment);
+    } else if (pathSegments[0] === 'channel' && pathSegments[1]) {
+      channelId = pathSegments[1];
+    } else if (['c', 'user'].includes(pathSegments[0]) && pathSegments[1]) {
+      handle = normaliseHandle(pathSegments[1]);
+    } else if (pathSegments[0] && hostname !== 'youtu.be' && !['watch', 'shorts'].includes(pathSegments[0])) {
+      handle = normaliseHandle(pathSegments[0]);
+    }
+  } else if (hostname.includes('tiktok.com')) {
+    platform = 'TikTok';
+    const userSegment = pathSegments.find((segment) => segment.startsWith('@')) || pathSegments[0];
+    handle = normaliseHandle(userSegment);
+  } else if (hostname.includes('instagram.com')) {
+    platform = 'Instagram';
+    handle = normaliseHandle(pathSegments[0]);
+  }
+
+  return {
+    platform,
+    handle,
+    channelId,
+    channelUrl: urlObj.href
+  };
+}
+
+function deriveName(
+  providedName: string | undefined,
+  handle?: string,
+  channelId?: string,
+  fallback?: string
+) {
+  if (providedName) return providedName;
+  if (handle) return handle.replace(/^@/, '');
+  if (channelId) return channelId;
+  return fallback || '';
+}
+
 type ScanningStatus = Record<string, 'Pending' | 'Scanning' | 'Done' | 'Error' | 'Cached' | 'Stale'>;
 
 type Stage = 'idle' | 'searching' | 'classifying';
@@ -60,13 +138,40 @@ export default function BrandSafetyTab() {
       .filter(Boolean)
       .map((line, idx) => {
         const [namePart, handlePart] = line.split(',');
-        const name = namePart?.trim();
-        const handle = handlePart?.trim();
+        let name = stripTrailingSlash(namePart?.trim());
+        let handle = stripTrailingSlash(handlePart?.trim());
+        let platform: Creator['platform'] = DEFAULT_PLATFORM;
+        let channelUrl: string | undefined;
+        let channelId: string | undefined;
+
+        const urlFromName = tryParseUrl(name);
+        if (urlFromName) {
+          const platformData = inferPlatformFromUrl(urlFromName);
+          platform = platformData.platform;
+          channelUrl = platformData.channelUrl;
+          channelId = platformData.channelId;
+          if (platformData.handle) handle = platformData.handle;
+          name = undefined;
+        }
+
+        const urlFromHandle = tryParseUrl(handle);
+        if (!channelUrl && urlFromHandle) {
+          const platformData = inferPlatformFromUrl(urlFromHandle);
+          platform = platformData.platform;
+          channelUrl = platformData.channelUrl;
+          channelId = platformData.channelId;
+          if (platformData.handle) handle = platformData.handle;
+        }
+
+        const finalName = deriveName(name, handle, channelId, line);
+        const finalHandle = handle && stripTrailingSlash(handle);
         return {
           id: `creator-${idx}-${encodeURIComponent(line)}`,
-          name: name || line,
-          handle: handle || undefined,
-          platform: DEFAULT_PLATFORM
+          name: finalName,
+          handle: finalHandle || undefined,
+          platform,
+          channelUrl,
+          channelId
         } as Creator;
       });
   }
@@ -221,12 +326,12 @@ export default function BrandSafetyTab() {
       <div className="flex-row" style={{ gap: 12, marginTop: 12, alignItems: 'stretch' }}>
         <div style={{ flex: 1 }}>
           <label className="text-muted" style={{ display: 'block', marginBottom: 4 }}>
-            Creator names (one per line). Add a comma to include a handle or ID.
+            Creator names (one per line). Add a comma to include a handle or URL.
           </label>
           <textarea
             value={creatorInput}
             onChange={(e) => setCreatorInput(e.target.value)}
-            placeholder="Example Person, @handle"
+            placeholder="Example Person, @handle or https://www.youtube.com/@handle"
             style={{ width: 'calc(100% - 20px)', minHeight: 140, padding: 12 }}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
