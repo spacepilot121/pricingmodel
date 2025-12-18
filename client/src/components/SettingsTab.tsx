@@ -184,6 +184,10 @@ export default function SettingsTab() {
             <li className={testResults.openAiTest.ok ? 'status-text success' : 'status-text error'}>
               OpenAI API: {testResults.openAiTest.ok ? 'OK' : testResults.openAiTest.message}
             </li>
+            <li className={testResults.influencersClubTest.ok ? 'status-text success' : 'status-text error'}>
+              Influencers.club API:{' '}
+              {testResults.influencersClubTest.ok ? 'OK' : testResults.influencersClubTest.message}
+            </li>
           </ul>
         </div>
       )}
