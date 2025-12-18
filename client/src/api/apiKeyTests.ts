@@ -82,7 +82,7 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
+        'x-api-key': apiKey
       },
       body: JSON.stringify({ handle: 'healthcheck', platform: 'YouTube', limit: 1 })
     });
