@@ -12,8 +12,8 @@ export type ApiKeyTestResults = {
 const GOOGLE_SEARCH_ENDPOINT = 'https://www.googleapis.com/customsearch/v1';
 const OPENAI_CHAT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 const INFLUENCERS_CLUB_PROFILE_ENDPOINTS = [
-  'https://api-dashboard.influencers.club/public/v1/creators/profile',
-  'https://api.influencers.club/v1/creators/profile'
+  'https://api-dashboard.influencers.club/public/v1/discovery/',
+  'https://api.influencers.club/v1/discovery/'
 ];
 const API_BASE = getApiBase();
 
