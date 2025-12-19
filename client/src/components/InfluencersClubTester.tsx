@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { getApiBase } from '../api/backendConfig';
 
 type EndpointKey = 'discovery' | 'postData';
 
@@ -16,12 +17,21 @@ type InfluencersClubTesterProps = {
 
 const ENDPOINTS: Record<
   EndpointKey,
-  { label: string; url: string; description: string; defaultPayload: Record<string, any> }
+  {
+    label: string;
+    url: string;
+    legacyUrl: string;
+    description: string;
+    defaultPayload: Record<string, any>;
+    proxyPath: 'discovery' | 'content';
+  }
 > = {
   discovery: {
     label: 'Discovery (/public/v1/discovery/)',
     url: 'https://api-dashboard.influencers.club/public/v1/discovery/',
+    legacyUrl: 'https://api.influencers.club/v1/discovery/',
     description: 'POST only. Provide platform plus optional targeting filters.',
+    proxyPath: 'discovery',
     defaultPayload: {
       platform: 'instagram',
       location: ['United States'],
@@ -31,7 +41,9 @@ const ENDPOINTS: Record<
   postData: {
     label: 'Post data (/public/v1/creators/content/details/)',
     url: 'https://api-dashboard.influencers.club/public/v1/creators/content/details/',
+    legacyUrl: 'https://api.influencers.club/v1/creators/content/details/',
     description: 'POST only. Provide platform, content_type, and post_id.',
+    proxyPath: 'content',
     defaultPayload: {
       platform: 'instagram',
       content_type: 'comments',
@@ -40,10 +52,48 @@ const ENDPOINTS: Record<
   }
 };
 
+const API_BASE = getApiBase();
+
 function formatBodyPreview(body: string) {
   const maxLength = 5000;
   if (body.length <= maxLength) return body;
   return `${body.slice(0, maxLength)}\n\n[truncated]`;
+}
+
+function isLikelyNetworkError(err: any) {
+  return err?.message === 'Failed to fetch' || err?.name === 'TypeError' || !err?.status;
+}
+
+function buildProxyUrl(path: string) {
+  const base = API_BASE || '';
+  return `${base}/api/influencers-club/${path}`;
+}
+
+async function postJsonAndFormat(
+  url: string,
+  payload: Record<string, any>,
+  headers: Record<string, string>
+): Promise<ResponseState> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+  const raw = await res.text();
+  const prettyBody = (() => {
+    try {
+      return JSON.stringify(JSON.parse(raw), null, 2);
+    } catch {
+      return raw || '[empty body]';
+    }
+  })();
+
+  return {
+    status: res.status,
+    ok: res.ok,
+    body: formatBodyPreview(prettyBody),
+    endpoint: url
+  };
 }
 
 export default function InfluencersClubTester({ apiKey, onApiKeyChange }: InfluencersClubTesterProps) {
@@ -88,33 +138,52 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
       return;
     }
 
+    const headers = {
+      Authorization: `Bearer ${trimmedKey}`,
+      'Content-Type': 'application/json'
+    };
+    const directTargets = [endpointMeta.url, endpointMeta.legacyUrl].filter(Boolean);
+    const proxyTarget = buildProxyUrl(endpointMeta.proxyPath);
+    let lastNetworkError: Error | null = null;
+
     setIsSending(true);
     try {
-      const res = await fetch(endpointMeta.url, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${trimmedKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(parsedPayload)
-      });
-      const raw = await res.text();
-      const prettyBody = (() => {
+      for (const target of directTargets) {
         try {
-          return JSON.stringify(JSON.parse(raw), null, 2);
-        } catch {
-          return raw || '[empty body]';
+          const formatted = await postJsonAndFormat(target, parsedPayload, headers);
+          setResponse(formatted);
+          return;
+        } catch (err: any) {
+          if (!isLikelyNetworkError(err)) {
+            throw err;
+          }
+          lastNetworkError = err;
         }
-      })();
+      }
 
-      setResponse({
-        status: res.status,
-        ok: res.ok,
-        body: formatBodyPreview(prettyBody),
-        endpoint: endpointMeta.url
-      });
+      if (!proxyTarget) {
+        throw lastNetworkError || new Error('Request failed. Check your connection and try again.');
+      }
+
+      const proxied = await postJsonAndFormat(
+        proxyTarget,
+        { ...parsedPayload, apiKey: trimmedKey },
+        headers
+      );
+      setResponse(proxied);
     } catch (err: any) {
-      setError(err?.message || 'Request failed. Check your connection and try again.');
+      const proxyMessage = err?.message || 'Proxy request failed.';
+      const directMessage =
+        lastNetworkError?.message || (!proxyTarget ? proxyMessage : 'Failed to reach Influencers.club.');
+      const combined = [
+        `Direct request: ${directMessage}`,
+        proxyTarget ? `Proxy: ${proxyMessage}` : null,
+        'If you are using a static host (e.g. GitHub Pages), start the backend server and ensure /api/influencers-club/* routes are reachable.'
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      setError(combined);
     } finally {
       setIsSending(false);
     }
