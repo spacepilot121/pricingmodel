@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { loadApiKeys, saveApiKeys } from '../api/apiKeyStorage';
+import { getApiBase, loadStoredApiBase, saveApiBase } from '../api/backendConfig';
 import { testApiKeys, ApiKeyTestResults } from '../api/apiKeyTests';
 import { ApiKeys } from '../types';
 import InfluencersClubTester from './InfluencersClubTester';
@@ -9,15 +10,24 @@ export default function SettingsTab() {
   const [status, setStatus] = useState<string>('');
   const [testResults, setTestResults] = useState<ApiKeyTestResults | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [apiBaseInput, setApiBaseInput] = useState('');
 
   useEffect(() => {
     const stored = loadApiKeys();
     setFormState(stored);
+    setApiBaseInput(loadStoredApiBase());
   }, []);
 
   function handleChange<K extends keyof ApiKeys>(key: K, value: ApiKeys[K]) {
     setFormState((prev) => ({ ...prev, [key]: value }));
     setTestResults(null);
+  }
+
+  function handleSaveApiBase() {
+    const resolved = saveApiBase(apiBaseInput);
+    setApiBaseInput(resolved);
+    setStatus(`API endpoint set to ${resolved || '[relative /api]'}.`);
+    setTimeout(() => setStatus(''), 2500);
   }
 
   function handleSave() {
@@ -135,6 +145,33 @@ export default function SettingsTab() {
               onChange={(e) => handleChange('youtubeApiKey', e.target.value)}
             />
           </label>
+        </section>
+
+        <section className="setting-block">
+          <div className="setting-header">
+            <div>
+              <h3>API endpoint</h3>
+              <p className="text-muted">
+                Override the backend base URL used for <code>/api/*</code> calls (brand safety &amp; Influencers.club proxy).
+              </p>
+            </div>
+          </div>
+
+          <label>
+            Base URL
+            <input
+              type="text"
+              placeholder="https://your-host.example.com"
+              value={apiBaseInput}
+              onChange={(e) => setApiBaseInput(e.target.value)}
+            />
+            <span className="text-muted" style={{ display: 'block', marginTop: 4 }}>
+              Defaults to VITE_API_BASE or relative <code>/api</code>. Also accepts <code>?apiBase=</code> in the URL.
+            </span>
+          </label>
+          <button type="button" className="button secondary" onClick={handleSaveApiBase}>
+            Save API endpoint
+          </button>
         </section>
 
         <section className="setting-block">
