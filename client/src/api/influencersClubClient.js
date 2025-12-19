@@ -2,7 +2,8 @@
 // This module intentionally avoids logging secrets or responses.
 import { getApiBase } from './backendConfig';
 
-const BASE_URL = 'https://api.influencers.club/v1';
+const PRIMARY_BASE_URL = 'https://api-dashboard.influencers.club/public/v1';
+const LEGACY_BASE_URL = 'https://api.influencers.club/v1';
 const API_BASE = getApiBase();
 const CACHE_KEY = 'influencersClub_cache_v1';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -58,6 +59,15 @@ function buildProxyUrl(path) {
   return `${base}/api/influencers-club/${endpoint}`;
 }
 
+function buildDirectUrls(path) {
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return [`${PRIMARY_BASE_URL}${suffix}`, `${LEGACY_BASE_URL}${suffix}`];
+}
+
+function isLikelyNetworkError(err) {
+  return err?.message === 'Failed to fetch' || err?.name === 'TypeError' || !err?.status;
+}
+
 async function postJson(url, payload, headers = {}) {
   const res = await fetch(url, {
     method: 'POST',
@@ -83,7 +93,7 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
     throw new Error('Influencers.club API key is missing.');
   }
 
-  const directHeaders = { 'x-api-key': apiKey };
+  const directHeaders = { Authorization: `Bearer ${apiKey}` };
 
   const tryProxy = async (directError) => {
     const proxyUrl = buildProxyUrl(path);
@@ -91,7 +101,7 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
       throw directError;
     }
     try {
-      return await postJson(proxyUrl, { ...(payload || {}), apiKey });
+      return await postJson(proxyUrl, { ...(payload || {}), apiKey }, directHeaders);
     } catch (proxyErr) {
       const proxyMessage =
         proxyErr?.message || proxyErr?.response?.data?.error?.message || 'Proxy request failed.';
@@ -107,14 +117,21 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
   };
 
   let data;
-  try {
-    data = await postJson(`${BASE_URL}${path}`, payload, directHeaders);
-  } catch (err) {
-    const likelyNetworkError = !err?.status || err?.message === 'Failed to fetch' || err?.name === 'TypeError';
-    if (!likelyNetworkError) {
-      throw err;
+  let lastNetworkError = null;
+  for (const directUrl of buildDirectUrls(path)) {
+    try {
+      data = await postJson(directUrl, payload, directHeaders);
+      break;
+    } catch (err) {
+      if (!isLikelyNetworkError(err)) {
+        throw err;
+      }
+      lastNetworkError = err;
     }
-    data = await tryProxy(err);
+  }
+
+  if (!data) {
+    data = await tryProxy(lastNetworkError);
   }
 
   setCached(kind, handle, platform, data);

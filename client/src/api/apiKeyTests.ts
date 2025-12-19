@@ -11,7 +11,10 @@ export type ApiKeyTestResults = {
 
 const GOOGLE_SEARCH_ENDPOINT = 'https://www.googleapis.com/customsearch/v1';
 const OPENAI_CHAT_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
-const INFLUENCERS_CLUB_PROFILE_ENDPOINT = 'https://api.influencers.club/v1/creators/profile';
+const INFLUENCERS_CLUB_PROFILE_ENDPOINTS = [
+  'https://api-dashboard.influencers.club/public/v1/creators/profile',
+  'https://api.influencers.club/v1/creators/profile'
+];
 const API_BASE = getApiBase();
 
 function isNetworkError(err: any) {
@@ -121,23 +124,25 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
 
   const payload = { handle: 'healthcheck', platform: 'YouTube', limit: 1 };
 
-  try {
-    return await runInfluencersValidation(INFLUENCERS_CLUB_PROFILE_ENDPOINT, payload, { 'x-api-key': apiKey });
-  } catch (err: any) {
-    if (!isNetworkError(err)) {
-      return { ok: false, message: err?.message || 'Influencers.club validation failed' };
-    }
-
-    const proxyUrl = `${API_BASE || ''}/api/influencers-club/profile`;
+  for (const endpoint of INFLUENCERS_CLUB_PROFILE_ENDPOINTS) {
     try {
-      return await runInfluencersValidation(proxyUrl, { ...payload, apiKey });
-    } catch (proxyErr: any) {
-      const proxyMessage = proxyErr?.message || 'Proxy validation failed.';
-      return {
-        ok: false,
-        message: `Influencers.club API: ${err?.message || 'Failed to fetch'}. Proxy: ${proxyMessage}. If you are running from a static host, start the backend server and ensure /api/influencers-club/profile is reachable.`
-      };
+      return await runInfluencersValidation(endpoint, payload, { Authorization: `Bearer ${apiKey}` });
+    } catch (err: any) {
+      if (!isNetworkError(err)) {
+        return { ok: false, message: err?.message || 'Influencers.club validation failed' };
+      }
     }
+  }
+
+  const proxyUrl = `${API_BASE || ''}/api/influencers-club/profile`;
+  try {
+    return await runInfluencersValidation(proxyUrl, { ...payload, apiKey }, { Authorization: `Bearer ${apiKey}` });
+  } catch (proxyErr: any) {
+    const proxyMessage = proxyErr?.message || 'Proxy validation failed.';
+    return {
+      ok: false,
+      message: `Influencers.club API: Failed to fetch. Proxy: ${proxyMessage}. If you are running from a static host, start the backend server and ensure /api/influencers-club/profile is reachable.`
+    };
   }
 }
 

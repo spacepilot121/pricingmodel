@@ -1,7 +1,8 @@
 import axios from 'axios';
 import express from 'express';
 const router = express.Router();
-const BASE_URL = 'https://api.influencers.club/v1';
+const BASE_URL = process.env.INFLUENCERS_CLUB_BASE_URL || 'https://api-dashboard.influencers.club';
+const API_PREFIX = process.env.INFLUENCERS_CLUB_API_PREFIX || '/public/v1';
 function requireHandle(payload) {
     if (!payload.handle) {
         const error = new Error('handle is required');
@@ -18,14 +19,16 @@ async function forwardRequest(path, payload) {
         throw error;
     }
     try {
-        const response = await axios.post(`${BASE_URL}${path}`, {
+        const base = BASE_URL.replace(/\/+$/, '');
+        const prefix = API_PREFIX.replace(/\/+$/, '');
+        const response = await axios.post(`${base}${prefix}${path}`, {
             handle: payload.handle,
             platform: payload.platform,
             limit: payload.limit || 50
         }, {
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': apiKey
+                Authorization: `Bearer ${apiKey}`
             }
         });
         return response.data;
