@@ -148,6 +148,15 @@ export default function BrandSafetyTab() {
     return creators.filter((creator) => resultsByCreatorId[creator.id]?.riskLevel === filterRiskLevel);
   }, [creators, filterRiskLevel, resultsByCreatorId]);
 
+  function formatCompactNumber(value?: number | null) {
+    if (value === null || value === undefined) return '';
+    try {
+      return value.toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+    } catch {
+      return String(value);
+    }
+  }
+
   function parseCreators(): Creator[] {
     return creatorInput
       .split(/\r?\n/)
@@ -417,6 +426,49 @@ export default function BrandSafetyTab() {
     );
   }
 
+  function renderContactCell(creator: Creator, result?: CommercialMomentumResult) {
+    if (!apiKeys.influencersClubApiKey) {
+      return <span className="text-muted">{commercialDisabledMessage}</span>;
+    }
+
+    const status = commercialStatus[creator.id];
+    if (status === 'Scanning') {
+      return (
+        <span className="status-text" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="spinner" aria-label="Scanning contact info" /> Pulling contact...
+        </span>
+      );
+    }
+
+    const email = result?.primaryEmail || result?.profileInsights?.emails?.[0];
+    if (email) {
+      return (
+        <a href={`mailto:${email}`}>
+          {email}
+        </a>
+      );
+    }
+
+    if (!result) return <span className="text-muted">Pending scan</span>;
+    return <span className="text-muted">No email found</span>;
+  }
+
+  function renderTopLineStats(result?: CommercialMomentumResult) {
+    const insights = result?.profileInsights;
+    if (!insights) return <span className="text-muted">No stats yet</span>;
+
+    const parts: string[] = [];
+    if (insights.subscriberCount !== undefined || insights.followerCount !== undefined) {
+      const count = insights.subscriberCount ?? insights.followerCount;
+      if (count !== undefined) parts.push(`Followers ${formatCompactNumber(count)}`);
+    }
+    if (insights.viewCount !== undefined) parts.push(`Views ${formatCompactNumber(insights.viewCount)}`);
+    if (insights.videoCount !== undefined) parts.push(`Posts ${formatCompactNumber(insights.videoCount)}`);
+    if (insights.country) parts.push(insights.country);
+
+    return parts.length ? <span>{parts.join(' • ')}</span> : <span className="text-muted">No stats yet</span>;
+  }
+
   const exportableResults = useMemo(() => Object.values(resultsByCreatorId), [resultsByCreatorId]);
 
   return (
@@ -531,6 +583,8 @@ export default function BrandSafetyTab() {
           <tr>
             <th>Creator</th>
             <th>Handle/ID</th>
+            <th>Contact</th>
+            <th>Top-line stats</th>
             <th>Last checked</th>
             <th>Risk score</th>
             <th>Risk level</th>
@@ -550,6 +604,8 @@ export default function BrandSafetyTab() {
               <tr key={creator.id}>
                 <td>{creator.name}</td>
                 <td>{creator.handle || '—'}</td>
+                <td>{renderContactCell(creator, commercialResult)}</td>
+                <td>{renderTopLineStats(commercialResult)}</td>
                 <td>{renderScanState(creator, result)}</td>
                 <td>
                   {result?.finalScore?.toFixed
@@ -595,7 +651,7 @@ export default function BrandSafetyTab() {
           })}
           {!filteredCreators.length && (
             <tr>
-              <td colSpan={10} className="text-muted">
+              <td colSpan={12} className="text-muted">
                 No creators loaded yet.
               </td>
             </tr>
@@ -749,6 +805,44 @@ function DetailsModal({
                   <li key={idx}>{driver}</li>
                 ))}
               </ul>
+            ) : null}
+
+            {commercialResult.profileInsights ? (
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <h5 style={{ margin: 0 }}>Creator basics</h5>
+                {commercialResult.primaryEmail ? (
+                  <div>
+                    Contact:{' '}
+                    <a href={`mailto:${commercialResult.primaryEmail}`}>
+                      {commercialResult.primaryEmail}
+                    </a>
+                  </div>
+                ) : (
+                  <div className="text-muted">No contact email available.</div>
+                )}
+                <div className="text-muted">
+                  {commercialResult.profileInsights.country ? `${commercialResult.profileInsights.country} • ` : ''}
+                  {commercialResult.profileInsights.platformHandle || commercialResult.creatorHandle || 'Handle unknown'}
+                </div>
+                <div className="text-muted">
+                  Followers:{' '}
+                  {formatCompactNumber(
+                    commercialResult.profileInsights.subscriberCount ?? commercialResult.profileInsights.followerCount
+                  ) || 'n/a'}{' '}
+                  • Views: {formatCompactNumber(commercialResult.profileInsights.viewCount) || 'n/a'} • Posts:{' '}
+                  {formatCompactNumber(commercialResult.profileInsights.videoCount) || 'n/a'}
+                </div>
+                {commercialResult.profileInsights.description && (
+                  <div className="text-muted" style={{ whiteSpace: 'pre-wrap' }}>
+                    {commercialResult.profileInsights.description}
+                  </div>
+                )}
+                {commercialResult.profileInsights.link && (
+                  <a href={commercialResult.profileInsights.link} target="_blank" rel="noreferrer">
+                    {commercialResult.profileInsights.link}
+                  </a>
+                )}
+              </div>
             ) : null}
           </div>
         ) : (
