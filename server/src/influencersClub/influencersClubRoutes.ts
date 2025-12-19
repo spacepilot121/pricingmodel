@@ -8,25 +8,16 @@ const API_PREFIX = process.env.INFLUENCERS_CLUB_API_PREFIX || '/public/v1';
 const DISCOVERY_PATH = '/discovery/';
 const CONTENT_DETAILS_PATH = '/creators/content/details/';
 
-type ProxyPayload = {
-  handle?: string;
-  platform?: string;
-  limit?: number;
-  apiKey?: string;
-};
+type ProxyPayload = Record<string, any> & { apiKey?: string };
 
-function requireHandle(payload: ProxyPayload) {
-  if (!payload.handle) {
-    const error = new Error('handle is required');
-    (error as any).status = 400;
-    throw error;
-  }
+function extractBearerToken(authHeader?: string | null) {
+  if (!authHeader) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)/i);
+  return match?.[1]?.trim() || null;
 }
 
-async function forwardRequest(path: string, payload: ProxyPayload) {
-  requireHandle(payload);
-
-  const apiKey = payload.apiKey || process.env.INFLUENCERS_CLUB_API_KEY;
+async function forwardRequest(path: string, payload: ProxyPayload, authHeader?: string | null) {
+  const apiKey = payload.apiKey || extractBearerToken(authHeader) || process.env.INFLUENCERS_CLUB_API_KEY;
   if (!apiKey) {
     const error = new Error('Influencers.club API key is required.');
     (error as any).status = 400;
@@ -36,13 +27,10 @@ async function forwardRequest(path: string, payload: ProxyPayload) {
   try {
     const base = BASE_URL.replace(/\/+$/, '');
     const prefix = API_PREFIX.replace(/\/+$/, '');
+    const { apiKey: _omitApiKey, ...forwardPayload } = payload;
     const response = await axios.post(
       `${base}${prefix}${path}`,
-      {
-        handle: payload.handle,
-        platform: payload.platform,
-        limit: payload.limit || 50
-      },
+      forwardPayload,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -64,7 +52,7 @@ function registerRoute(localPath: string, targetPath: string, logLabel: string) 
   router.post(localPath, async (req, res) => {
     try {
       const payload: ProxyPayload = req.body || {};
-      const data = await forwardRequest(targetPath, payload);
+      const data = await forwardRequest(targetPath, payload, req.get('Authorization'));
       res.json(data);
     } catch (err: any) {
       console.error(`Influencers.club ${logLabel} fetch failed`, err);
