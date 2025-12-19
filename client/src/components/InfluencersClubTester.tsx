@@ -172,7 +172,8 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
 
     const headers = {
       Authorization: `Bearer ${trimmedKey}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
     };
     const directTargets = [endpointMeta.url, endpointMeta.legacyUrl].filter(Boolean);
     const proxyTarget = buildProxyUrl(endpointMeta.proxyPath);
