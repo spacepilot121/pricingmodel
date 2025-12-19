@@ -1,5 +1,12 @@
 import { fetchCreatorProfile, fetchRecentPosts } from '../api/influencersClubClient';
-import { ApiKeys, CommercialMomentumResult, CommercialMomentumSignals, CommercialPost, Creator } from '../types';
+import {
+  ApiKeys,
+  CommercialMomentumResult,
+  CommercialMomentumSignals,
+  CommercialPost,
+  Creator,
+  CreatorProfileInsights
+} from '../types';
 import { computeCommercialMomentumScore, describeDrivers, mapRecommendation } from './commercialMomentumScoring';
 import { classifyToneForSponsoredPosts, inferSponsoredWithGpt } from './gptSemanticHelpers';
 import * as commercialCache from './localCache';
@@ -146,6 +153,60 @@ function calculateSignals(posts: CommercialPost[], profile: any): CommercialMome
   };
 }
 
+function selectProfileRecord(profile: any) {
+  if (!profile) return {};
+  if (profile.result && typeof profile.result === 'object') {
+    const first = Object.values(profile.result).find(Boolean);
+    if (first && typeof first === 'object') return first;
+  }
+  return profile || {};
+}
+
+function normaliseProfileInsights(rawProfile: any): CreatorProfileInsights {
+  const record: any = selectProfileRecord(rawProfile);
+  const rawEmails: string[] = [
+    record.email,
+    record.emailAddress,
+    ...(Array.isArray(record.emails) ? record.emails : []),
+    ...(Array.isArray(record.email_addresses) ? record.email_addresses : []),
+    ...(Array.isArray(record.emailAddresses) ? record.emailAddresses : []),
+    ...(Array.isArray(record.contactEmails) ? record.contactEmails : []),
+    ...(Array.isArray(record.contacts) ? record.contacts.map((c: any) => c?.email).filter(Boolean) : []),
+    ...(Array.isArray(record.social?.emails) ? record.social.emails : [])
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+  const emails = Array.from(new Set(rawEmails));
+
+  const followerCount =
+    record.followers ?? record.followers_count ?? record.followersCount ?? record.follower_count ?? null;
+  const subscriberCount =
+    record.subscriber_count ?? record.subscribers ?? record.subscriberCount ?? followerCount ?? null;
+  const viewCount = record.view_count ?? record.views ?? record.viewCount ?? null;
+  const videoCount =
+    record.video_count ?? record.videoCount ?? record.posts_count ?? record.post_count ?? record.postCount ?? null;
+  const country = record.country || record.location || record.country_code || null;
+  const platformHandle = record.custom_url || record.handle || record.username || record.profile_url || null;
+  const profilePicture =
+    record.profile_picture_hd || record.profile_picture || record.avatar || record.image || record.profileImage || null;
+  const description = record.description || record.bio || record.about || null;
+  const link = record.link || record.url || record.channel_url || record.profileUrl || null;
+
+  return {
+    emails: emails.length ? emails : undefined,
+    followerCount: followerCount ?? undefined,
+    subscriberCount: subscriberCount ?? undefined,
+    viewCount: viewCount ?? undefined,
+    videoCount: videoCount ?? undefined,
+    country: country ?? undefined,
+    platformHandle: platformHandle ?? undefined,
+    profilePicture: profilePicture ?? undefined,
+    description: description ?? undefined,
+    link: link ?? undefined
+  };
+}
+
 export async function runCommercialMomentum(creator: Creator, keys: ApiKeys): Promise<CommercialMomentumResult> {
   const cached = commercialCache.get(creator.name);
   if (cached && commercialCache.isFresh(creator.name, 7)) {
@@ -163,6 +224,7 @@ export async function runCommercialMomentum(creator: Creator, keys: ApiKeys): Pr
   const signals = calculateSignals(posts, profile || {});
   const semanticSummary = await classifyToneForSponsoredPosts(posts.filter((p) => p.isSponsored), keys);
   signals.semanticSummary = semanticSummary;
+  const profileInsights = normaliseProfileInsights(profile);
 
   const score = computeCommercialMomentumScore(signals);
   const recommendation = mapRecommendation(score);
@@ -181,7 +243,9 @@ export async function runCommercialMomentum(creator: Creator, keys: ApiKeys): Pr
     keyDrivers,
     semanticSummary,
     summary: `${recommendation}. ${keyDrivers.slice(0, 2).join('; ')}`,
-    status: 'ok'
+    status: 'ok',
+    primaryEmail: profileInsights.emails?.[0],
+    profileInsights
   };
 
   commercialCache.set(creator.name, result);

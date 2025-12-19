@@ -131,6 +131,19 @@ export type CommercialMomentumSignals = {
   semanticSummary?: CommercialSemanticSummary;
 };
 
+export type CreatorProfileInsights = {
+  emails?: string[];
+  followerCount?: number;
+  subscriberCount?: number;
+  viewCount?: number;
+  videoCount?: number;
+  country?: string;
+  platformHandle?: string;
+  profilePicture?: string;
+  description?: string;
+  link?: string;
+};
+
 export type CommercialMomentumResult = {
   creatorId: string;
   creatorName: string;
@@ -145,4 +158,6 @@ export type CommercialMomentumResult = {
   semanticSummary?: CommercialSemanticSummary;
   status?: 'ok' | 'stale' | 'error';
   summary?: string;
+  primaryEmail?: string;
+  profileInsights?: CreatorProfileInsights;
 };
