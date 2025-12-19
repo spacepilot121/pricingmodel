@@ -90,6 +90,7 @@ async function runInfluencersValidation(
   const res = await fetch(url, {
     method: 'POST',
     headers: {
+      Accept: 'application/json',
       'Content-Type': 'application/json',
       ...headers
     },

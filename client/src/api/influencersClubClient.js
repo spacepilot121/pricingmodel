@@ -9,10 +9,14 @@ const CONTENT_DETAILS_PATH = '/creators/content/details/';
 const API_BASE = getApiBase();
 const CACHE_KEY = 'influencersClub_cache_v1';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const ENDPOINTS = {
+  profile: { apiPath: DISCOVERY_PATH, proxyPath: 'discovery' },
+  posts: { apiPath: CONTENT_DETAILS_PATH, proxyPath: 'content' }
+};
 
 function getApiKey() {
   if (typeof window === 'undefined') return '';
-  return window.localStorage.getItem('influencersClub_apiKey') || '';
+  return (window.localStorage.getItem('influencersClub_apiKey') || '').trim();
 }
 
 function loadCache() {
@@ -54,19 +58,9 @@ function setCached(kind, handle, platform, data) {
   persistCache(cache);
 }
 
-function buildProxyUrl(path) {
-  const endpoint = path.includes('content/details')
-    ? 'content'
-    : path.includes('discovery')
-      ? 'discovery'
-      : path.includes('posts')
-        ? 'posts'
-        : path.includes('profile')
-          ? 'profile'
-          : '';
-  if (!endpoint) return '';
+function buildProxyUrl(proxyPath) {
   const base = API_BASE || '';
-  return `${base}/api/influencers-club/${endpoint}`;
+  return proxyPath ? `${base}/api/influencers-club/${proxyPath}` : '';
 }
 
 function buildDirectUrls(path) {
@@ -81,7 +75,11 @@ function isLikelyNetworkError(err) {
 async function postJson(url, payload, headers = {}) {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...headers
+    },
     body: JSON.stringify(payload || {})
   });
   const data = await res.json().catch(() => null);
@@ -94,7 +92,12 @@ async function postJson(url, payload, headers = {}) {
   return data;
 }
 
-async function fetchWithAuth(path, payload, kind, handle, platform) {
+async function fetchWithAuth(endpointKey, payload, kind, handle, platform) {
+  const endpointConfig = ENDPOINTS[endpointKey];
+  if (!endpointConfig) {
+    throw new Error('Unknown Influencers.club endpoint.');
+  }
+
   const cached = getCached(kind, handle, platform);
   if (cached) return cached;
 
@@ -103,10 +106,14 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
     throw new Error('Influencers.club API key is missing.');
   }
 
-  const directHeaders = { Authorization: `Bearer ${apiKey}` };
+  const directHeaders = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`
+  };
 
   const tryProxy = async (directError) => {
-    const proxyUrl = buildProxyUrl(path);
+    const proxyUrl = buildProxyUrl(endpointConfig.proxyPath);
     if (!proxyUrl) {
       throw directError;
     }
@@ -128,7 +135,7 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
 
   let data;
   let lastNetworkError = null;
-  for (const directUrl of buildDirectUrls(path)) {
+  for (const directUrl of buildDirectUrls(endpointConfig.apiPath)) {
     try {
       data = await postJson(directUrl, payload, directHeaders);
       break;
@@ -149,12 +156,12 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
 }
 
 export async function fetchCreatorProfile(handle, platform) {
-  return fetchWithAuth(DISCOVERY_PATH, { handle, platform }, 'profile', handle, platform);
+  return fetchWithAuth('profile', { handle, platform }, 'profile', handle, platform);
 }
 
 export async function fetchRecentPosts(handle, platform) {
   // The API is expected to return an array of posts with captions and engagement metrics.
-  return fetchWithAuth(CONTENT_DETAILS_PATH, { handle, platform, limit: 50 }, 'posts', handle, platform);
+  return fetchWithAuth('posts', { handle, platform, limit: 50 }, 'posts', handle, platform);
 }
 
 export function clearInfluencersClubCache() {
