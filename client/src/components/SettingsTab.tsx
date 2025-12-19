@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { loadApiKeys, saveApiKeys } from '../api/apiKeyStorage';
 import { testApiKeys, ApiKeyTestResults } from '../api/apiKeyTests';
 import { ApiKeys } from '../types';
+import InfluencersClubTester from './InfluencersClubTester';
 
 export default function SettingsTab() {
   const [formState, setFormState] = useState<ApiKeys>({});
@@ -203,6 +204,11 @@ export default function SettingsTab() {
           </ul>
         </div>
       )}
+
+      <InfluencersClubTester
+        apiKey={formState.influencersClubApiKey}
+        onApiKeyChange={(value) => handleChange('influencersClubApiKey', value)}
+      />
 
       {status && <p className="status-text success">{status}</p>}
     </div>
