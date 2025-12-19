@@ -33,3 +33,7 @@ To make it work when you can’t run the server locally:
 
 - **Host the backend somewhere** – Deploy the `server/` folder to a small host (Render, Railway, Fly, Vercel, etc.), enable CORS, and set `VITE_BRAND_SAFETY_API_BASE` or use **Settings → API endpoint** (or `?apiBase=...`) to target that host from GitHub Pages.
 - **Same-origin deployments still work** – Leave the endpoint blank if you are serving both the frontend and backend from the same origin (local dev or a combined deployment).
+
+## Influencers.club proxy to avoid browser blocks
+
+Commercial Momentum calls to Influencers.club can be blocked by browser CORS policies even when the API key is correct. The Express backend now exposes `/api/influencers-club/profile` and `/api/influencers-club/posts` as a relay. Run the backend locally (port `4000` by default) or deploy it and set `VITE_API_BASE` so the frontend can fall back to these routes whenever a direct request fails. The Vite dev server proxies `/api/*` to `localhost:4000` automatically.

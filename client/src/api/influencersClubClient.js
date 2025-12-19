@@ -1,7 +1,9 @@
 // Lightweight client for Influencers.club with localStorage caching and rate-limit aware fetches.
 // This module intentionally avoids logging secrets or responses.
+import { getApiBase } from './backendConfig';
 
 const BASE_URL = 'https://api.influencers.club/v1';
+const API_BASE = getApiBase();
 const CACHE_KEY = 'influencersClub_cache_v1';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -49,6 +51,29 @@ function setCached(kind, handle, platform, data) {
   persistCache(cache);
 }
 
+function buildProxyUrl(path) {
+  const endpoint = path.includes('posts') ? 'posts' : path.includes('profile') ? 'profile' : '';
+  if (!endpoint) return '';
+  const base = API_BASE || '';
+  return `${base}/api/influencers-club/${endpoint}`;
+}
+
+async function postJson(url, payload, headers = {}) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(payload || {})
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message = data?.error?.message || data?.error || data?.message || `Request failed with ${res.status}`;
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
+  }
+  return data;
+}
+
 async function fetchWithAuth(path, payload, kind, handle, platform) {
   const cached = getCached(kind, handle, platform);
   if (cached) return cached;
@@ -58,23 +83,38 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
     throw new Error('Influencers.club API key is missing.');
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey
-    },
-    body: JSON.stringify(payload || {})
-  });
+  const directHeaders = { 'x-api-key': apiKey };
 
-  if (res.status === 429) {
-    throw new Error('Rate limited by Influencers.club. Please retry later.');
-  }
+  const tryProxy = async (directError) => {
+    const proxyUrl = buildProxyUrl(path);
+    if (!proxyUrl) {
+      throw directError;
+    }
+    try {
+      return await postJson(proxyUrl, { ...(payload || {}), apiKey });
+    } catch (proxyErr) {
+      const proxyMessage =
+        proxyErr?.message || proxyErr?.response?.data?.error?.message || 'Proxy request failed.';
+      const combined = [
+        directError?.message || 'Influencers.club request failed.',
+        `Proxy: ${proxyMessage}`,
+        'If you are using a static host (e.g. GitHub Pages), run the backend server and ensure /api/influencers-club/* routes are reachable.'
+      ].join(' ');
+      const error = new Error(combined);
+      error.status = proxyErr?.status || proxyErr?.response?.status;
+      throw error;
+    }
+  };
 
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    const message = data?.error?.message || 'Influencers.club request failed';
-    throw new Error(message);
+  let data;
+  try {
+    data = await postJson(`${BASE_URL}${path}`, payload, directHeaders);
+  } catch (err) {
+    const likelyNetworkError = !err?.status || err?.message === 'Failed to fetch' || err?.name === 'TypeError';
+    if (!likelyNetworkError) {
+      throw err;
+    }
+    data = await tryProxy(err);
   }
 
   setCached(kind, handle, platform, data);

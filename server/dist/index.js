@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import brandSafetyRoutes from './brandSafety/brandSafetyRoutes.js';
+import influencersClubRoutes from './influencersClub/influencersClubRoutes.js';
 dotenv.config();
 const app = express();
 const port = process.env.PORT || 4000;
@@ -11,6 +12,7 @@ app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
 });
 app.use('/api/brand-safety', brandSafetyRoutes);
+app.use('/api/influencers-club', influencersClubRoutes);
 app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
 });

@@ -6,7 +6,13 @@ export default defineConfig({
   // Serve the built app from the GitHub Pages docs/ subdirectory
   base: '/pricingmodel/docs/',
   server: {
-    port: 5173
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true
+      }
+    }
   },
   build: {
     outDir: '../docs',
