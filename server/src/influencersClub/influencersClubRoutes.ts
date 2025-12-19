@@ -3,7 +3,8 @@ import express from 'express';
 
 const router = express.Router();
 
-const BASE_URL = 'https://api.influencers.club/v1';
+const BASE_URL = process.env.INFLUENCERS_CLUB_BASE_URL || 'https://api-dashboard.influencers.club';
+const API_PREFIX = process.env.INFLUENCERS_CLUB_API_PREFIX || '/public/v1';
 
 type ProxyPayload = {
   handle?: string;
@@ -31,8 +32,10 @@ async function forwardRequest(path: string, payload: ProxyPayload) {
   }
 
   try {
+    const base = BASE_URL.replace(/\/+$/, '');
+    const prefix = API_PREFIX.replace(/\/+$/, '');
     const response = await axios.post(
-      `${BASE_URL}${path}`,
+      `${base}${prefix}${path}`,
       {
         handle: payload.handle,
         platform: payload.platform,
@@ -41,7 +44,7 @@ async function forwardRequest(path: string, payload: ProxyPayload) {
       {
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey
+          Authorization: `Bearer ${apiKey}`
         }
       }
     );
