@@ -3,16 +3,16 @@ import express from 'express';
 const router = express.Router();
 const BASE_URL = process.env.INFLUENCERS_CLUB_BASE_URL || 'https://api-dashboard.influencers.club';
 const API_PREFIX = process.env.INFLUENCERS_CLUB_API_PREFIX || '/public/v1';
-function requireHandle(payload) {
-    if (!payload.handle) {
-        const error = new Error('handle is required');
-        error.status = 400;
-        throw error;
-    }
+const DISCOVERY_PATH = '/discovery/';
+const CONTENT_DETAILS_PATH = '/creators/content/details/';
+function extractBearerToken(authHeader) {
+    if (!authHeader)
+        return null;
+    const match = authHeader.match(/^Bearer\s+(.+)/i);
+    return match?.[1]?.trim() || null;
 }
-async function forwardRequest(path, payload) {
-    requireHandle(payload);
-    const apiKey = payload.apiKey || process.env.INFLUENCERS_CLUB_API_KEY;
+async function forwardRequest(path, payload, authHeader) {
+    const apiKey = payload.apiKey || extractBearerToken(authHeader) || process.env.INFLUENCERS_CLUB_API_KEY;
     if (!apiKey) {
         const error = new Error('Influencers.club API key is required.');
         error.status = 400;
@@ -21,11 +21,8 @@ async function forwardRequest(path, payload) {
     try {
         const base = BASE_URL.replace(/\/+$/, '');
         const prefix = API_PREFIX.replace(/\/+$/, '');
-        const response = await axios.post(`${base}${prefix}${path}`, {
-            handle: payload.handle,
-            platform: payload.platform,
-            limit: payload.limit || 50
-        }, {
+        const { apiKey: _omitApiKey, ...forwardPayload } = payload;
+        const response = await axios.post(`${base}${prefix}${path}`, forwardPayload, {
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`
@@ -41,26 +38,22 @@ async function forwardRequest(path, payload) {
         throw error;
     }
 }
-router.post('/profile', async (req, res) => {
-    try {
-        const payload = req.body || {};
-        const data = await forwardRequest('/creators/profile', payload);
-        res.json(data);
-    }
-    catch (err) {
-        console.error('Influencers.club profile lookup failed', err);
-        res.status(err?.status || 500).json({ error: err?.message || 'Influencers.club request failed' });
-    }
-});
-router.post('/posts', async (req, res) => {
-    try {
-        const payload = req.body || {};
-        const data = await forwardRequest('/creators/posts', payload);
-        res.json(data);
-    }
-    catch (err) {
-        console.error('Influencers.club posts fetch failed', err);
-        res.status(err?.status || 500).json({ error: err?.message || 'Influencers.club request failed' });
-    }
-});
+function registerRoute(localPath, targetPath, logLabel) {
+    router.post(localPath, async (req, res) => {
+        try {
+            const payload = req.body || {};
+            const data = await forwardRequest(targetPath, payload, req.get('Authorization'));
+            res.json(data);
+        }
+        catch (err) {
+            console.error(`Influencers.club ${logLabel} fetch failed`, err);
+            res.status(err?.status || 500).json({ error: err?.message || 'Influencers.club request failed' });
+        }
+    });
+}
+registerRoute('/discovery', DISCOVERY_PATH, 'discovery');
+registerRoute('/content', CONTENT_DETAILS_PATH, 'content details');
+// Backwards compatibility with older client paths
+registerRoute('/profile', DISCOVERY_PATH, 'profile');
+registerRoute('/posts', CONTENT_DETAILS_PATH, 'posts');
 export default router;
