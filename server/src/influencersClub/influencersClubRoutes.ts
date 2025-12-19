@@ -5,6 +5,8 @@ const router = express.Router();
 
 const BASE_URL = process.env.INFLUENCERS_CLUB_BASE_URL || 'https://api-dashboard.influencers.club';
 const API_PREFIX = process.env.INFLUENCERS_CLUB_API_PREFIX || '/public/v1';
+const DISCOVERY_PATH = '/discovery/';
+const CONTENT_DETAILS_PATH = '/creators/content/details/';
 
 type ProxyPayload = {
   handle?: string;
@@ -58,26 +60,24 @@ async function forwardRequest(path: string, payload: ProxyPayload) {
   }
 }
 
-router.post('/profile', async (req, res) => {
-  try {
-    const payload: ProxyPayload = req.body || {};
-    const data = await forwardRequest('/creators/profile', payload);
-    res.json(data);
-  } catch (err: any) {
-    console.error('Influencers.club profile lookup failed', err);
-    res.status(err?.status || 500).json({ error: err?.message || 'Influencers.club request failed' });
-  }
-});
+function registerRoute(localPath: string, targetPath: string, logLabel: string) {
+  router.post(localPath, async (req, res) => {
+    try {
+      const payload: ProxyPayload = req.body || {};
+      const data = await forwardRequest(targetPath, payload);
+      res.json(data);
+    } catch (err: any) {
+      console.error(`Influencers.club ${logLabel} fetch failed`, err);
+      res.status(err?.status || 500).json({ error: err?.message || 'Influencers.club request failed' });
+    }
+  });
+}
 
-router.post('/posts', async (req, res) => {
-  try {
-    const payload: ProxyPayload = req.body || {};
-    const data = await forwardRequest('/creators/posts', payload);
-    res.json(data);
-  } catch (err: any) {
-    console.error('Influencers.club posts fetch failed', err);
-    res.status(err?.status || 500).json({ error: err?.message || 'Influencers.club request failed' });
-  }
-});
+registerRoute('/discovery', DISCOVERY_PATH, 'discovery');
+registerRoute('/content', CONTENT_DETAILS_PATH, 'content details');
+
+// Backwards compatibility with older client paths
+registerRoute('/profile', DISCOVERY_PATH, 'profile');
+registerRoute('/posts', CONTENT_DETAILS_PATH, 'posts');
 
 export default router;

@@ -4,6 +4,8 @@ import { getApiBase } from './backendConfig';
 
 const PRIMARY_BASE_URL = 'https://api-dashboard.influencers.club/public/v1';
 const LEGACY_BASE_URL = 'https://api.influencers.club/v1';
+const DISCOVERY_PATH = '/discovery/';
+const CONTENT_DETAILS_PATH = '/creators/content/details/';
 const API_BASE = getApiBase();
 const CACHE_KEY = 'influencersClub_cache_v1';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -53,7 +55,15 @@ function setCached(kind, handle, platform, data) {
 }
 
 function buildProxyUrl(path) {
-  const endpoint = path.includes('posts') ? 'posts' : path.includes('profile') ? 'profile' : '';
+  const endpoint = path.includes('content/details')
+    ? 'content'
+    : path.includes('discovery')
+      ? 'discovery'
+      : path.includes('posts')
+        ? 'posts'
+        : path.includes('profile')
+          ? 'profile'
+          : '';
   if (!endpoint) return '';
   const base = API_BASE || '';
   return `${base}/api/influencers-club/${endpoint}`;
@@ -139,12 +149,12 @@ async function fetchWithAuth(path, payload, kind, handle, platform) {
 }
 
 export async function fetchCreatorProfile(handle, platform) {
-  return fetchWithAuth('/creators/profile', { handle, platform }, 'profile', handle, platform);
+  return fetchWithAuth(DISCOVERY_PATH, { handle, platform }, 'profile', handle, platform);
 }
 
 export async function fetchRecentPosts(handle, platform) {
   // The API is expected to return an array of posts with captions and engagement metrics.
-  return fetchWithAuth('/creators/posts', { handle, platform, limit: 50 }, 'posts', handle, platform);
+  return fetchWithAuth(CONTENT_DETAILS_PATH, { handle, platform, limit: 50 }, 'posts', handle, platform);
 }
 
 export function clearInfluencersClubCache() {
