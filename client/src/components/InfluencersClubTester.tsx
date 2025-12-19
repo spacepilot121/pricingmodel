@@ -24,6 +24,7 @@ const ENDPOINTS: Record<
     description: string;
     defaultPayload: Record<string, any>;
     proxyPath: 'discovery' | 'content';
+    docSample?: Record<string, any>;
   }
 > = {
   discovery: {
@@ -33,9 +34,32 @@ const ENDPOINTS: Record<
     description: 'POST only. Provide platform plus optional targeting filters.',
     proxyPath: 'discovery',
     defaultPayload: {
-      platform: 'instagram',
-      location: ['United States'],
-      gender: 'any'
+      platform: 'youtube',
+      paging: { limit: 5, page: 1 },
+      sort: { sort_by: 'relevancy', sort_order: 'desc' },
+      filters: {
+        location: [''],
+        gender: '',
+        profile_language: [''],
+        number_of_followers: { min: null, max: null }
+      }
+    },
+    docSample: {
+      platform: 'youtube',
+      paging: { limit: 5, page: 1 },
+      sort: { sort_by: 'relevancy', sort_order: 'desc' },
+      filters: {
+        location: [''],
+        type: '',
+        gender: '',
+        profile_language: [''],
+        ai_search: '',
+        number_of_followers: { min: null, max: null },
+        engagement_percent: { min: null, max: null },
+        exclude_role_based_emails: false,
+        exclude_previous: false,
+        posting_frequency: null
+      }
     }
   },
   postData: {
@@ -45,9 +69,9 @@ const ENDPOINTS: Record<
     description: 'POST only. Provide platform, content_type, and post_id.',
     proxyPath: 'content',
     defaultPayload: {
-      platform: 'instagram',
+      platform: 'youtube',
       content_type: 'comments',
-      post_id: '12345'
+      post_id: 'UCwh2SF7McSUf1GVFVk0nP8w'
     }
   }
 };
@@ -117,6 +141,14 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
     setPayloadTextByEndpoint((prev) => ({
       ...prev,
       [selectedEndpoint]: JSON.stringify(endpointMeta.defaultPayload, null, 2)
+    }));
+  }
+
+  function useDocSample() {
+    if (!endpointMeta.docSample) return;
+    setPayloadTextByEndpoint((prev) => ({
+      ...prev,
+      [selectedEndpoint]: JSON.stringify(endpointMeta.docSample, null, 2)
     }));
   }
 
@@ -211,10 +243,13 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
           Influencers.club API Key
           <input
             type="text"
-            placeholder="iclive_..."
+            placeholder="Paste your dashboard API key"
             value={apiKey || ''}
             onChange={(e) => onApiKeyChange(e.target.value)}
           />
+          <span className="text-muted" style={{ display: 'block', marginTop: 4 }}>
+            Pasted verbatim into <code>Authorization: Bearer &lt;your-key&gt;</code>; no prefixes are added or removed.
+          </span>
         </label>
 
         <div className="flex-row" style={{ alignItems: 'flex-end' }}>
@@ -249,6 +284,11 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
           <button type="button" className="button secondary" onClick={resetPayload} disabled={isSending}>
             Reset to sample
           </button>
+          {endpointMeta.docSample && (
+            <button type="button" className="button secondary" onClick={useDocSample} disabled={isSending}>
+              Load docs sample
+            </button>
+          )}
           <button type="button" className="button" onClick={handleSend} disabled={isSending}>
             {isSending ? 'Sending...' : 'Send POST'}
           </button>
