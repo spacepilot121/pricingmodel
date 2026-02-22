@@ -3095,14 +3095,20 @@
       applyLineDefaults(line);
       const cpv = line.unitRate || 0;
       const viewsPerPiece = line.viewsPerPiece || 0;
-      const perCreatorBase = cpv * viewsPerPiece * (line.qtyPerCreator || 0);
-      // Mirrors EMPTY workbook calc: base rate * qty * whitelist multiplier
+      const qtyPerCreator = line.qtyPerCreator || 0;
+      const minPieceCost = 1000;
+      const pieceBase = Math.max(minPieceCost, cpv * viewsPerPiece);
+      const perCreatorBase = pieceBase * qtyPerCreator;
+      // Mirrors EMPTY workbook calc: base rate * qty * whitelist multiplier.
+      // Also enforces a minimum $1,000 COGS floor per piece of content.
       const whitelistMultiplier = line.whitelist
         ? 1 + (WHITELIST_UPLIFT_PCT[line.size] ?? 0.2)
         : 1;
       const cogsPerCreator = perCreatorBase * whitelistMultiplier;
       line.cogsPerCreator = cogsPerCreator;
-      line.cpvWithWhitelist = cpv * whitelistMultiplier;
+      line.cpvWithWhitelist = viewsPerPiece > 0
+        ? (pieceBase / viewsPerPiece) * whitelistMultiplier
+        : 0;
       return cogsPerCreator * (line.creators || 0);
     }
 
