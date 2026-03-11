@@ -6,7 +6,6 @@ const PRIMARY_BASE_URL = 'https://api-dashboard.influencers.club/public/v1';
 const LEGACY_BASE_URL = 'https://api.influencers.club/v1';
 const DISCOVERY_PATH = '/discovery/';
 const CONTENT_DETAILS_PATH = '/creators/content/details/';
-const API_BASE = getApiBase();
 const CACHE_KEY = 'influencersClub_cache_v1';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const ENDPOINTS = {
@@ -102,7 +101,7 @@ function setCached(kind, handle, platform, data) {
 }
 
 function buildProxyUrl(proxyPath) {
-  const base = API_BASE || '';
+  const base = getApiBase() || '';
   return proxyPath ? `${base}/api/influencers-club/${proxyPath}` : '';
 }
 
