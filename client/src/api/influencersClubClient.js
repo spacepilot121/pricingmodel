@@ -14,6 +14,49 @@ const ENDPOINTS = {
   posts: { apiPath: CONTENT_DETAILS_PATH, proxyPath: 'content' }
 };
 
+function normalizePlatform(platform) {
+  return String(platform || 'youtube').trim().toLowerCase();
+}
+
+function buildDiscoveryPayload(handle, platform, limit = 1) {
+  const query = String(handle || '').trim();
+  return {
+    platform: normalizePlatform(platform),
+    paging: { limit, page: 1 },
+    sort: { sort_by: 'relevancy', sort_order: 'desc' },
+    filters: {
+      ai_search: query,
+      channel_url: query.startsWith('http') ? [query] : undefined,
+      exclude_role_based_emails: false,
+      exclude_previous: false
+    }
+  };
+}
+
+function extractFirstCreatorRecord(data) {
+  if (!data || typeof data !== 'object') return null;
+  const result = data.result;
+  if (Array.isArray(result)) return result[0] || null;
+  if (result && typeof result === 'object') {
+    const first = Object.values(result).find(Boolean);
+    return first && typeof first === 'object' ? first : null;
+  }
+  return null;
+}
+
+function extractPostId(record) {
+  if (!record || typeof record !== 'object') return null;
+  const candidates = [
+    record.post_id,
+    record.latest_post_id,
+    record.last_post_id,
+    record.video_id,
+    record.content_id
+  ];
+  const found = candidates.find(Boolean);
+  return found ? String(found) : null;
+}
+
 function getApiKey() {
   if (typeof window === 'undefined') return '';
   return (window.localStorage.getItem('influencersClub_apiKey') || '').trim();
@@ -156,12 +199,24 @@ async function fetchWithAuth(endpointKey, payload, kind, handle, platform) {
 }
 
 export async function fetchCreatorProfile(handle, platform) {
-  return fetchWithAuth('profile', { handle, platform }, 'profile', handle, platform);
+  const payload = buildDiscoveryPayload(handle, platform, 1);
+  return fetchWithAuth('profile', payload, 'profile', handle, platform);
 }
 
 export async function fetchRecentPosts(handle, platform) {
-  // The API is expected to return an array of posts with captions and engagement metrics.
-  return fetchWithAuth('posts', { handle, platform, limit: 50 }, 'posts', handle, platform);
+  const profileResponse = await fetchCreatorProfile(handle, platform);
+  const record = extractFirstCreatorRecord(profileResponse);
+  const postId = extractPostId(record);
+  if (!postId) return [];
+
+  const payload = {
+    platform: normalizePlatform(platform),
+    content_type: 'comments',
+    post_id: postId
+  };
+
+  const data = await fetchWithAuth('posts', payload, 'posts', `${handle}:${postId}`, platform);
+  return Array.isArray(data) ? data : data?.result || [];
 }
 
 export function clearInfluencersClubCache() {
