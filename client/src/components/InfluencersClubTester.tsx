@@ -76,7 +76,6 @@ const ENDPOINTS: Record<
   }
 };
 
-const API_BASE = getApiBase();
 
 function formatBodyPreview(body: string) {
   const maxLength = 5000;
@@ -89,7 +88,7 @@ function isLikelyNetworkError(err: any) {
 }
 
 function buildProxyUrl(path: string) {
-  const base = API_BASE || '';
+  const base = getApiBase() || '';
   return `${base}/api/influencers-club/${path}`;
 }
 

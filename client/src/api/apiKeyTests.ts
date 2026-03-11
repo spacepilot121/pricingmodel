@@ -15,7 +15,6 @@ const INFLUENCERS_CLUB_PROFILE_ENDPOINTS = [
   'https://api-dashboard.influencers.club/public/v1/discovery/',
   'https://api.influencers.club/v1/discovery/'
 ];
-const API_BASE = getApiBase();
 
 function isNetworkError(err: any) {
   return err?.message === 'Failed to fetch' || err?.name === 'TypeError' || !err?.status;
@@ -135,7 +134,7 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
     }
   }
 
-  const proxyUrl = `${API_BASE || ''}/api/influencers-club/profile`;
+  const proxyUrl = `${getApiBase() || ''}/api/influencers-club/profile`;
   try {
     return await runInfluencersValidation(proxyUrl, { ...payload, apiKey }, { Authorization: `Bearer ${apiKey}` });
   } catch (proxyErr: any) {
