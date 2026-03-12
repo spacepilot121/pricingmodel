@@ -110,6 +110,35 @@ function buildDirectUrls(path) {
   return [`${PRIMARY_BASE_URL}${suffix}`, `${LEGACY_BASE_URL}${suffix}`];
 }
 
+function withDocsAuthHeaders(apiKey) {
+  return {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    'x-api-key': apiKey,
+    'api-key': apiKey
+  };
+}
+
+function asDocsDiscoveryPayload(payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  if (source.filters || source.paging || source.sort || source.platform) {
+    return source;
+  }
+
+  const query = String(source.handle || source.ai_search || '').trim();
+  return {
+    platform: normalizePlatform(source.platform || 'youtube'),
+    paging: { limit: Number(source.limit) || 1, page: 1 },
+    sort: { sort_by: 'relevancy', sort_order: 'desc' },
+    filters: {
+      ai_search: query,
+      exclude_role_based_emails: false,
+      exclude_previous: false
+    }
+  };
+}
+
 function isLikelyNetworkError(err) {
   return err?.message === 'Failed to fetch' || err?.name === 'TypeError' || !err?.status;
 }
@@ -148,11 +177,8 @@ async function fetchWithAuth(endpointKey, payload, kind, handle, platform) {
     throw new Error('Influencers.club API key is missing.');
   }
 
-  const directHeaders = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`
-  };
+  const directHeaders = withDocsAuthHeaders(apiKey);
+  const requestPayload = endpointKey === 'profile' ? asDocsDiscoveryPayload(payload) : payload;
 
   const tryProxy = async (directError) => {
     const proxyUrl = buildProxyUrl(endpointConfig.proxyPath);
@@ -160,7 +186,7 @@ async function fetchWithAuth(endpointKey, payload, kind, handle, platform) {
       throw directError;
     }
     try {
-      return await postJson(proxyUrl, { ...(payload || {}), apiKey }, directHeaders);
+      return await postJson(proxyUrl, { ...(requestPayload || {}), apiKey }, directHeaders);
     } catch (proxyErr) {
       const proxyMessage =
         proxyErr?.message || proxyErr?.response?.data?.error?.message || 'Proxy request failed.';
@@ -179,7 +205,7 @@ async function fetchWithAuth(endpointKey, payload, kind, handle, platform) {
   let lastNetworkError = null;
   for (const directUrl of buildDirectUrls(endpointConfig.apiPath)) {
     try {
-      data = await postJson(directUrl, payload, directHeaders);
+      data = await postJson(directUrl, requestPayload, directHeaders);
       break;
     } catch (err) {
       if (!isLikelyNetworkError(err)) {

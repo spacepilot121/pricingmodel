@@ -84,6 +84,7 @@ type InfluencersTestResponse = { ok: boolean; message: string };
 async function runInfluencersValidation(
   url: string,
   body: Record<string, any>,
+  apiKey: string,
   headers: Record<string, string> = {}
 ): Promise<InfluencersTestResponse> {
   const res = await fetch(url, {
@@ -91,6 +92,9 @@ async function runInfluencersValidation(
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'x-api-key': apiKey,
+      'api-key': apiKey,
       ...headers
     },
     body: JSON.stringify(body)
@@ -122,11 +126,16 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
     return { ok: false, message: 'Missing Influencers.club API key' };
   }
 
-  const payload = { handle: 'healthcheck', platform: 'YouTube', limit: 1 };
+  const payload = {
+    platform: 'youtube',
+    paging: { limit: 1, page: 1 },
+    sort: { sort_by: 'relevancy', sort_order: 'desc' },
+    filters: { ai_search: 'healthcheck', exclude_role_based_emails: false, exclude_previous: false }
+  };
 
   for (const endpoint of INFLUENCERS_CLUB_PROFILE_ENDPOINTS) {
     try {
-      return await runInfluencersValidation(endpoint, payload, { Authorization: `Bearer ${apiKey}` });
+      return await runInfluencersValidation(endpoint, payload, apiKey);
     } catch (err: any) {
       if (!isNetworkError(err)) {
         return { ok: false, message: err?.message || 'Influencers.club validation failed' };
@@ -136,7 +145,7 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
 
   const proxyUrl = `${getApiBase() || ''}/api/influencers-club/profile`;
   try {
-    return await runInfluencersValidation(proxyUrl, { ...payload, apiKey }, { Authorization: `Bearer ${apiKey}` });
+    return await runInfluencersValidation(proxyUrl, { ...payload, apiKey }, apiKey);
   } catch (proxyErr: any) {
     const proxyMessage = proxyErr?.message || 'Proxy validation failed.';
     return {
