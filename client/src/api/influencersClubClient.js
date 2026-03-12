@@ -5,12 +5,12 @@ import { getApiBase } from './backendConfig';
 const PRIMARY_BASE_URL = 'https://api-dashboard.influencers.club/public/v1';
 const LEGACY_BASE_URL = 'https://api.influencers.club/v1';
 const DISCOVERY_PATH = '/discovery/';
-const CONTENT_DETAILS_PATH = '/creators/content/details/';
+const CONTENT_POSTS_PATH = '/creators/content/posts/';
 const CACHE_KEY = 'influencersClub_cache_v1';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const ENDPOINTS = {
   profile: { apiPath: DISCOVERY_PATH, proxyPath: 'discovery' },
-  posts: { apiPath: CONTENT_DETAILS_PATH, proxyPath: 'content' }
+  posts: { apiPath: CONTENT_POSTS_PATH, proxyPath: 'posts' }
 };
 
 function normalizePlatform(platform) {
@@ -21,7 +21,7 @@ function buildDiscoveryPayload(handle, platform, limit = 1) {
   const query = String(handle || '').trim();
   return {
     platform: normalizePlatform(platform),
-    paging: { limit, page: 1 },
+    paging: { limit, page: 0 },
     sort: { sort_by: 'relevancy', sort_order: 'desc' },
     filters: {
       ai_search: query,
@@ -30,30 +30,6 @@ function buildDiscoveryPayload(handle, platform, limit = 1) {
       exclude_previous: false
     }
   };
-}
-
-function extractFirstCreatorRecord(data) {
-  if (!data || typeof data !== 'object') return null;
-  const result = data.result;
-  if (Array.isArray(result)) return result[0] || null;
-  if (result && typeof result === 'object') {
-    const first = Object.values(result).find(Boolean);
-    return first && typeof first === 'object' ? first : null;
-  }
-  return null;
-}
-
-function extractPostId(record) {
-  if (!record || typeof record !== 'object') return null;
-  const candidates = [
-    record.post_id,
-    record.latest_post_id,
-    record.last_post_id,
-    record.video_id,
-    record.content_id
-  ];
-  const found = candidates.find(Boolean);
-  return found ? String(found) : null;
 }
 
 function getApiKey() {
@@ -129,7 +105,7 @@ function asDocsDiscoveryPayload(payload) {
   const query = String(source.handle || source.ai_search || '').trim();
   return {
     platform: normalizePlatform(source.platform || 'youtube'),
-    paging: { limit: Number(source.limit) || 1, page: 1 },
+    paging: { limit: Number(source.limit) || 1, page: 0 },
     sort: { sort_by: 'relevancy', sort_order: 'desc' },
     filters: {
       ai_search: query,
@@ -141,6 +117,12 @@ function asDocsDiscoveryPayload(payload) {
 
 function isLikelyNetworkError(err) {
   return err?.message === 'Failed to fetch' || err?.name === 'TypeError' || !err?.status;
+}
+
+function shouldFallbackToProxy(err) {
+  const status = Number(err?.status || 0);
+  if (isLikelyNetworkError(err)) return true;
+  return status === 404 || status === 405;
 }
 
 async function postJson(url, payload, headers = {}) {
@@ -202,21 +184,21 @@ async function fetchWithAuth(endpointKey, payload, kind, handle, platform) {
   };
 
   let data;
-  let lastNetworkError = null;
+  let lastDirectError = null;
   for (const directUrl of buildDirectUrls(endpointConfig.apiPath)) {
     try {
       data = await postJson(directUrl, requestPayload, directHeaders);
       break;
     } catch (err) {
-      if (!isLikelyNetworkError(err)) {
+      lastDirectError = err;
+      if (!shouldFallbackToProxy(err)) {
         throw err;
       }
-      lastNetworkError = err;
     }
   }
 
   if (!data) {
-    data = await tryProxy(lastNetworkError);
+    data = await tryProxy(lastDirectError);
   }
 
   setCached(kind, handle, platform, data);
@@ -229,19 +211,15 @@ export async function fetchCreatorProfile(handle, platform) {
 }
 
 export async function fetchRecentPosts(handle, platform) {
-  const profileResponse = await fetchCreatorProfile(handle, platform);
-  const record = extractFirstCreatorRecord(profileResponse);
-  const postId = extractPostId(record);
-  if (!postId) return [];
-
   const payload = {
     platform: normalizePlatform(platform),
-    content_type: 'comments',
-    post_id: postId
+    handle: String(handle || '').trim(),
+    count: 12,
+    pagination_token: ''
   };
 
-  const data = await fetchWithAuth('posts', payload, 'posts', `${handle}:${postId}`, platform);
-  return Array.isArray(data) ? data : data?.result || [];
+  const data = await fetchWithAuth('posts', payload, 'posts', handle, platform);
+  return Array.isArray(data?.result?.items) ? data.result.items : [];
 }
 
 export function clearInfluencersClubCache() {
