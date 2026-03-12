@@ -4,6 +4,7 @@ const router = express.Router();
 const BASE_URL = process.env.INFLUENCERS_CLUB_BASE_URL || 'https://api-dashboard.influencers.club';
 const API_PREFIX = process.env.INFLUENCERS_CLUB_API_PREFIX || '/public/v1';
 const DISCOVERY_PATH = '/discovery/';
+const CONTENT_POSTS_PATH = '/creators/content/posts/';
 const CONTENT_DETAILS_PATH = '/creators/content/details/';
 function normalizeEmails(values) {
     const emails = new Set();
@@ -105,10 +106,10 @@ function registerRoute(localPath, targetPath, logLabel) {
     });
 }
 registerRoute('/discovery', DISCOVERY_PATH, 'discovery');
+registerRoute('/posts', CONTENT_POSTS_PATH, 'posts');
 registerRoute('/content', CONTENT_DETAILS_PATH, 'content details');
 // Backwards compatibility with older client paths
 registerRoute('/profile', DISCOVERY_PATH, 'profile');
-registerRoute('/posts', CONTENT_DETAILS_PATH, 'posts');
 router.post('/email', async (req, res) => {
     const { channelUrl, platform = 'youtube', apiKey: apiKeyFromBody } = req.body || {};
     if (!channelUrl || typeof channelUrl !== 'string') {
