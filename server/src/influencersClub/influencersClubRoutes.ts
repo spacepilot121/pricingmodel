@@ -66,6 +66,15 @@ function extractBearerToken(authHeader?: string | null) {
   return match?.[1]?.trim() || null;
 }
 
+function buildAuthHeaders(apiKey: string) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    'x-api-key': apiKey,
+    'api-key': apiKey
+  };
+}
+
 async function forwardRequest(path: string, payload: ProxyPayload, authHeader?: string | null) {
   const apiKey = payload.apiKey || extractBearerToken(authHeader) || process.env.INFLUENCERS_CLUB_API_KEY;
   if (!apiKey) {
@@ -82,10 +91,7 @@ async function forwardRequest(path: string, payload: ProxyPayload, authHeader?: 
       `${base}${prefix}${path}`,
       forwardPayload,
       {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
-        }
+        headers: buildAuthHeaders(apiKey)
       }
     );
     return response.data;
@@ -149,10 +155,7 @@ router.post('/email', async (req, res) => {
       `${base}${prefix}${DISCOVERY_PATH}`,
       payload,
       {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`
-        }
+        headers: buildAuthHeaders(apiKey)
       }
     );
 

@@ -171,6 +171,8 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
 
     const headers = {
       Authorization: `Bearer ${trimmedKey}`,
+      'x-api-key': trimmedKey,
+      'api-key': trimmedKey,
       'Content-Type': 'application/json',
       Accept: 'application/json'
     };

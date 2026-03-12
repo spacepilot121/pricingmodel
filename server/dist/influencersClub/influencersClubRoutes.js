@@ -59,6 +59,14 @@ function extractBearerToken(authHeader) {
     const match = authHeader.match(/^Bearer\s+(.+)/i);
     return match?.[1]?.trim() || null;
 }
+function buildAuthHeaders(apiKey) {
+    return {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'x-api-key': apiKey,
+        'api-key': apiKey
+    };
+}
 async function forwardRequest(path, payload, authHeader) {
     const apiKey = payload.apiKey || extractBearerToken(authHeader) || process.env.INFLUENCERS_CLUB_API_KEY;
     if (!apiKey) {
@@ -71,10 +79,7 @@ async function forwardRequest(path, payload, authHeader) {
         const prefix = API_PREFIX.replace(/\/+$/, '');
         const { apiKey: _omitApiKey, ...forwardPayload } = payload;
         const response = await axios.post(`${base}${prefix}${path}`, forwardPayload, {
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`
-            }
+            headers: buildAuthHeaders(apiKey)
         });
         return response.data;
     }
@@ -129,10 +134,7 @@ router.post('/email', async (req, res) => {
         const base = BASE_URL.replace(/\/+$/, '');
         const prefix = API_PREFIX.replace(/\/+$/, '');
         const response = await axios.post(`${base}${prefix}${DISCOVERY_PATH}`, payload, {
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`
-            }
+            headers: buildAuthHeaders(apiKey)
         });
         const emails = normalizeEmails(response.data?.result ?? response.data);
         res.json({ email: emails[0] || null, emails });
