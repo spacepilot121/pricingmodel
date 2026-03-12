@@ -87,6 +87,12 @@ function isLikelyNetworkError(err: any) {
   return err?.message === 'Failed to fetch' || err?.name === 'TypeError' || !err?.status;
 }
 
+function shouldFallbackToProxy(err: any) {
+  const status = Number(err?.status || 0);
+  if (isLikelyNetworkError(err)) return true;
+  return status === 404 || status === 405;
+}
+
 function buildProxyUrl(path: string) {
   const base = getApiBase() || '';
   return `${base}/api/influencers-club/${path}`;
@@ -178,7 +184,7 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
     };
     const directTargets = [endpointMeta.url, endpointMeta.legacyUrl].filter(Boolean);
     const proxyTarget = buildProxyUrl(endpointMeta.proxyPath);
-    let lastNetworkError: Error | null = null;
+    let lastDirectError: Error | null = null;
 
     setIsSending(true);
     try {
@@ -188,15 +194,15 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
           setResponse(formatted);
           return;
         } catch (err: any) {
-          if (!isLikelyNetworkError(err)) {
+          lastDirectError = err;
+          if (!shouldFallbackToProxy(err)) {
             throw err;
           }
-          lastNetworkError = err;
         }
       }
 
       if (!proxyTarget) {
-        throw lastNetworkError || new Error('Request failed. Check your connection and try again.');
+        throw lastDirectError || new Error('Request failed. Check your connection and try again.');
       }
 
       const proxied = await postJsonAndFormat(
@@ -208,7 +214,7 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
     } catch (err: any) {
       const proxyMessage = err?.message || 'Proxy request failed.';
       const directMessage =
-        lastNetworkError?.message || (!proxyTarget ? proxyMessage : 'Failed to reach Influencers.club.');
+        lastDirectError?.message || (!proxyTarget ? proxyMessage : 'Failed to reach Influencers.club.');
       const combined = [
         `Direct request: ${directMessage}`,
         proxyTarget ? `Proxy: ${proxyMessage}` : null,

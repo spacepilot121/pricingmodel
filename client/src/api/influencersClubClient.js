@@ -119,6 +119,12 @@ function isLikelyNetworkError(err) {
   return err?.message === 'Failed to fetch' || err?.name === 'TypeError' || !err?.status;
 }
 
+function shouldFallbackToProxy(err) {
+  const status = Number(err?.status || 0);
+  if (isLikelyNetworkError(err)) return true;
+  return status === 404 || status === 405;
+}
+
 async function postJson(url, payload, headers = {}) {
   const res = await fetch(url, {
     method: 'POST',
@@ -178,21 +184,21 @@ async function fetchWithAuth(endpointKey, payload, kind, handle, platform) {
   };
 
   let data;
-  let lastNetworkError = null;
+  let lastDirectError = null;
   for (const directUrl of buildDirectUrls(endpointConfig.apiPath)) {
     try {
       data = await postJson(directUrl, requestPayload, directHeaders);
       break;
     } catch (err) {
-      if (!isLikelyNetworkError(err)) {
+      lastDirectError = err;
+      if (!shouldFallbackToProxy(err)) {
         throw err;
       }
-      lastNetworkError = err;
     }
   }
 
   if (!data) {
-    data = await tryProxy(lastNetworkError);
+    data = await tryProxy(lastDirectError);
   }
 
   setCached(kind, handle, platform, data);
