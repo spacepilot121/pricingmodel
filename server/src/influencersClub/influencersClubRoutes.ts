@@ -140,7 +140,7 @@ router.post('/email', async (req, res) => {
 
   const payload = {
     platform,
-    paging: { limit: 1, page: 1 },
+    paging: { limit: 1, page: 0 },
     sort: { sort_by: 'relevancy', sort_order: 'desc' },
     filters: {
       channel_url: [channelUrl],

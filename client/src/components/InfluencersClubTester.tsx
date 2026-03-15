@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getApiBase } from '../api/backendConfig';
 
-type EndpointKey = 'discovery' | 'postData';
+type EndpointKey = 'discovery' | 'posts';
 
 type ResponseState = {
   status: number | null;
@@ -23,7 +23,7 @@ const ENDPOINTS: Record<
     legacyUrl: string;
     description: string;
     defaultPayload: Record<string, any>;
-    proxyPath: 'discovery' | 'content';
+    proxyPath: 'discovery' | 'posts';
     docSample?: Record<string, any>;
   }
 > = {
@@ -35,7 +35,7 @@ const ENDPOINTS: Record<
     proxyPath: 'discovery',
     defaultPayload: {
       platform: 'youtube',
-      paging: { limit: 5, page: 1 },
+      paging: { limit: 5, page: 0 },
       sort: { sort_by: 'relevancy', sort_order: 'desc' },
       filters: {
         location: [''],
@@ -46,7 +46,7 @@ const ENDPOINTS: Record<
     },
     docSample: {
       platform: 'youtube',
-      paging: { limit: 5, page: 1 },
+      paging: { limit: 5, page: 0 },
       sort: { sort_by: 'relevancy', sort_order: 'desc' },
       filters: {
         location: [''],
@@ -62,16 +62,17 @@ const ENDPOINTS: Record<
       }
     }
   },
-  postData: {
-    label: 'Post data (/public/v1/creators/content/details/)',
-    url: 'https://api-dashboard.influencers.club/public/v1/creators/content/details/',
-    legacyUrl: 'https://api.influencers.club/v1/creators/content/details/',
-    description: 'POST only. Provide platform, content_type, and post_id.',
-    proxyPath: 'content',
+  posts: {
+    label: 'Posts (/public/v1/creators/content/posts/)',
+    url: 'https://api-dashboard.influencers.club/public/v1/creators/content/posts/',
+    legacyUrl: 'https://api.influencers.club/v1/creators/content/posts/',
+    description: 'POST only. Provide platform, handle, count, and pagination_token.',
+    proxyPath: 'posts',
     defaultPayload: {
       platform: 'youtube',
-      content_type: 'comments',
-      post_id: 'UCwh2SF7McSUf1GVFVk0nP8w'
+      handle: 'MrBeast',
+      count: 12,
+      pagination_token: ''
     }
   }
 };
@@ -117,19 +118,29 @@ async function postJsonAndFormat(
     }
   })();
 
-  return {
+  const formatted = {
     status: res.status,
     ok: res.ok,
     body: formatBodyPreview(prettyBody),
     endpoint: url
   };
+
+  if (!res.ok) {
+    const error = new Error(`Request failed with ${res.status}`);
+    (error as any).status = res.status;
+    (error as any).response = formatted;
+    (error as any).body = formatted.body;
+    throw error;
+  }
+
+  return formatted;
 }
 
 export default function InfluencersClubTester({ apiKey, onApiKeyChange }: InfluencersClubTesterProps) {
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointKey>('discovery');
   const [payloadTextByEndpoint, setPayloadTextByEndpoint] = useState<Record<EndpointKey, string>>(() => ({
     discovery: JSON.stringify(ENDPOINTS.discovery.defaultPayload, null, 2),
-    postData: JSON.stringify(ENDPOINTS.postData.defaultPayload, null, 2)
+    posts: JSON.stringify(ENDPOINTS.posts.defaultPayload, null, 2)
   }));
   const [isSending, setIsSending] = useState(false);
   const [response, setResponse] = useState<ResponseState | null>(null);
@@ -163,7 +174,7 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
 
     const trimmedKey = apiKey?.trim();
     if (!trimmedKey) {
-      setError('Add your Influencers.club API key above (case-sensitive “Bearer <token>” format).');
+      setError('Add your Influencers.club API key above (raw key only; Bearer is added automatically).');
       return;
     }
 
@@ -184,7 +195,7 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
     };
     const directTargets = [endpointMeta.url, endpointMeta.legacyUrl].filter(Boolean);
     const proxyTarget = buildProxyUrl(endpointMeta.proxyPath);
-    let lastDirectError: Error | null = null;
+    let lastDirectError: any = null;
 
     setIsSending(true);
     try {
@@ -212,6 +223,20 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
       );
       setResponse(proxied);
     } catch (err: any) {
+      const directResponseBody = lastDirectError?.response?.body || lastDirectError?.body;
+      const proxyResponseBody = err?.response?.body || err?.body;
+      if (proxyResponseBody || directResponseBody) {
+        setResponse(
+          err?.response ||
+            lastDirectError?.response || {
+              status: err?.status || lastDirectError?.status || null,
+              ok: false,
+              body: formatBodyPreview(proxyResponseBody || directResponseBody),
+              endpoint: err?.response?.endpoint || lastDirectError?.response?.endpoint || proxyTarget || endpointMeta.url
+            }
+        );
+      }
+
       const proxyMessage = err?.message || 'Proxy request failed.';
       const directMessage =
         lastDirectError?.message || (!proxyTarget ? proxyMessage : 'Failed to reach Influencers.club.');
@@ -256,7 +281,7 @@ export default function InfluencersClubTester({ apiKey, onApiKeyChange }: Influe
             onChange={(e) => onApiKeyChange(e.target.value)}
           />
           <span className="text-muted" style={{ display: 'block', marginTop: 4 }}>
-            Pasted verbatim into <code>Authorization: Bearer &lt;your-key&gt;</code>; no prefixes are added or removed.
+            Paste the raw key only; the tester automatically sends <code>Authorization: Bearer &lt;your-key&gt;</code>.
           </span>
         </label>
 
