@@ -128,7 +128,7 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
 
   const payload = {
     platform: 'youtube',
-    paging: { limit: 1, page: 1 },
+    paging: { limit: 1, page: 0 },
     sort: { sort_by: 'relevancy', sort_order: 'desc' },
     filters: { ai_search: 'healthcheck', exclude_role_based_emails: false, exclude_previous: false }
   };
@@ -143,14 +143,14 @@ async function testInfluencersClubKey(keys: ApiKeys): Promise<ServiceTestResult>
     }
   }
 
-  const proxyUrl = `${getApiBase() || ''}/api/influencers-club/profile`;
+  const proxyUrl = `${getApiBase() || ''}/api/influencers-club/discovery`;
   try {
     return await runInfluencersValidation(proxyUrl, { ...payload, apiKey }, apiKey);
   } catch (proxyErr: any) {
     const proxyMessage = proxyErr?.message || 'Proxy validation failed.';
     return {
       ok: false,
-      message: `Influencers.club API: Failed to fetch. Proxy: ${proxyMessage}. If you are running from a static host, start the backend server and ensure /api/influencers-club/profile is reachable.`
+      message: `Influencers.club API: Failed to fetch. Proxy: ${proxyMessage}. If you are running from a static host, start the backend server and ensure /api/influencers-club/discovery is reachable.`
     };
   }
 }
