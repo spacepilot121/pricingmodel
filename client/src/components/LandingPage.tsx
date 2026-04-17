@@ -13,6 +13,9 @@ export default function LandingPage() {
           <Link to="/brand-safety" className="button secondary">
             Brand Safety Tool
           </Link>
+          <Link to="/margin-calculator" className="button secondary">
+            Margin Calculator
+          </Link>
         </div>
       </div>
     </div>

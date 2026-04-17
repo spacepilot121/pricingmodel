@@ -2,6 +2,7 @@ import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-ro
 import CalculatorTab from './components/CalculatorTab';
 import BrandSafetyTab from './components/BrandSafetyTab';
 import SettingsTab from './components/SettingsTab';
+import MarginCalculatorTab from './components/MarginCalculatorTab';
 import LandingPage from './components/LandingPage';
 import './app.css';
 
@@ -11,6 +12,7 @@ function NavTabs() {
     { path: '/', label: 'Home' },
     { path: '/campaigns', label: 'Calculator' },
     { path: '/brand-safety', label: 'Brand Safety' },
+    { path: '/margin-calculator', label: 'Margin Calculator' },
     { path: '/settings', label: 'Settings' }
   ];
   return (
@@ -38,6 +40,7 @@ export default function App() {
           <Route index element={<LandingPage />} />
           <Route path="/campaigns" element={<CalculatorTab />} />
           <Route path="/brand-safety" element={<BrandSafetyTab />} />
+          <Route path="/margin-calculator" element={<MarginCalculatorTab />} />
           <Route path="/settings" element={<SettingsTab />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
