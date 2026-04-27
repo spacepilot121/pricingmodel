@@ -1220,6 +1220,18 @@
             <input type="checkbox" id="detail-niche" />
             <span>Niche Creators Needed (adds 20%)</span>
           </label>
+          <label class="details-checkbox" for="detail-paid-media-1m">
+            <input type="checkbox" id="detail-paid-media-1m" />
+            <span>1 Month Paid Media (adds 25%)</span>
+          </label>
+          <label class="details-checkbox" for="detail-paid-media-3m">
+            <input type="checkbox" id="detail-paid-media-3m" />
+            <span>3 Months Paid Media (adds 60%)</span>
+          </label>
+          <label class="details-checkbox" for="detail-paid-media-6m">
+            <input type="checkbox" id="detail-paid-media-6m" />
+            <span>6 Months Paid Media (adds 100%)</span>
+          </label>
         </div>
       </section>
 
@@ -1583,8 +1595,8 @@
       Mega: 0.3,
       Macro: 0.3,
       HMid: 0.3,
-      LMid: 0.1,
-      Micro: 0,
+      LMid: 0.25,
+      Micro: 0.25,
     };
 
     // Each deliverable stores a base macro view count and creator CPV so we can derive
@@ -1882,6 +1894,9 @@
         rush: false,
         travelNeeded: false,
         nicheCreators: false,
+        paidMediaOneMonth: false,
+        paidMediaThreeMonths: false,
+        paidMediaSixMonths: false,
       },
       otherCosts: {
         other: 0,
@@ -2702,6 +2717,9 @@
       const rushInput = document.getElementById('detail-rush');
       const travelInput = document.getElementById('detail-travel');
       const nicheInput = document.getElementById('detail-niche');
+      const paidMediaOneMonthInput = document.getElementById('detail-paid-media-1m');
+      const paidMediaThreeMonthsInput = document.getElementById('detail-paid-media-3m');
+      const paidMediaSixMonthsInput = document.getElementById('detail-paid-media-6m');
 
       if (!brandInput) return;
 
@@ -2759,6 +2777,24 @@
         recalc();
       });
 
+      paidMediaOneMonthInput.addEventListener('change', () => {
+        state.details.paidMediaOneMonth = paidMediaOneMonthInput.checked;
+        saveState();
+        recalc();
+      });
+
+      paidMediaThreeMonthsInput.addEventListener('change', () => {
+        state.details.paidMediaThreeMonths = paidMediaThreeMonthsInput.checked;
+        saveState();
+        recalc();
+      });
+
+      paidMediaSixMonthsInput.addEventListener('change', () => {
+        state.details.paidMediaSixMonths = paidMediaSixMonthsInput.checked;
+        saveState();
+        recalc();
+      });
+
       syncCampaignDetailsInputs();
     }
 
@@ -2788,6 +2824,9 @@
       const rushInput = document.getElementById('detail-rush');
       const travelInput = document.getElementById('detail-travel');
       const nicheInput = document.getElementById('detail-niche');
+      const paidMediaOneMonthInput = document.getElementById('detail-paid-media-1m');
+      const paidMediaThreeMonthsInput = document.getElementById('detail-paid-media-3m');
+      const paidMediaSixMonthsInput = document.getElementById('detail-paid-media-6m');
 
       if (!brandInput) return;
 
@@ -2811,6 +2850,9 @@
       rushInput.checked = !!details.rush;
       travelInput.checked = !!details.travelNeeded;
       nicheInput.checked = !!details.nicheCreators;
+      paidMediaOneMonthInput.checked = !!details.paidMediaOneMonth;
+      paidMediaThreeMonthsInput.checked = !!details.paidMediaThreeMonths;
+      paidMediaSixMonthsInput.checked = !!details.paidMediaSixMonths;
       updateTravelControls();
     }
 
@@ -3102,7 +3144,7 @@
       // Mirrors EMPTY workbook calc: base rate * qty * whitelist multiplier.
       // Also enforces a minimum $1,000 COGS floor per piece of content.
       const whitelistMultiplier = line.whitelist
-        ? 1 + (WHITELIST_UPLIFT_PCT[line.size] ?? 0.2)
+        ? 1 + Math.max(WHITELIST_UPLIFT_PCT[line.size] ?? 0.25, 0.25)
         : 1;
       const cogsPerCreator = perCreatorBase * whitelistMultiplier;
       line.cogsPerCreator = cogsPerCreator;
@@ -3383,6 +3425,15 @@
       }
       if (details.nicheCreators) {
         feeMultiplier *= 1.2;
+      }
+      if (details.paidMediaOneMonth) {
+        feeMultiplier *= 1.25;
+      }
+      if (details.paidMediaThreeMonths) {
+        feeMultiplier *= 1.6;
+      }
+      if (details.paidMediaSixMonths) {
+        feeMultiplier *= 2;
       }
       return {
         feeMultiplier,
