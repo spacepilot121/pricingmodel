@@ -3462,8 +3462,9 @@
       const sizeContentPieces = {};
       contentLines.forEach(line => {
         const lineTotal = line.total || 0;
+        const adjusted = lineTotal * modifiers.feeMultiplier;
+        line.cogsTotal = Number.isFinite(adjusted) ? adjusted : lineTotal;
         if (lineTotal > 0) {
-          const adjusted = lineTotal * modifiers.feeMultiplier;
           const languageKey = line.language || 'Unspecified';
           const verticalKey = line.vertical || 'Unspecified';
           platformBudget[line.platform] = (platformBudget[line.platform] || 0) + adjusted;
@@ -4201,7 +4202,8 @@
         }
         const totalCell = row.children?.[11];
         if (totalCell) {
-          totalCell.textContent = formatCurrency(line.total);
+          const totalCogs = Number.isFinite(line.cogsTotal) ? line.cogsTotal : line.total;
+          totalCell.textContent = formatCurrency(totalCogs || 0);
         }
       });
     }
