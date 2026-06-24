@@ -2067,17 +2067,17 @@
         ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
         : 0;
       const feeAdjustedContent = contentSubtotal * (modifiers.feeMultiplier ?? 1);
-      const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
-      const totalCOGs = baseCOGs;
-      const totalCostWithExtras = baseCOGs + paidBudget + extraProjectCosts;
-      const marginGoalPct = (normalized.marginGoal || 0) / 100;
-      const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
-      const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
-      const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
-      const influencerCogs = contentSubtotal;
-      const influencerMargin = Math.max(influencerCogs * marginGoalPct, 0);
-      const influencerClientCost = influencerCogs + influencerMargin;
-      const grossMargin = totalPrice - totalCostWithExtras;
+      const influencerCogs = feeAdjustedContent;
+      const totalCOGs = influencerCogs + otherTotal + travelCost + extraProjectCosts;
+      const totalCostWithPaidMedia = totalCOGs + paidBudget;
+      const marginGoalPct = Math.min(Math.max(Number(normalized.marginGoal || 0), 0), 99.99) / 100;
+      const influencerClientRevenue = marginGoalPct >= 1
+        ? influencerCogs
+        : influencerCogs / (1 - marginGoalPct);
+      const influencerMargin = Math.max(influencerClientRevenue - influencerCogs, 0);
+      const influencerClientCost = totalCOGs + influencerMargin;
+      const totalPrice = influencerClientCost + paidBudget;
+      const grossMargin = totalPrice - totalCostWithPaidMedia;
       const totalViews = organicViewsAdjusted + paidViews;
       const totalCreators = lines.reduce((acc, line) => acc + (line.creators || 0), 0);
       const totalContentPieces = lines.reduce(
@@ -2373,13 +2373,16 @@
           ? (normalized.travel?.creators || 0) * (normalized.travel?.perCreator || 0)
           : 0;
         const paidBudget = Number(normalized.paidMedia?.budget || 0);
-        const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
-        const totalCOGs = baseCOGs;
-        const marginGoalPct = Math.max(0, Number(normalized.marginGoal || 0)) / 100;
-        const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
-        const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
-        const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
-        const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
+        const influencerCogs = feeAdjustedContent;
+        const totalCOGs = influencerCogs + otherTotal + travelCost + extraProjectCosts;
+        const marginGoalPct = Math.min(Math.max(Number(normalized.marginGoal || 0), 0), 99.99) / 100;
+        const influencerClientRevenue = marginGoalPct >= 1
+          ? influencerCogs
+          : influencerCogs / (1 - marginGoalPct);
+        const influencerMargin = Math.max(influencerClientRevenue - influencerCogs, 0);
+        const influencerClientCost = totalCOGs + influencerMargin;
+        const priceMultiplier = influencerCogs > 0 ? influencerClientRevenue / influencerCogs : 1;
+        const totalPrice = influencerClientCost + paidBudget;
         const paidViews = calculatePaidViews(normalized.paidMedia);
 
         const detailedLines = processedLines.map(line => {
@@ -2470,7 +2473,7 @@
         });
 
         if (otherTotal > 0) {
-          const otherClientTotal = otherTotal * priceMultiplier;
+          const otherClientTotal = otherTotal;
           rows.push([
             campaignName,
             brand,
@@ -2543,7 +2546,7 @@
         }
 
         if (travelCost > 0) {
-          const travelClientTotal = travelCost * priceMultiplier;
+          const travelClientTotal = travelCost;
           rows.push([
             campaignName,
             brand,
@@ -3513,15 +3516,18 @@
 
       const paidBudget = state.paidMedia.budget || 0;
       const paidViews = calculatePaidViews(state.paidMedia);
-      const baseCOGs = feeAdjustedContent + otherTotal + travelCost;
-      const totalCOGs = baseCOGs;
-      const totalCostWithExtras = baseCOGs + paidBudget + extraProjectCosts;
-      const marginGoalPct = (state.marginGoal || 0) / 100;
-      const markupMultiplier = marginGoalPct >= 1 ? 1 : 1 / (1 - marginGoalPct);
-      const totalPriceExcludingPaid = baseCOGs * markupMultiplier;
-      const totalPrice = totalPriceExcludingPaid + paidBudget + extraProjectCosts;
-      const grossMargin = totalPrice - totalCostWithExtras;
-      const priceMultiplier = baseCOGs > 0 ? totalPriceExcludingPaid / baseCOGs : 1;
+      const influencerCogs = feeAdjustedContent;
+      const totalCOGs = influencerCogs + otherTotal + travelCost + extraProjectCosts;
+      const totalCostWithPaidMedia = totalCOGs + paidBudget;
+      const marginGoalPct = Math.min(Math.max(Number(state.marginGoal || 0), 0), 99.99) / 100;
+      const influencerClientRevenue = marginGoalPct >= 1
+        ? influencerCogs
+        : influencerCogs / (1 - marginGoalPct);
+      const influencerMargin = Math.max(influencerClientRevenue - influencerCogs, 0);
+      const influencerClientCost = totalCOGs + influencerMargin;
+      const totalPrice = influencerClientCost + paidBudget;
+      const grossMargin = totalPrice - totalCostWithPaidMedia;
+      const priceMultiplier = influencerCogs > 0 ? influencerClientRevenue / influencerCogs : 1;
       contentLines.forEach(line => {
         const baseCpv = Number.isFinite(line.cpvWithWhitelist) ? line.cpvWithWhitelist : line.unitRate || 0;
         const cogsCpv = baseCpv * (modifiers.feeMultiplier ?? 1);
@@ -3529,9 +3535,6 @@
         const effectiveCpv = line.cogsCpv * priceMultiplier;
         line.effectiveCpv = Number.isFinite(effectiveCpv) ? effectiveCpv : 0;
       });
-      const influencerCogs = contentSubtotal;
-      const influencerMargin = Math.max(influencerCogs * marginGoalPct, 0);
-      const influencerClientCost = influencerCogs + influencerMargin;
       const paidMediaWithMargin = paidBudget;
       const preciseProjectCostsWithMargin = preciseProjectWithMargin;
       const thirdPartyProjectCostsWithMargin = thirdPartyProjectWithMargin;
