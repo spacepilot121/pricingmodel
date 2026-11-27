@@ -61,14 +61,15 @@ export function computeCommercialMomentumScore(signals) {
   const semantic = semanticToneScore(signals.semanticSummary);
   const growth = growthMomentumScore(signals.followerGrowthRate, signals.engagementTrend);
 
+  const hasGrowth = signals.followerGrowthRate != null || signals.engagementTrend != null;
   const score =
     recency * 30 +
     cadence * 20 +
     engagement * 20 +
     semantic * 15 +
-    growth * 15;
+    (hasGrowth ? growth * 15 : 0);
 
-  return clamp(Math.round(score), 0, 100);
+  return clamp(Math.round(score * 100 / (hasGrowth ? 100 : 85)), 0, 100);
 }
 
 export function mapRecommendation(score) {
@@ -97,3 +98,4 @@ export function describeDrivers(signals) {
   }
   return drivers;
 }
+

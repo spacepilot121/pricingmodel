@@ -30,11 +30,7 @@ function buildQueryStrings(creator: Creator): string[] {
   const base = identityClause ? `(${identityClause})` : `"${fallbackIdentity}"`;
   const identityAnchors = boosters ? `${base} (${boosters})` : base;
 
-  const termClause = Array.from(new Set(SEARCH_QUERY_BLOCKS.flat()))
-    .map((term) => `"${term}"`)
-    .join(' OR ');
-
-  return [`${identityAnchors} (${termClause})`.trim()];
+  return SEARCH_QUERY_BLOCKS.map(block => base + ' (' + block.map(term => '"' + term + '"').join(' OR ') + ')');
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -54,7 +50,7 @@ async function searchOnce(query: string, keys: ApiKeys): Promise<BrandSafetyEvid
     key: keys.googleCseApiKey,
     cx: keys.googleCseCx,
     q: query,
-    num: '5'
+    num: '10'
   });
 
   const res = await fetch(`${GOOGLE_SEARCH_ENDPOINT}?${params.toString()}`);
@@ -113,9 +109,11 @@ export async function performSmartSearch(
     throw new Error(`${message}. Check your Google API key and CX configuration.`);
   }
 
+  if (errors.length) throw new Error('Search was incomplete: ' + errors[0] + '. Please retry before using a final risk score.');
   const unique = collected.filter(
     (item, idx, arr) => arr.findIndex((other) => other.url === item.url) === idx
   );
 
   return unique.slice(0, MAX_RESULTS);
 }
+

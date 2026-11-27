@@ -66,7 +66,7 @@ export default function SettingsTab() {
       <h2>Settings</h2>
       <p className="text-muted">
         Brand Safety checks now run fully in the browser using Google Programmable Search and OpenAI. Keys are stored in
-        localStorage and never sent to a backend.
+        localStorage using the existing save format. If you configure your own relay, the Influencers Club key is sent through that relay for each request.
       </p>
 
       <div className="settings-form">
@@ -152,7 +152,7 @@ export default function SettingsTab() {
             <div>
               <h3>API endpoint</h3>
               <p className="text-muted">
-                Override the backend base URL used for <code>/api/*</code> calls (brand safety &amp; Influencers.club proxy).
+                For GitHub Pages, paste your hosted Influencers Club relay URL here if direct browser requests are blocked. GitHub Pages cannot host the relay itself.
               </p>
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function SettingsTab() {
               <li>Paste the key above, then use “Test API Keys” to verify connectivity.</li>
             </ol>
             <p className="text-muted" style={{ marginBottom: 0 }}>
-              The test performs a lightweight profile lookup. If it fails, double-check the key,
+              The key test checks your account connection. The separate profile checker consumes enrichment credits. If it fails, double-check the key,
               confirm your plan includes API access, or retry later if you recently generated the key.
             </p>
           </details>
@@ -251,3 +251,4 @@ export default function SettingsTab() {
     </div>
   );
 }
+

@@ -1,0 +1,9 @@
+name = "precisify-influencers-relay"
+main = "worker.mjs"
+compatibility_date = "2026-11-27"
+
+[vars]
+ALLOWED_ORIGINS = "https://spacepilot121.github.io"
+
+[observability]
+enabled = false

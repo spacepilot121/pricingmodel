@@ -6,6 +6,7 @@ const router = express.Router();
 const BASE_URL = process.env.INFLUENCERS_CLUB_BASE_URL || 'https://api-dashboard.influencers.club';
 const API_PREFIX = process.env.INFLUENCERS_CLUB_API_PREFIX || '/public/v1';
 const DISCOVERY_PATH = '/discovery/';
+const PROFILE_PATH = '/creators/enrich/handle/profile/';
 const CONTENT_POSTS_PATH = '/creators/content/posts/';
 const CONTENT_DETAILS_PATH = '/creators/content/details/';
 
@@ -71,13 +72,12 @@ function buildAuthHeaders(apiKey: string) {
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${apiKey}`,
-    'x-api-key': apiKey,
-    'api-key': apiKey
+
   };
 }
 
 async function forwardRequest(path: string, payload: ProxyPayload, authHeader?: string | null) {
-  const apiKey = payload.apiKey || extractBearerToken(authHeader) || process.env.INFLUENCERS_CLUB_API_KEY;
+  const apiKey = payload.apiKey || extractBearerToken(authHeader);
   if (!apiKey) {
     const error = new Error('Influencers.club API key is required.');
     (error as any).status = 400;
@@ -92,7 +92,7 @@ async function forwardRequest(path: string, payload: ProxyPayload, authHeader?: 
       `${base}${prefix}${path}`,
       forwardPayload,
       {
-        headers: buildAuthHeaders(apiKey)
+        headers: buildAuthHeaders(apiKey), timeout: 25000, maxRedirects: 0
       }
     );
     return response.data;
@@ -112,7 +112,7 @@ function registerRoute(localPath: string, targetPath: string, logLabel: string) 
       const data = await forwardRequest(targetPath, payload, req.get('Authorization'));
       res.json(data);
     } catch (err: any) {
-      console.error(`Influencers.club ${logLabel} fetch failed`, err);
+      console.error(`Influencers.club ${logLabel} fetch failed`, err?.status);
       res.status(err?.status || 500).json({ error: err?.message || 'Influencers.club request failed' });
     }
   });
@@ -123,7 +123,13 @@ registerRoute('/posts', CONTENT_POSTS_PATH, 'posts');
 registerRoute('/content', CONTENT_DETAILS_PATH, 'content details');
 
 // Backwards compatibility with older client paths
-registerRoute('/profile', DISCOVERY_PATH, 'profile');
+registerRoute('/profile', PROFILE_PATH, 'profile');
+router.post('/credits', async (req, res) => {
+  const key = extractBearerToken(req.get('Authorization'));
+  if (!key) return res.status(401).json({error:'API key required'});
+  try {const response = await axios.get(BASE_URL + API_PREFIX + '/accounts/credits/',{headers:buildAuthHeaders(key),timeout:25000,maxRedirects:0});res.json(response.data);}
+  catch {res.status(502).json({error:'Could not verify Influencers Club account.'});}
+});
 
 router.post('/email', async (req, res) => {
   const { channelUrl, platform = 'youtube', apiKey: apiKeyFromBody } = req.body || {};
@@ -132,7 +138,7 @@ router.post('/email', async (req, res) => {
     return;
   }
 
-  const apiKey = apiKeyFromBody || extractBearerToken(req.get('Authorization')) || process.env.INFLUENCERS_CLUB_API_KEY;
+  const apiKey = apiKeyFromBody || extractBearerToken(req.get('Authorization'));
   if (!apiKey) {
     res.status(400).json({ error: 'Influencers.club API key is required.' });
     return;
@@ -165,9 +171,10 @@ router.post('/email', async (req, res) => {
   } catch (err: any) {
     const status = err?.response?.status || 502;
     const message = err?.response?.data?.error?.message || err?.message || 'Influencers.club request failed';
-    console.error('Influencers.club email lookup failed', err);
+    console.error('Influencers.club email lookup failed', status);
     res.status(status).json({ error: message });
   }
 });
 
 export default router;
+

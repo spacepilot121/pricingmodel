@@ -1,6 +1,6 @@
 import { CommercialMomentumResult } from '../types';
 
-const CACHE_KEY = 'commercialMomentum_cache_v1';
+const CACHE_KEY = 'commercialMomentum_cache_v2';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TTL_DAYS = 7;
 
@@ -56,3 +56,4 @@ export function loadAll() {
   const cache = loadCache();
   return Object.values(cache).map((entry) => entry.data);
 }
+

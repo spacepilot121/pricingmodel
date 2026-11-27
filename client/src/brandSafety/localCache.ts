@@ -1,6 +1,6 @@
 import { BrandSafetyResult } from '../types';
 
-const CACHE_KEY = 'brand_safety_local_cache_v1';
+const CACHE_KEY = 'brand_safety_local_cache_v2';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type CacheEntry = {
@@ -58,3 +58,4 @@ export function lastScannedDate(creatorName: string): Date | null {
   if (!entry) return null;
   return new Date(entry.timestamp);
 }
+

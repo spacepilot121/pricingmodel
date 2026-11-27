@@ -71,6 +71,7 @@ export function calculateRiskContribution(
   recencyWeight: number,
   sourceIndex: number
 ): number {
+  if (classification.stance !== 'Offender') return 0;
   const severityScore = classification.severity * severityWeight(classification.category);
   const recencyScore = recencyWeight * 10;
   const sentimentScore = SENTIMENT_ADJUSTMENT[classification.sentiment];
@@ -86,11 +87,12 @@ export function calculateRiskContribution(
 
 export function deriveRiskLevel(score: number | null): RiskLevel {
   if (score === null || Number.isNaN(score)) return 'unknown';
-  const band = RISK_BANDS.find((b) => score >= b.min && score <= b.max);
+  const band = RISK_BANDS.find((b) => Math.round(score) >= b.min && Math.round(score) <= b.max);
   return band?.band || 'green';
 }
 
 function calculateCompositeScore(evidence: BrandSafetyEvidence[]): number {
+  evidence = evidence.filter(e => e.classification.stance === 'Offender' && e.classification.category !== '');
   if (!evidence.length) return 0;
   const sorted = [...evidence].sort((a, b) => b.riskContribution - a.riskContribution);
   const top = sorted.slice(0, 5);
@@ -101,12 +103,9 @@ function calculateCompositeScore(evidence: BrandSafetyEvidence[]): number {
 
 function computeBaseConfidence(evidence: BrandSafetyEvidence[]): number {
   if (!evidence.length) return 0.1;
-  const offenderEvidence = evidence.filter((e) => e.classification.stance === 'Offender');
-  const severityAvg =
-    offenderEvidence.reduce((acc, e) => acc + e.classification.severity, 0) /
-    Math.max(1, offenderEvidence.length);
-  const density = Math.min(1, evidence.length / 10);
-  return Number((0.4 * density + 0.6 * (severityAvg / 5)).toFixed(2));
+  // Confidence reflects coverage, never the severity of an allegation.
+  const domains = new Set(evidence.map(e => { try { return new URL(e.url).hostname; } catch { return ''; } }).filter(Boolean));
+  return Number(Math.min(0.7, 0.15 + domains.size * 0.1 + evidence.length * 0.02).toFixed(2));
 }
 
 function computeHighSeverityScore(evidence: BrandSafetyEvidence[]): number {
@@ -153,19 +152,17 @@ export function evaluateRiskOutcome(
     return {
       finalScore: Math.max(finalScore, forcedScore),
       riskLevel: 'red',
-      confidence: Math.max(confidence, 0.9)
+      confidence
     };
   }
 
-  if (highSeverity.length >= 2) {
-    return { finalScore: 100, riskLevel: 'red', confidence: 1 };
-  }
+
 
   if (hasRecentHighSeverity(highSeverity)) {
     return {
       finalScore: Math.max(finalScore, 98),
       riskLevel: 'red',
-      confidence: Math.max(confidence, 0.95)
+      confidence
     };
   }
 
@@ -188,3 +185,4 @@ export function enrichEvidenceRisk(
     return { ...item, recency, recencyMonths, riskContribution: contribution };
   });
 }
+
