@@ -51,7 +51,7 @@ const SPONSORED_PHRASES = [
   'pr partner'
 ];
 
-function heuristicallySponsored(caption?: string): boolean | null {
+export function heuristicallySponsored(caption?: string): boolean | null {
   if (!caption) return null;
   const lower = caption.toLowerCase();
   if (/(?:^|\s)#(?:ad|sponsored|partner|gifted|collab)(?=$|[^a-z0-9_])/i.test(lower)) return true;

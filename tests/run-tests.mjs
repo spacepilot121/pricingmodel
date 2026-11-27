@@ -97,6 +97,15 @@ await test('Configured relay is used first and key test uses the same connection
  calls=[];globalThis.fetch=async(url,init)=>{calls.push({url,init});return reply({credits_left:100})};await via.influencersRequest('credits',{},'key',{force:true});assert.equal(calls[0].url,'https://relay.example/api/influencers-club/credits');localStorage.removeItem('api_base_override');
 });
 const commercial=await moduleAt('client/src/commercialMomentum/commercialMomentumEngine.ts','commercial');
+await test('Sponsorship heuristics do not mistake adventure or glad for adverts',()=>{
+ assert.equal(commercial.heuristicallySponsored('#adventure with friends'),null);
+ assert.equal(commercial.heuristicallySponsored('I am glad'),null);
+ assert.equal(commercial.heuristicallySponsored('#ad Paid partnership'),true);
+});
+await test('Platform dates and numeric metrics are normalised without inventing availability',()=>{
+ const posts=commercial.normalisePosts([{pk:'1',taken_at:1700000000,like_count:'34',comment_count:2,view_count:'800'}, {pk:'2',caption:'No metrics supplied'}]);
+ assert.equal(posts[0].likes,34);assert.equal(posts[0].views,800);assert.equal(posts[0].createdAt,'2023-11-14T22:13:20.000Z');assert.equal(posts[1].metricsAvailable,false);
+});
 await test('Nested platform profile fields and contact data are read correctly',()=>{
  const result=commercial.normaliseProfileInsights({result:{email:'hello@example.com',location:'UK',youtube:{username:'alice',subscribers:12000,description:'Test bio'}}},'YouTube');assert.equal(result.subscriberCount,12000);assert.equal(result.emails[0],'hello@example.com');assert.equal(result.description,'Test bio');
 });
@@ -115,6 +124,22 @@ await test('OpenAI batch requires a complete correctly mapped response',async()=
  globalThis.fetch=async()=>reply({choices:[{finish_reason:'stop',message:{content:JSON.stringify({items:[]})}}]});await assert.rejects(()=>nlp.classifyEvidenceBatch([evidence()],{id:'a',name:'Alice',platform:'YouTube'},{openAiApiKey:'key'}),/Incomplete/);
 });
 const worker=(await import('../relay/worker.mjs')).default;
+const engine=await moduleAt('client/src/brandSafety/brandSafetyEngine.ts','engine');
+await test('An unconfirmed creator identity produces unknown risk',async()=>{
+ globalThis.fetch=async(url)=>String(url).includes('googleapis.com') ? reply({items:[{title:'Similar name',snippet:'Unrelated report',link:'https://example.com/different'}]}) : reply({choices:[{finish_reason:'stop',message:{content:JSON.stringify({items:[{id:0,matchesCreator:false}]})}}]});
+ const result=await engine.runBrandSafetyEngine({id:'uncertain',name:'Alice',platform:'YouTube'},{googleCseApiKey:'key',googleCseCx:'cx',openAiApiKey:'key'});
+ assert.equal(result.riskLevel,'unknown');assert.equal(result.finalScore,null);
+});
+await test('Failure in the classification stage cannot become a successful clean scan',async()=>{
+ let openAiCalls=0;
+ globalThis.fetch=async(url)=>{
+  if(String(url).includes('googleapis.com'))return reply({items:[{title:'Alice',snippet:'A report concerning Alice',link:'https://example.com/alice'}]});
+  if(++openAiCalls===1)return reply({choices:[{finish_reason:'stop',message:{content:JSON.stringify({items:[{id:0,matchesCreator:true}]})}}]});
+  return new Response(JSON.stringify({error:{message:'Classification unavailable'}}),{status:400});
+ };
+ await assert.rejects(()=>engine.runBrandSafetyEngine({id:'failed',name:'Alice',platform:'YouTube'},{googleCseApiKey:'key',googleCseCx:'cx',openAiApiKey:'key'}),/Classification unavailable/);
+ assert(!engine.loadBrandSafetyCache().some(r=>r.creatorId==='failed'));
+});
 await test('Relay refuses unknown origins, paths and missing credentials',async()=>{
  assert.equal((await worker.fetch(new Request('https://relay/api/influencers-club/profile',{method:'POST',headers:{Origin:'https://evil.example'}}))).status,403);
  assert.equal((await worker.fetch(new Request('https://relay/not-allowed',{headers:{Origin:'https://spacepilot121.github.io'}}))).status,404);
