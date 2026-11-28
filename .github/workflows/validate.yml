@@ -2,7 +2,7 @@ name: Validate pricing and brand safety
 on:
   pull_request:
   push:
-    branches: [codex/brand-safety-reliability, codex/browser-creator-review]
+    branches: [codex/brand-safety-reliability, codex/browser-creator-review, codex/review-layout-batch]
     paths: ['client/**', 'server/src/**', 'relay/**', 'tests/**', '.github/workflows/validate.yml']
 permissions:
   contents: write
