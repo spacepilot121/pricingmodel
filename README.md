@@ -1,39 +1,35 @@
 # Precisify Influencer Calculator
 
-Campaign pricing, campaign backups, creator reputation checks and Commercial Momentum analysis.
+Campaign pricing and browser based YouTube creator evidence reviews.
 
-## Use the browser app
+## Use the app
 
-Open https://spacepilot121.github.io/pricingmodel/ . The existing landing page redirects into the built application under docs/. Keep using the same browser profile and origin to see existing saved campaigns and API keys.
+Open https://spacepilot121.github.io/pricingmodel/docs/ . The Calculator and Settings use the same browser origin and existing storage. Saved data and keys are local to each PC and browser profile. This update does not move API keys, migrate pricing, change formulas or alter saved campaigns.
+
+## Creator review
+
+Brand Safety now opens a YouTube evidence review with separate reputation, content and commercial outcomes. Influencers Club and hosted relays are not used by this workflow. Old modules and stored analytical data remain available in the repository for compatibility, but are not called by the new screen.
+
+Enter an exact channel URL, handle or channel ID and the campaign criteria. Testing mode is the default: five uploads, at most one optional Google search, one GPT call capped at 1,800 output tokens and a bounded evidence prompt. Standard mode samples twenty uploads, up to three optional searches and caps output at 3,200 tokens. Source text is bounded to 11,000 or 34,000 characters before prompt metadata and schema overhead.
+
+The app resolves channels and reads the uploads playlist directly. It does not use broad YouTube search or automatic retries. A fresh scan normally uses two YouTube list requests. Public metadata and identical assessments are cached for 24 hours. Changing campaign criteria invalidates the assessment cache. Force fresh review bypasses both caches. Actual GPT token usage and provider request counts are shown.
+
+Google public search is optional and uses existing saved credentials. Google has announced Custom Search closure on 1 January 2027. Without it, add source evidence manually; uploads alone do not establish reputation coverage. No replacement search provider or new service key is required to run metadata and supplied evidence reviews.
+
+Source evidence can include article text, creator responses and transcripts. The Read accessible article button fetches only sites permitting direct browser access. Blocked sites, redirects, large pages and unreadable sources require pasted relevant text. No public proxy is used. The YouTube API does not supply arbitrary creator transcripts using only an API key. Audio, visuals, comments and unexamined historical content need human review.
+
+GPT receives only the supplied evidence. Every finding must cite an existing source and a quotation that matches its text. Allegations or snippets alone cannot establish a significant reputational finding. Results record source type, dates, excerpts, limitations, coverage and the actual channel ID. There is no headline numeric risk score. Human decisions, reviewer name, notes and review date are separate from automated outcomes. Download evidence reports for durable retention; they exclude credentials. Recent reports remain in a separate local storage namespace.
+
+## Settings and saved API keys
+
+Settings reads and saves through the unchanged client/src/api/apiKeyStorage.ts module. Existing individual keys and the legacy settings object remain supported. The saved YouTube key is used first; the existing Google key is a fallback if YouTube is enabled for it. OpenAI reuses the saved key and model choice. Saving no longer requires unrelated Google or Influencers Club tests to pass. Provider restrictions, revoked keys or retired models still require action in the provider account or Settings.
 
 ## Pricing backups
 
-The Calculator includes Download pricing backup and Restore pricing backup controls. The JSON download preserves campaigns, templates and active pricing state, excluding API keys. Store it in a folder or cloud drive you can find again. Browser storage alone is not a portable backup.
+Download pricing backup and Restore pricing backup are in Settings. Campaigns, templates and active pricing use the existing backup JSON format, excluding API keys. Restore validates all entries, retains existing campaigns, imports conflicting versions as separate copies, requests a download of current pricing and rolls back failed writes. Validation accepts current campaignLines data and older deliverables data. The calculator no longer displays the backup controls.
 
-Restore validates the whole file before writing, retains current campaigns, and imports conflicting versions as separate copies. It downloads a copy of current pricing first. Storage write failures roll back the restore. This does not change the calculator formulas, existing storage keys or stored campaign format.
+## Development
 
-## API settings
+In client, npm ci installs the locked dependencies. Run npm run dev or npm run build. From the repository root, node tests/run-tests.mjs runs the mocked provider, evidence validation, cache, quota failure, saved key, pricing preservation and restore checks. The validation workflow also checks TypeScript and client/server builds. On the review branch it commits the built docs application for GitHub Pages.
 
-API keys continue to use the existing localStorage keys and Save settings buttons. The key persistence module is unchanged. Google Search and OpenAI calls run in the browser. This keeps the existing personal browser workflow; do not distribute shared provider credentials through this app.
-
-Influencers Club requests use its current profile enrichment and posts endpoints with Bearer authentication. With no API endpoint configured, the app tries the provider directly. If the provider disallows browser CORS access, static GitHub Pages cannot override that restriction. Use the supplied stateless relay in relay/README.md. Paste its HTTPS address into Settings, API endpoint. You still open and use the application on GitHub Pages; there is no local server to run. Your saved Influencers Club key is forwarded through your relay per request, without being stored there.
-
-The API key test checks account credits without fetching a paid creator profile. The separate profile checker makes a paid enrichment request.
-
-## Brand Safety and Commercial Momentum
-
-Provide creator profile URLs, one per line. Name, @handle is also accepted and assumes YouTube when no platform URL is supplied. Plain names can be used for reputation research, but an exact account is needed for creator profile/post analysis.
-
-The scan resolves profile identity when available, runs three focused public search queries, validates source identity in small OpenAI batches, classifies the snippets using a structured schema, then calculates the reputation score. Victim and unrelated coverage contribute no risk. Classification failures do not silently become clean results. Confidence reflects evidence coverage, rather than allegation severity.
-
-Commercial Momentum retrieves up to five pages of posts to cover 90 days. Missing dates, metrics, failed classifications and incomplete coverage are surfaced. A commercial score requires complete collection and at least two sponsored and two organic posts. Caption tone is assessed from captions only; no audience reaction is claimed without comments. Current profile enrichment does not supply a historical growth curve, so unavailable growth is excluded from score weighting.
-
-Rescan bypasses both analysis and provider caches. Only analytical caches were versioned; existing API key and pricing storage is untouched. Old server reputation routes return HTTP 410 to prevent incompatible scores from the retired duplicate engine. The optional Express Influencers Club relay remains available, but GitHub Pages users can use the smaller Cloudflare relay instead.
-
-## Development and verification
-
-In client/, run npm ci and npm run dev. Run npm run build to regenerate the deployed docs/ application. From the repository root run node tests/run-tests.mjs. In client/, run npx tsc --noEmit -p tsconfig.json.
-
-The validation workflow runs regression tests, TypeScript checks and the production build. On the review branch it commits the built docs/ files so the pull request includes the browser application. Merging the pull request is a separate publication decision; the workflow does not deploy the Cloudflare relay.
-
-Automated tests mock providers. A live scan with the owner's configured credentials remains required to verify account access, provider payload variants and CORS behaviour.
+Live account access and visual browser verification are separate from mocked tests. Automated results are evidence screening aids for human review, not a complete creator audit.

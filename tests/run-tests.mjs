@@ -151,4 +151,5 @@ await test('Relay forwards only to fixed provider with caller credentials',async
  const response=await worker.fetch(request);assert.equal(response.status,200);assert.equal(target.init.headers.Authorization,'Bearer caller-key');assert(target.url.startsWith('https://api-dashboard.influencers.club/public/v1/'));assert.equal(response.headers.get('Access-Control-Allow-Origin'),'https://spacepilot121.github.io');
 });
 await import('./campaign-editor.mjs');
+await import('./browser-review.mjs');
 console.log(passed+' regression checks plus campaign editor checks passed. No paid API requests were made.');

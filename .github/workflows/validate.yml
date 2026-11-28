@@ -2,7 +2,7 @@ name: Validate pricing and brand safety
 on:
   pull_request:
   push:
-    branches: [codex/brand-safety-reliability]
+    branches: [codex/brand-safety-reliability, codex/browser-creator-review]
     paths: ['client/**', 'server/src/**', 'relay/**', 'tests/**', '.github/workflows/validate.yml']
 permissions:
   contents: write
@@ -37,4 +37,4 @@ jobs:
           git add docs
           git diff --cached --quiet && exit 0
           git commit -m 'Build reviewed GitHub Pages application'
-          git push origin HEAD:codex/brand-safety-reliability
+          git push origin HEAD:${{ github.ref_name }}
