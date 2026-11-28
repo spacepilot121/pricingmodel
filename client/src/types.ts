@@ -75,6 +75,8 @@ export type BrandSafetyEvidence = {
 export type RiskLevel = 'green' | 'amber' | 'red' | 'unknown';
 
 export type BrandSafetyResult = {
+  status?: 'ok' | 'partial' | 'error';
+  warnings?: string[];
   creatorId: string;
   creatorName: string;
   creatorHandle?: string;
@@ -98,6 +100,8 @@ export type ApiKeys = {
 };
 
 export type CommercialPost = {
+  metricsAvailable?: boolean;
+  sponsorshipUnknown?: boolean;
   id: string;
   caption?: string;
   createdAt?: string;
@@ -149,15 +153,18 @@ export type CommercialMomentumResult = {
   creatorName: string;
   creatorHandle?: string;
   platform?: Creator['platform'];
-  score: number;
+  score: number | null;
   recommendation: string;
   signals: CommercialMomentumSignals;
   lastSponsoredPostDate?: string | null;
   lastChecked: string;
   keyDrivers: string[];
   semanticSummary?: CommercialSemanticSummary;
-  status?: 'ok' | 'stale' | 'error';
+  status?: 'ok' | 'stale' | 'error' | 'partial' | 'insufficient';
+  analysisVersion?: number;
+  coverage?: { complete: boolean; pages: number; postCount: number; warning: string };
   summary?: string;
   primaryEmail?: string;
   profileInsights?: CreatorProfileInsights;
 };
+

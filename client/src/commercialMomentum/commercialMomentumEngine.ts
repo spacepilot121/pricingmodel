@@ -1,4 +1,4 @@
-import { fetchCreatorProfile, fetchRecentPosts } from '../api/influencersClubClient';
+import { fetchCreatorProfile, fetchRecentPosts, postDate } from '../api/influencersClubClient';
 import {
   ApiKeys,
   CommercialMomentumResult,
@@ -8,21 +8,23 @@ import {
   CreatorProfileInsights
 } from '../types';
 import { computeCommercialMomentumScore, describeDrivers, mapRecommendation } from './commercialMomentumScoring';
-import { classifyToneForSponsoredPosts, inferSponsoredWithGpt } from './gptSemanticHelpers';
+import { classifyToneForSponsoredPosts, inferSponsoredBatch } from './gptSemanticHelpers';
 import * as commercialCache from './localCache';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function normalisePosts(posts: any[]): CommercialPost[] {
+function numeric(value:any):number|undefined {const n=Number(value);return value != null && value !== '' && Number.isFinite(n) && n >= 0 ? n : undefined;}
+export function normalisePosts(posts: any[]): CommercialPost[] {
   return (posts || []).map((post, idx) => ({
-    id: post.id || `post-${idx}`,
-    caption: post.caption || post.title || '',
-    createdAt: post.createdAt || post.timestamp || post.date,
-    likes: post.likes ?? post.likeCount ?? 0,
-    comments: post.comments ?? post.commentCount ?? 0,
-    shares: post.shares ?? post.shareCount ?? 0,
-    views: post.views ?? post.viewCount ?? 0,
-    clicks: post.clicks ?? post.ctaClicks ?? 0,
+    id: String(post.id || post.pk || post.url || `post-${idx}`),
+    caption: String(post.caption || post.title || post.description || ''),
+    metricsAvailable: [post.likes,post.likeCount,post.like_count,post.views,post.viewCount,post.view_count,post.play_count,post.statistics?.viewCount].some(value=>numeric(value)!==undefined),
+    createdAt: Number.isFinite(postDate(post)) ? new Date(postDate(post)).toISOString() : undefined,
+    likes: numeric(post.likes ?? post.likeCount ?? post.like_count ?? post.statistics?.likeCount) ?? 0,
+    comments: numeric(post.comments ?? post.commentCount ?? post.comment_count ?? post.statistics?.commentCount) ?? 0,
+    shares: numeric(post.shares ?? post.shareCount ?? post.share_count) ?? 0,
+    views: numeric(post.views ?? post.viewCount ?? post.view_count ?? post.play_count ?? post.statistics?.viewCount) ?? 0,
+    clicks: numeric(post.clicks ?? post.ctaClicks) ?? 0,
     link: post.link || post.url
   }));
 }
@@ -49,27 +51,30 @@ const SPONSORED_PHRASES = [
   'pr partner'
 ];
 
-function heuristicallySponsored(caption?: string): boolean | null {
+export function heuristicallySponsored(caption?: string): boolean | null {
   if (!caption) return null;
   const lower = caption.toLowerCase();
-  if (HASH_TAG_PATTERNS.some((tag) => lower.includes(tag))) return true;
+  if (/(?:^|\s)#(?:ad|sponsored|partner|gifted|collab)(?=$|[^a-z0-9_])/i.test(lower)) return true;
   if (SPONSORED_PHRASES.some((phrase) => lower.includes(phrase))) return true;
   if (lower.includes('partner') && lower.includes('@')) return true;
-  if (lower.includes('ad ') || lower.endsWith('ad')) return true;
+  if (/^ad(?:$|[\s:.,!])/i.test(lower)) return true;
   return null;
 }
 
 async function detectSponsoredPosts(posts: CommercialPost[], keys: ApiKeys) {
+  const uncertain: CommercialPost[] = [];
   for (const post of posts) {
     const heuristic = heuristicallySponsored(post.caption);
-    if (heuristic !== null) {
-      post.isSponsored = heuristic;
-      continue;
-    }
+    if (heuristic === true) post.isSponsored = true;
+    else if (!post.caption?.trim()) post.sponsorshipUnknown = true;
+    else uncertain.push(post);
+  }
+  if (uncertain.length) {
     try {
-      post.isSponsored = await inferSponsoredWithGpt(post.caption || '', keys);
-    } catch (err) {
-      post.isSponsored = false;
+      const classifications = await inferSponsoredBatch(uncertain, keys);
+      for (const post of uncertain) post.isSponsored = classifications.get(post.id);
+    } catch {
+      for (const post of uncertain) post.sponsorshipUnknown = true;
     }
   }
   return posts;
@@ -77,14 +82,14 @@ async function detectSponsoredPosts(posts: CommercialPost[], keys: ApiKeys) {
 
 function daysBetween(a?: string | null, b?: string | null) {
   if (!a || !b) return null;
-  const diff = Math.abs(new Date(a).getTime() - new Date(b).getTime());
+  const diff = new Date(b).getTime() - new Date(a).getTime();
   return Math.round(diff / DAY_MS);
 }
 
 function calculateSignals(posts: CommercialPost[], profile: any): CommercialMomentumSignals {
   const sorted = [...posts].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   const sponsored = sorted.filter((p) => p.isSponsored);
-  const organic = sorted.filter((p) => !p.isSponsored);
+  const organic = sorted.filter((p) => p.isSponsored === false && !p.sponsorshipUnknown);
 
   const now = Date.now();
   const nowIso = new Date().toISOString();
@@ -104,7 +109,7 @@ function calculateSignals(posts: CommercialPost[], profile: any): CommercialMome
 
   const gapDays: number[] = [];
   for (let i = 0; i < sponsored.length - 1; i++) {
-    const gap = daysBetween(sponsored[i].createdAt, sponsored[i + 1].createdAt);
+    const gap = daysBetween(sponsored[i + 1].createdAt, sponsored[i].createdAt);
     if (gap !== null) gapDays.push(gap);
   }
   const averageDaysBetweenSponsoredPosts = gapDays.length
@@ -153,17 +158,14 @@ function calculateSignals(posts: CommercialPost[], profile: any): CommercialMome
   };
 }
 
-function selectProfileRecord(profile: any) {
-  if (!profile) return {};
-  if (profile.result && typeof profile.result === 'object') {
-    const first = Object.values(profile.result).find(Boolean);
-    if (first && typeof first === 'object') return first;
-  }
-  return profile || {};
+export function selectProfileRecord(profile: any, platform?: string) {
+  const record = profile?.result || profile?.accounts?.[0] || profile || {};
+  const platformData = platform ? record[platform.toLowerCase()] : undefined;
+  return platformData && typeof platformData === 'object' ? {...record,...platformData} : record;
 }
 
-function normaliseProfileInsights(rawProfile: any): CreatorProfileInsights {
-  const record: any = selectProfileRecord(rawProfile);
+export function normaliseProfileInsights(rawProfile: any, platform?: string): CreatorProfileInsights {
+  const record: any = selectProfileRecord(rawProfile, platform);
   const rawEmails: string[] = [
     record.email,
     record.emailAddress,
@@ -186,19 +188,20 @@ function normaliseProfileInsights(rawProfile: any): CreatorProfileInsights {
   const viewCount = record.view_count ?? record.views ?? record.viewCount ?? null;
   const videoCount =
     record.video_count ?? record.videoCount ?? record.posts_count ?? record.post_count ?? record.postCount ?? null;
-  const country = record.country || record.location || record.country_code || null;
+  const location=record.country || record.location || record.country_code;
+  const country=typeof location === 'string' ? location : location?.country || location?.name || null;
   const platformHandle = record.custom_url || record.handle || record.username || record.profile_url || null;
   const profilePicture =
     record.profile_picture_hd || record.profile_picture || record.avatar || record.image || record.profileImage || null;
   const description = record.description || record.bio || record.about || null;
-  const link = record.link || record.url || record.channel_url || record.profileUrl || null;
+  const link = record.link || record.url || record.channel_url || record.profileUrl || record[(platform || '').toLowerCase() + '_link'] || null;
 
   return {
     emails: emails.length ? emails : undefined,
-    followerCount: followerCount ?? undefined,
-    subscriberCount: subscriberCount ?? undefined,
-    viewCount: viewCount ?? undefined,
-    videoCount: videoCount ?? undefined,
+    followerCount: numeric(followerCount),
+    subscriberCount: numeric(subscriberCount),
+    viewCount: numeric(viewCount),
+    videoCount: numeric(videoCount),
     country: country ?? undefined,
     platformHandle: platformHandle ?? undefined,
     profilePicture: profilePicture ?? undefined,
@@ -207,51 +210,52 @@ function normaliseProfileInsights(rawProfile: any): CreatorProfileInsights {
   };
 }
 
-export async function runCommercialMomentum(creator: Creator, keys: ApiKeys): Promise<CommercialMomentumResult> {
-  const cached = commercialCache.get(creator.name);
-  if (cached && commercialCache.isFresh(creator.name, 7)) {
-    return { ...cached.data, creatorId: creator.id };
-  }
-
-  if (!keys.influencersClubApiKey) {
-    throw new Error('Missing Influencers.club API key.');
-  }
-
-  const profile = await fetchCreatorProfile(creator.handle || creator.name, creator.platform);
-  const postsRaw = await fetchRecentPosts(creator.handle || creator.name, creator.platform);
-  const posts = await detectSponsoredPosts(normalisePosts(postsRaw || []), keys);
-
-  const signals = calculateSignals(posts, profile || {});
-  const semanticSummary = await classifyToneForSponsoredPosts(posts.filter((p) => p.isSponsored), keys);
-  signals.semanticSummary = semanticSummary;
-  const profileInsights = normaliseProfileInsights(profile);
-
-  const score = computeCommercialMomentumScore(signals);
-  const recommendation = mapRecommendation(score);
-  const keyDrivers = describeDrivers(signals);
-
-  const result: CommercialMomentumResult = {
-    creatorId: creator.id,
-    creatorName: creator.name,
-    creatorHandle: creator.handle,
-    platform: creator.platform,
-    score,
-    recommendation,
-    signals,
-    lastSponsoredPostDate: posts.filter((p) => p.isSponsored)[0]?.createdAt || null,
-    lastChecked: new Date().toISOString(),
-    keyDrivers,
-    semanticSummary,
-    summary: `${recommendation}. ${keyDrivers.slice(0, 2).join('; ')}`,
-    status: 'ok',
-    primaryEmail: profileInsights.emails?.[0],
-    profileInsights
-  };
-
-  commercialCache.set(creator.name, result);
+export function creatorCacheKey(creator: Creator) {
+  return [creator.platform, creator.channelId || creator.handle || creator.channelUrl || creator.name].join(':').toLowerCase();
+}
+export async function resolveClubIdentity(creator: Creator, keys: ApiKeys, force = false) {
+  const handle = creator.channelId || creator.handle || creator.channelUrl;
+  if (!handle || !['YouTube','Instagram','TikTok'].includes(creator.platform)) throw new Error('Add a creator profile URL to identify their platform and exact account.');
+  const profile = await fetchCreatorProfile(handle, creator.platform, keys.influencersClubApiKey, {force});
+  const record = selectProfileRecord(profile,creator.platform);
+  const insights = normaliseProfileInsights(profile,creator.platform);
+  const returnedHandle = record.username || record.handle || record.custom_url;
+  if (creator.handle && returnedHandle && String(returnedHandle).replace(/^@/,'').toLowerCase() !== creator.handle.replace(/^@/,'').toLowerCase()) throw new Error('Influencers Club returned a different creator handle. Check the profile URL.');
+  const name = record.full_name || record.name || record.title || [record.first_name,record.last_name].filter(Boolean).join(' ') || creator.name;
+  return {profile, creator:{...creator, name, entityData:{primaryName:name,identifiers:[name,creator.name,creator.handle,creator.channelId].filter(Boolean) as string[]}}, insights};
+}
+export async function runCommercialMomentum(creator: Creator, keys: ApiKeys, options: {force?: boolean; profile?: any} = {}): Promise<CommercialMomentumResult> {
+  const cacheKey = creatorCacheKey(creator);
+  const cached = commercialCache.get(cacheKey);
+  if (!options.force && cached?.data.analysisVersion === 2 && commercialCache.isFresh(cacheKey, 1)) return {...cached.data,creatorId:creator.id};
+  if (!keys.influencersClubApiKey) throw new Error('Missing Influencers Club API key.');
+  const handle = creator.channelId || creator.handle || creator.channelUrl;
+  if (!handle || !['YouTube','Instagram','TikTok'].includes(creator.platform)) throw new Error('Add a creator profile URL to run Commercial Momentum.');
+  const profile = options.profile || (await resolveClubIdentity(creator,keys,options.force)).profile;
+  const page = await fetchRecentPosts(handle,creator.platform,keys.influencersClubApiKey,{force:options.force});
+  const now=Date.now();
+  const allPosts=normalisePosts(page.posts);
+  const inWindow=allPosts.filter(p=>p.createdAt && new Date(p.createdAt).getTime() <= now && now-new Date(p.createdAt).getTime() <= 90*DAY_MS);
+  const posts=await detectSponsoredPosts(inWindow,keys);
+  const unknownDates=allPosts.some(p=>!p.createdAt);
+  const unknownMetrics=posts.some(p=>!p.metricsAvailable);
+  const unknownSponsorship=posts.some(p=>p.sponsorshipUnknown);
+  const signals=calculateSignals(posts,selectProfileRecord(profile,creator.platform));
+  let semanticSummary: CommercialMomentumResult['semanticSummary'];
+  let toneFailed=false;
+  try { semanticSummary=await classifyToneForSponsoredPosts(posts.filter(p=>p.isSponsored),keys); }
+  catch { toneFailed=true; }
+  signals.semanticSummary=semanticSummary;
+  const coverage={...page.coverage,complete:page.coverage.complete && !unknownDates};
+  const enoughData=coverage.complete && !unknownMetrics && !unknownSponsorship && !toneFailed && posts.filter(p=>p.isSponsored).length >= 2 && posts.filter(p=>p.isSponsored === false).length >= 2;
+  const score=enoughData ? computeCommercialMomentumScore(signals) : null;
+  const recommendation=score === null ? 'Insufficient data for a recommendation' : mapRecommendation(score);
+  const warnings=[coverage.warning,unknownMetrics ? 'Some engagement metrics are unavailable.' : '',unknownDates ? 'Some posts have no usable date.' : '',unknownSponsorship ? 'Some sponsorship classifications are unavailable.' : '',toneFailed ? 'Caption tone assessment was unavailable.' : ''].filter(Boolean);
+  const profileInsights=normaliseProfileInsights(profile,creator.platform);
+  const keyDrivers=describeDrivers(signals);
+  const lastSponsoredPostDate=posts.filter(p=>p.isSponsored).map(p=>p.createdAt).filter(Boolean).sort().reverse()[0] || null;
+  const result: CommercialMomentumResult={creatorId:creator.id,creatorName:creator.name,creatorHandle:creator.handle,platform:creator.platform,score,recommendation,signals,lastSponsoredPostDate,lastChecked:new Date().toISOString(),keyDrivers,semanticSummary,summary:[recommendation,...warnings].join(' '),status:enoughData ? 'ok' : posts.length ? 'partial' : 'insufficient',analysisVersion:2,coverage,primaryEmail:profileInsights.emails?.[0],profileInsights};
+  commercialCache.set(cacheKey,result);
   return result;
 }
-
-export function loadCachedCommercialResults() {
-  return commercialCache.loadAll();
-}
+export function loadCachedCommercialResults() { return commercialCache.loadAll(); }

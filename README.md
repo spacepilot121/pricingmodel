@@ -1,39 +1,39 @@
-# Precise Influencer Calculator (PIC)
+# Precisify Influencer Calculator
 
-This repository hosts the single-page Precise Influencer Calculator front-end (`index.html`). The tool lets you configure influencer campaigns, estimate performance, and now offers additional transparency and export options for sharing plans.
+Campaign pricing, campaign backups, creator reputation checks and Commercial Momentum analysis.
 
-## Key capabilities
+## Use the browser app
 
-- **Campaign planning** – mix and match platforms, deliverables, creator sizes, and supporting costs to understand spend versus reach.
-- **CSV exporting** – download the active campaign (from the editor) or any saved campaign (from the dashboard) as a CSV snapshot.
-- **Pricing variables menu** – open a read-only reference that consolidates all pricing multipliers, view assumptions, and fee adders used by the calculator.
+Open https://spacepilot121.github.io/pricingmodel/ . The existing landing page redirects into the built application under docs/. Keep using the same browser profile and origin to see existing saved campaigns and API keys.
 
-## Running locally
+## Pricing backups
 
-Open `index.html` directly in a modern browser or serve it from any static web server. No build tooling or backend services are required.
+The Calculator includes Download pricing backup and Restore pricing backup controls. The JSON download preserves campaigns, templates and active pricing state, excluding API keys. Store it in a folder or cloud drive you can find again. Browser storage alone is not a portable backup.
 
-## Live preview
+Restore validates the whole file before writing, retains current campaigns, and imports conflicting versions as separate copies. It downloads a copy of current pricing first. Storage write failures roll back the restore. This does not change the calculator formulas, existing storage keys or stored campaign format.
 
-GitHub Pages can serve the calculator from the repository root (`/index.html`) or from the optional `docs/` copy used by the Pages default configuration. Visit `https://spacepilot121.github.io/pricingmodel/` to land directly on the calculator UI.
+## API settings
 
-## CSV export tips
+API keys continue to use the existing localStorage keys and Save settings buttons. The key persistence module is unchanged. Google Search and OpenAI calls run in the browser. This keeps the existing personal browser workflow; do not distribute shared provider credentials through this app.
 
-- The CSV includes key selectors such as platform, deliverable, creator size, language, vertical, and counts of creators/content.
-- Cost metrics (total COGS/client spend, CPV, CPM) are formatted for spreadsheets so you can share or audit pricing assumptions easily.
+Influencers Club requests use its current profile enrichment and posts endpoints with Bearer authentication. With no API endpoint configured, the app tries the provider directly. If the provider disallows browser CORS access, static GitHub Pages cannot override that restriction. Use the supplied stateless relay in relay/README.md. Paste its HTTPS address into Settings, API endpoint. You still open and use the application on GitHub Pages; there is no local server to run. Your saved Influencers Club key is forwarded through your relay per request, without being stored there.
 
-## Pricing variables reference
+The API key test checks account credits without fetching a paid creator profile. The separate profile checker makes a paid enrichment request.
 
-Select “Pricing Variables” from either the dashboard or the campaign editor to review the rate card inputs that power the calculator. Toggle advanced variables to reveal less common adjustments such as whitelisting, travel, or niche creator fees.
+## Brand Safety and Commercial Momentum
 
-## Brand safety from static hosts
+Provide creator profile URLs, one per line. Name, @handle is also accepted and assumes YouTube when no platform URL is supplied. Plain names can be used for reputation research, but an exact account is needed for creator profile/post analysis.
 
-The Brand Safety tab calls an Express backend (`/api/brand-safety/*`) that lives in the `server/` directory. If you open the app only from GitHub Pages (or any static host) there is no backend on that origin, so the tests and scans cannot succeed unless you point the UI at a deployed server.
+The scan resolves profile identity when available, runs three focused public search queries, validates source identity in small OpenAI batches, classifies the snippets using a structured schema, then calculates the reputation score. Victim and unrelated coverage contribute no risk. Classification failures do not silently become clean results. Confidence reflects evidence coverage, rather than allegation severity.
 
-To make it work when you can’t run the server locally:
+Commercial Momentum retrieves up to five pages of posts to cover 90 days. Missing dates, metrics, failed classifications and incomplete coverage are surfaced. A commercial score requires complete collection and at least two sponsored and two organic posts. Caption tone is assessed from captions only; no audience reaction is claimed without comments. Current profile enrichment does not supply a historical growth curve, so unavailable growth is excluded from score weighting.
 
-- **Host the backend somewhere** – Deploy the `server/` folder to a small host (Render, Railway, Fly, Vercel, etc.), enable CORS, and set `VITE_BRAND_SAFETY_API_BASE` or use **Settings → API endpoint** (or `?apiBase=...`) to target that host from GitHub Pages.
-- **Same-origin deployments still work** – Leave the endpoint blank if you are serving both the frontend and backend from the same origin (local dev or a combined deployment).
+Rescan bypasses both analysis and provider caches. Only analytical caches were versioned; existing API key and pricing storage is untouched. Old server reputation routes return HTTP 410 to prevent incompatible scores from the retired duplicate engine. The optional Express Influencers Club relay remains available, but GitHub Pages users can use the smaller Cloudflare relay instead.
 
-## Influencers.club proxy to avoid browser blocks
+## Development and verification
 
-Commercial Momentum calls to Influencers.club can be blocked by browser CORS policies even when the API key is correct. The Express backend now exposes `/api/influencers-club/profile` and `/api/influencers-club/posts` as a relay. Run the backend locally (port `4000` by default) or deploy it and set `VITE_API_BASE` so the frontend can fall back to these routes whenever a direct request fails. The Vite dev server proxies `/api/*` to `localhost:4000` automatically.
+In client/, run npm ci and npm run dev. Run npm run build to regenerate the deployed docs/ application. From the repository root run node tests/run-tests.mjs. In client/, run npx tsc --noEmit -p tsconfig.json.
+
+The validation workflow runs regression tests, TypeScript checks and the production build. On the review branch it commits the built docs/ files so the pull request includes the browser application. Merging the pull request is a separate publication decision; the workflow does not deploy the Cloudflare relay.
+
+Automated tests mock providers. A live scan with the owner's configured credentials remains required to verify account access, provider payload variants and CORS behaviour.

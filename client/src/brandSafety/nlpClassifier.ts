@@ -1,178 +1,33 @@
-import {
-  CLASSIFICATION_BATCH_SIZE,
-  MAX_RETRIES,
-  MODEL_DEFAULT,
-  OPENAI_CHAT_ENDPOINT
-} from './brandSafetyConfig';
-import { ApiKeys, BrandSafetyEvidence, ClassificationResult, Creator } from '../types';
-import { wait } from './utils';
+import { ApiKeys, BrandSafetyEvidence, Creator } from '../types';
+import { openAiJson } from '../api/openAiJson';
+import { classificationSchema } from './classificationSchema';
 
-const CACHE_KEY = 'brand_safety_classification_cache_v1';
-
-type CacheMap = Record<string, ClassificationResult>;
-
-function loadCache(): CacheMap {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as CacheMap;
-    return parsed || {};
-  } catch (err) {
-    console.warn('Failed to load classifier cache', err);
-    return {};
-  }
-}
-
-function persistCache(cache: CacheMap) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch (err) {
-    console.warn('Failed to persist classifier cache', err);
-  }
-}
-
-const cacheStore: CacheMap = loadCache();
-
-// Entity disambiguation happens upstream. Callers should pass only validated evidence, e.g.:
-// const validated = await validateEntities(searchResults, creatorData, keys);
-// const classified = await classifyEvidenceBatch(validated, creator, keys);
-
-function buildUserPrompt(evidence: BrandSafetyEvidence, creator: Creator) {
-  return `You are a brand safety intelligence classifier for advertisers.
-Given text describing a creator, perform the following:
-
-1. Classify whether this text indicates:
-   - Offender (creator is doing harm)
-   - Victim (creator is being harmed)
-   - Unrelated (drama not involving creator, or false positive)
-
-2. Identify the risk category if Offender:
-   - harmToMinors
-   - sexualMisconduct
-   - violence
-   - hateOrDiscrimination
-   - fraudOrScam
-   - misinformation
-   - guidelineViolations
-   - personalDrama (low risk)
-
-3. Rate severity on a scale of 1 to 5.
-
-4. Identify sentiment:
-   - negative
-   - neutral
-   - positive toward creator
-
-5. Detect mitigation indicators such as:
-   - accusations denied
-   - lacks evidence
-   - false allegations
-   - resolved issue
-   - misreporting
-
-6. Extract a short, factual summary (max 2 sentences).
-
-Context:
-Creator: ${creator.name} ${creator.handle ? `(${creator.handle})` : ''}
-Title: ${evidence.title}
-Snippet: ${evidence.snippet}
-
-Respond in JSON with fields:
-{
-  "stance": "",
-  "category": "",
-  "severity": 0,
-  "sentiment": "",
-  "mitigation": false,
-  "summary": ""
-}`;
-}
-
-async function classifyWithBackoff(
-  evidence: BrandSafetyEvidence,
-  creator: Creator,
-  keys: ApiKeys
-): Promise<ClassificationResult> {
-  const cacheHit = cacheStore[evidence.url];
-  if (cacheHit) return cacheHit;
-
-  if (!keys.openAiApiKey) {
-    throw new Error('OpenAI API key is required.');
-  }
-
-  const model = keys.openAiModel || MODEL_DEFAULT;
-  let attempt = 0;
-  let lastError: any;
-
-  while (attempt < MAX_RETRIES) {
-    try {
-      const res = await fetch(OPENAI_CHAT_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${keys.openAiApiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert brand safety classifier returning structured JSON only.'
-            },
-            { role: 'user', content: buildUserPrompt(evidence, creator) }
-          ]
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message || 'OpenAI classification failed');
-      }
-
-      const content: string = data?.choices?.[0]?.message?.content || '';
-      const parsed = JSON.parse(content) as ClassificationResult;
-      parsed.severity = Number(parsed.severity || 0);
-      cacheStore[evidence.url] = parsed;
-      persistCache(cacheStore);
-      return parsed;
-    } catch (err: any) {
-      lastError = err;
-      attempt += 1;
-      if (attempt >= MAX_RETRIES) break;
-      await wait(Math.pow(2, attempt) * 400);
+export async function classifyEvidenceBatch(evidence: BrandSafetyEvidence[], creator: Creator, keys: ApiKeys): Promise<BrandSafetyEvidence[]> {
+  const enriched: BrandSafetyEvidence[] = [];
+  // One structured request per small group rather than one request per snippet.
+  for (let start = 0; start < evidence.length; start += 5) {
+    const batch = evidence.slice(start, start + 5);
+    const response = await openAiJson(keys, 'reputation_evidence', {
+      type: 'object', additionalProperties: false,
+      properties: { items: { type: 'array', items: {
+        type: 'object', additionalProperties: false,
+        properties: { id: { type: 'integer' }, classification: classificationSchema },
+        required: ['id', 'classification']
+      } } }, required: ['items']
+    }, JSON.stringify({
+      task: 'Assess each search snippet for this exact creator. Distinguish alleged conduct by the creator (Offender), harm to the creator (Victim), and unrelated content. Use severity 0 and empty category where no conduct is alleged. Search snippets are limited evidence. Do not infer guilt or invent missing details. Return one item for every supplied id.',
+      creator, evidence: batch.map((item, id) => ({ id, title: item.title, snippet: item.snippet, url: item.url }))
+    }));
+    if (!Array.isArray(response.items) || response.items.length !== batch.length) throw new Error('Incomplete evidence classification. No final score calculated.');
+    const ids = new Set();
+    for (const item of response.items) {
+      if (!Number.isInteger(item.id) || item.id < 0 || item.id >= batch.length || ids.has(item.id)) throw new Error('Invalid evidence mapping.');
+      ids.add(item.id);
+      const c = item.classification;
+      if (!['Offender','Victim','Unrelated'].includes(c?.stance) || !Number.isInteger(c.severity) || c.severity < 0 || c.severity > 5 || !classificationSchema.properties.category.enum.includes(c.category) || !['negative','neutral','positive'].includes(c.sentiment) || typeof c.summary !== 'string' || typeof c.mitigation !== 'boolean') throw new Error('Invalid classification fields.');
+      if (c.stance !== 'Offender') { c.category = ''; c.severity = 0; }
+      enriched.push({ ...batch[item.id], classification: c });
     }
   }
-
-  throw lastError || new Error('Classification failed');
-}
-
-export async function classifyEvidenceBatch(
-  evidence: BrandSafetyEvidence[],
-  creator: Creator,
-  keys: ApiKeys
-): Promise<BrandSafetyEvidence[]> {
-  // Only entity-validated snippets reach this layer; anything unrelated was already discarded
-  // to avoid wasting GPT tokens on false positives.
-  const batches = [] as BrandSafetyEvidence[][];
-  for (let i = 0; i < evidence.length; i += CLASSIFICATION_BATCH_SIZE) {
-    batches.push(evidence.slice(i, i + CLASSIFICATION_BATCH_SIZE));
-  }
-
-  const enriched: BrandSafetyEvidence[] = [];
-  for (const batch of batches) {
-    const results = await Promise.allSettled(
-      batch.map(async (ev) => ({ ...ev, classification: await classifyWithBackoff(ev, creator, keys) }))
-    );
-    results.forEach((res) => {
-      if (res.status === 'fulfilled') {
-        enriched.push(res.value);
-      }
-    });
-  }
-
   return enriched;
 }

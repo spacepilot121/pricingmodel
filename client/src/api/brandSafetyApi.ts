@@ -22,18 +22,20 @@ export function loadCachedResults(): BrandSafetyResult[] {
 export async function scanSingleCreator(
   creator: Creator,
   providedKeys?: ApiKeys,
-  creatorData?: CreatorEntityData
+  creatorData?: CreatorEntityData,
+  onClassifying?: () => void
 ): Promise<BrandSafetyResult> {
-  return scanOneCreator(creator, providedKeys, creatorData);
+  return scanOneCreator(creator, providedKeys, creatorData, onClassifying);
 }
 
 export async function scanOneCreator(
   creator: Creator,
   providedKeys?: ApiKeys,
-  creatorData?: CreatorEntityData
+  creatorData?: CreatorEntityData,
+  onClassifying?: () => void
 ): Promise<BrandSafetyResult> {
   const keys = ensureKeys(providedKeys);
-  return runBrandSafetyEngine(creator, keys, creatorData || creator.entityData);
+  return runBrandSafetyEngine(creator, keys, creatorData || creator.entityData, onClassifying);
 }
 
 export async function scanManyCreators(
@@ -65,3 +67,4 @@ export async function scanManyCreators(
   }
   return results;
 }
+

@@ -1,0 +1,40 @@
+name: Validate pricing and brand safety
+on:
+  pull_request:
+  push:
+    branches: [codex/brand-safety-reliability]
+    paths: ['client/**', 'server/src/**', 'relay/**', 'tests/**', '.github/workflows/validate.yml']
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+        working-directory: client
+      - run: node tests/run-tests.mjs
+      - run: npx tsc --noEmit -p tsconfig.json
+        working-directory: client
+      - run: npm run build
+        working-directory: client
+      - run: npm install --ignore-scripts
+        working-directory: server
+      - run: npm run build
+        working-directory: server
+      - name: Commit built Pages files to the review branch
+        if: github.event_name == 'push'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs
+          git diff --cached --quiet && exit 0
+          git commit -m 'Build reviewed GitHub Pages application'
+          git push origin HEAD:codex/brand-safety-reliability
