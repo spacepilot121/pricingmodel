@@ -25,6 +25,11 @@ jobs:
         working-directory: client
       - run: npm run build
         working-directory: client
+      - name: Install browser test driver
+        run: npm install --no-save --package-lock=false playwright
+        working-directory: client
+      - name: Verify the built browser interface with mocked providers
+        run: node tests/review-ui.mjs
       - run: npm install --ignore-scripts
         working-directory: server
       - run: npm run build
