@@ -2,7 +2,7 @@ name: Validate pricing and brand safety
 on:
   pull_request:
   push:
-    branches: [codex/brand-safety-reliability]
+    branches: [codex/brand-safety-reliability, codex/browser-creator-review]
     paths: ['client/**', 'server/src/**', 'relay/**', 'tests/**', '.github/workflows/validate.yml']
 permissions:
   contents: write
@@ -25,6 +25,11 @@ jobs:
         working-directory: client
       - run: npm run build
         working-directory: client
+      - name: Install browser test driver
+        run: npm install --no-save --package-lock=false playwright
+        working-directory: client
+      - name: Verify the built browser interface with mocked providers
+        run: node tests/review-ui.mjs
       - run: npm install --ignore-scripts
         working-directory: server
       - run: npm run build
@@ -37,4 +42,4 @@ jobs:
           git add docs
           git diff --cached --quiet && exit 0
           git commit -m 'Build reviewed GitHub Pages application'
-          git push origin HEAD:codex/brand-safety-reliability
+          git push origin HEAD:${{ github.ref_name }}

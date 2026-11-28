@@ -1,7 +1,7 @@
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import CalculatorTab from './components/CalculatorTab';
-import BrandSafetyTab from './components/BrandSafetyTab';
-import SettingsTab from './components/SettingsTab';
+import BrandSafetyTab from './components/BrowserSafetyTab';
+import SettingsTab from './components/BrowserSettingsTab';
 import MarginCalculatorTab from './components/MarginCalculatorTab';
 import LandingPage from './components/LandingPage';
 import './app.css';
@@ -48,3 +48,4 @@ export default function App() {
     </Router>
   );
 }
+

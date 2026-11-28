@@ -2,8 +2,8 @@ export class ApiError extends Error {
   constructor(message: string, public status = 0) { super(message); }
 }
 
-export async function requestJson(url: string, init: RequestInit = {}, timeoutMs = 25000): Promise<any> {
-  for (let attempt = 0; attempt < 3; attempt++) {
+export async function requestJson(url: string, init: RequestInit = {}, timeoutMs = 25000, maxAttempts = 3): Promise<any> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
@@ -19,7 +19,7 @@ export async function requestJson(url: string, init: RequestInit = {}, timeoutMs
     } finally { clearTimeout(timer); }
     if (response.ok) return data;
     // Network failures may already have consumed credit; retry only explicit transient statuses.
-    if ([429, 502, 503, 504].includes(response.status) && attempt < 2) {
+    if ([429, 502, 503, 504].includes(response.status) && attempt < maxAttempts - 1) {
       const raw = response.headers.get('Retry-After');
       const seconds = raw ? Number(raw) : NaN;
       const delay = Number.isFinite(seconds) ? seconds * 1000 : 700 * 2 ** attempt;

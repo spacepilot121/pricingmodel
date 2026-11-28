@@ -2,12 +2,13 @@
   'use strict';
   const KEYS = ['pic-campaigns-v2', 'pic-templates-v1', 'precise-influencer-calculator-v1'];
   const isObject = value => value && typeof value === 'object' && !Array.isArray(value);
+  const hasCampaignLines = value => isObject(value) && (Array.isArray(value.campaignLines) || Array.isArray(value.deliverables));
   function validate(key, raw) {
     if (typeof raw !== 'string') throw new Error('Invalid backup value.');
     const value = JSON.parse(raw);
-    if (key === KEYS[0] && (!Array.isArray(value) || value.some(row => !isObject(row) || !isObject(row.data ?? row) || !Array.isArray((row.data ?? row).deliverables)))) throw new Error('Invalid campaign records.');
+    if (key === KEYS[0] && (!Array.isArray(value) || value.some(row => !isObject(row) || !hasCampaignLines(row.data ?? row)))) throw new Error('Invalid campaign records.');
     if (key === KEYS[1] && (!Array.isArray(value) || value.some(row => !isObject(row) || !Array.isArray(row.deliverables)))) throw new Error('Invalid templates.');
-    if (key === KEYS[2] && (!isObject(value) || !Array.isArray(value.deliverables))) throw new Error('Invalid active campaign.');
+    if (key === KEYS[2] && !hasCampaignLines(value)) throw new Error('Invalid active campaign.');
     return value;
   }
   function createBackup(storage) {
@@ -80,7 +81,8 @@
     a.href = url; a.download = prefix + '-' + new Date().toISOString().replace(/[:.]/g, '') + '.json';
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  function mount() {
+  function mount(container) {
+    if (!container) return;
     if (document.getElementById('pricing-backup-tools')) return;
     const box = document.createElement('section');
     box.id = 'pricing-backup-tools';
@@ -117,7 +119,10 @@
       finally { fileInput.value = ''; }
     };
     box.append(title, description, exportButton, importButton, fileInput, status);
-    document.body.prepend(box);
+    container.append(box);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+  root.PricingBackup.mount = mount;
+  // Only Settings provides this target. Loading the script in a calculator must not add controls there.
+  const mountSettings = () => mount(document.getElementById('pricing-backup-settings'));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountSettings); else mountSettings();
 })(typeof window === 'undefined' ? globalThis : window);
