@@ -3,13 +3,14 @@ import {Link} from 'react-router-dom';
 import {loadApiKeys} from '../api/apiKeyStorage';
 import {Brief,Mode,Review,Source,loadReports,publicUrl,readArticle,runReview,saveReport,youtubeKey} from '../review/reviewEngine';
 import {Connections,checkConnections,initialConnections,parseChannelList} from '../review/connections';
+import {quickSummary,buildReportHtml} from '../review/reviewSummary';
 import '../review/review.css';
 
 const emptyBrief:Brief={brand:'',audience:'',market:'',sensitivities:'',competitors:''};
 type Row={input:string;state:'Queued'|'Reviewing'|'Ready'|'Failed'|'Stopped';report?:Review;error?:string};
-function download(report:Review){
-  const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));
-  const a=document.createElement('a');a.href=url;a.download='creator-review-'+report.channel.id+'-'+report.checkedAt.slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+function download(report:Review,data=false){
+  const url=URL.createObjectURL(new Blob([data?JSON.stringify(report,null,2):buildReportHtml(report)],{type:data?'application/json':'text/html;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='creator-review-'+report.channel.id+'-'+report.checkedAt.slice(0,10)+(data?'.json':'.html');a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function outcomeStyle(outcome:string){return outcome==='Significant concern identified'?'danger':outcome==='Review required'?'attention':outcome==='No material concerns found'?'clear':'limited';}
 export default function BrowserSafetyTab(){
@@ -20,17 +21,19 @@ export default function BrowserSafetyTab(){
   const [sources,setSources]=useState<Source[]>([]);const [url,setUrl]=useState('');const [title,setTitle]=useState('');const [text,setText]=useState('');const [kind,setKind]=useState<Source['kind']>('supplied text');const [date,setDate]=useState('');
   const [report,setReport]=useState<Review|null>(null);const [history,setHistory]=useState(loadReports);
   const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [confirmed,setConfirmed]=useState(false);const [rows,setRows]=useState<Row[]>([]);
+  const [detailsOpen,setDetailsOpen]=useState(false);const reportRef=useRef<HTMLElement>(null);
   const [reviewer,setReviewer]=useState('');const [decision,setDecision]=useState('Pending review');const [notes,setNotes]=useState('');
   const stop=useRef(false);
   useEffect(()=>{let active=true;void checkConnections(keys,(service,value)=>{if(active)setConnections(prev=>({...prev,[service]:value}));});return()=>{active=false;};},[]);
   function refreshConnections(){setConnections(initialConnections(keys));void checkConnections(keys,(service,value)=>setConnections(prev=>({...prev,[service]:value})),true);}
-  function selectReport(r:Review){setReport(r);setReviewer(r.reviewer);setDecision(r.decision);setNotes(r.notes);setConfirmed(false);}
+  useEffect(()=>{if(detailsOpen&&report)reportRef.current?.scrollIntoView({behavior:'smooth',block:'start'});},[detailsOpen,report?.id]);
+  function selectReport(r:Review,open=true){setReport(r);setDetailsOpen(open);setReviewer(r.reviewer);setDecision(r.decision);setNotes(r.notes);setConfirmed(false);}
   async function scan(force=false){
     setError('');setNotice('');
     if(!keys.openAiApiKey||!youtubeKey(keys)){setError('Add the missing '+(!keys.openAiApiKey?'OpenAI':'YouTube')+' API key in Settings before running a review.');return;}
     let targets:ReturnType<typeof parseChannelList>;
     try{targets=parseChannelList(input);if(!targets.length)throw Error('Add at least one YouTube channel.');if(targets.length>1&&sources.length)throw Error('Review one channel at a time when adding supporting sources, so evidence is matched to the correct creator.');}catch(e:any){setError(e.message);return;}
-    setBusy(true);setReport(null);setConfirmed(false);stop.current=false;
+    setBusy(true);setReport(null);setDetailsOpen(false);setConfirmed(false);stop.current=false;
     setRows(targets.map(t=>({input:t.input,state:t.error?'Failed':'Queued',error:t.error})));
     let selected=false;
     try{
@@ -42,7 +45,7 @@ export default function BrowserSafetyTab(){
           const result=await runReview(target.input,brief,mode,sources,keys,includeSearch,force);
           setRows(prev=>prev.map((r,n)=>n===i?{...r,state:'Ready',report:result}:r));
           setConnections(prev=>({...prev,...(result.usage.openAiRequests?{gpt:{state:'connected' as const,detail:'Assessment request succeeded'}}:{}),...(result.usage.youtubeRequests?{youtube:{state:'connected' as const,detail:'Channel resolved successfully'}}:{}),...(result.usage.googleRequests&&includeSearch&&!result.warnings.some(w=>w.includes('search failed'))?{google:{state:'connected' as const,detail:'Search request succeeded'}}:{})}));
-          if(!selected){selectReport(result);selected=true;}setHistory(loadReports());
+          if(!selected){selectReport(result,false);selected=true;}setHistory(loadReports());
         }catch(e:any){
           const message=e.message||'The review could not complete. No review was saved.';
           setRows(prev=>prev.map((r,n)=>n===i?{...r,state:'Failed',error:message}:r));
@@ -69,7 +72,7 @@ export default function BrowserSafetyTab(){
   function signOff(){
     if(!report||!confirmed||!reviewer.trim()||decision==='Pending review')return;
     const updated={...report,reviewer:reviewer.trim(),decision,notes:notes.trim(),reviewedAt:new Date().toISOString()};
-    try{saveReport(updated);setReport(updated);setHistory(loadReports());setNotice('Human decision saved.');}catch{setError('Your decision could not be saved. Download the report to retain it.');}
+    try{saveReport(updated);setReport(updated);setRows(prev=>prev.map(row=>row.report?.id===updated.id?{...row,report:updated}:row));setHistory(loadReports());setNotice('Human decision saved.');}catch{setError('Your decision could not be saved. Download the report to retain it.');}
   }
   const readyCount=rows.filter(r=>r.state==='Ready').length;
   return <div className="review-shell">
@@ -127,8 +130,9 @@ export default function BrowserSafetyTab(){
     </div>
     {error&&<div role="alert" className="review-message error">{error}{/key|Settings/i.test(error)&&<> <Link to="/settings">Open Settings</Link></>}</div>}
     {notice&&<div role="status" className="review-message">{notice}</div>}
-    {!!rows.length&&<section className="review-panel review-batch"><div className="review-section-title"><h2>{busy?'Review in progress':'Batch results'}</h2><span className="review-pill">{readyCount} of {rows.length} ready</span></div><div className="review-batch-list">{rows.map((row,i)=><div className="review-batch-row" key={i}><div><strong>{row.report?.channel.title||row.input}</strong>{row.error&&<small className="review-row-error">{row.error}</small>}</div><span className={'review-row-status '+row.state.toLowerCase()}>{row.state}</span>{row.report&&<button className="review-text-button" onClick={()=>selectReport(row.report!)}>View report</button>}</div>)}</div></section>}
-    {report&&<section className="review-report">
+    {!!rows.length&&<section className="review-panel review-batch"><div className="review-section-title"><h2>{busy?'Review in progress':'Creator summary'}</h2><span className="review-pill">{readyCount} of {rows.length} ready</span></div><div className="review-summary-table" role="table" aria-label="Creator summary"><div className="review-summary-head" role="row"><span role="columnheader">Creator</span><span role="columnheader">Status</span><span role="columnheader">Summary</span><span role="columnheader">Report</span></div>{rows.map((row,i)=>{const summary=row.report?quickSummary(row.report):null;return <div className="review-summary-row" role="row" key={i}><div role="cell" className="review-summary-name">{row.report?<a href={row.report.channel.url} target="_blank" rel="noreferrer">{row.report.channel.title}</a>:<strong>{row.input}</strong>}</div><div role="cell"><span className={'review-quick-status '+(summary?.tone||'limited')}>{summary?.label||(row.state==='Failed'?'Check failed':row.state)}</span></div><div role="cell" className="review-summary-reason">{summary?.reason||row.error||(row.state==='Reviewing'?'Checking evidence...':row.state==='Stopped'?'Not reviewed.':'Waiting to review.')}</div><div role="cell" className="review-summary-actions">{row.report&&<><button className="review-button secondary" onClick={()=>download(row.report!)}>Download report</button><button className="review-text-button" onClick={()=>selectReport(row.report!)}>View details</button></>}</div></div>;})}</div></section>}
+    {report&&detailsOpen&&<section ref={reportRef} className="review-report" aria-label="Creator evidence details">
+      <div className="review-actions"><button className="review-text-button" onClick={()=>setDetailsOpen(false)}>Close details</button><button className="review-text-button" onClick={()=>download(report,true)}>Download review data</button></div>
       <div className="review-report-header"><div><span className="review-eyebrow">EVIDENCE REPORT</span><h2><a href={report.channel.url} target="_blank" rel="noreferrer">{report.channel.title}</a></h2><p>{new Date(report.checkedAt).toLocaleString()} · {report.mode==='test'?'Quick check':'Standard review'}</p></div><button className="review-button secondary" onClick={()=>download(report)}>Download report</button></div>
       <p className="review-report-summary">{report.summary}</p>
       <div className="review-outcomes">{Object.entries(report.outcomes).map(([area,outcome])=><div className={'review-outcome '+outcomeStyle(outcome)} key={area}><span>{area==='reputation'?'Public reputation':area==='content'?'Content suitability':'Commercial suitability'}</span><strong>{outcome}</strong><small>Within the reviewed evidence</small></div>)}</div>

@@ -77,6 +77,18 @@
 .review-row-status{font-size:10px;font-weight:600;color:#aab7ce;white-space:nowrap}
 .review-row-status.ready{color:#65d6b1}.review-row-status.failed{color:#f19b9b}.review-row-status.reviewing{color:#e9bf65}
 .review-report{margin-top:35px;display:flex;flex-direction:column;gap:23px}
+.review-report{scroll-margin-top:20px}
+.review-summary-head,.review-summary-row{display:grid;grid-template-columns:minmax(150px,.9fr) 150px minmax(180px,1.6fr) 135px;gap:20px;align-items:center}
+.review-summary-head{padding:0 0 12px;color:#8194b0;text-transform:uppercase;letter-spacing:1px;font-size:9px;font-weight:650}
+.review-summary-row{border-top:1px solid var(--rv-border);padding:18px 0}
+.review-summary-name{font-size:13px;font-weight:600;overflow-wrap:anywhere}.review-summary-name a{color:#edf2fb;text-decoration:none}
+.review-quick-status{display:inline-flex;align-items:center;gap:7px;border:1px solid #65779655;background:#65779612;border-radius:7px;color:#afbdd3;padding:6px 9px;font-size:10px;font-weight:600;line-height:1.4}
+.review-quick-status:before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.review-quick-status.clear{color:#72d9af;background:#72d9af0d;border-color:#72d9af30}.review-quick-status.attention{color:#eac77c;background:#eac77c0c;border-color:#eac77c30}.review-quick-status.danger{color:#ef9c9c;background:#ef9c9c0c;border-color:#ef9c9c30}
+.review-summary-reason{font-size:12px;line-height:1.7;color:#a8b9d0;overflow-wrap:anywhere}
+.review-summary-actions{display:flex;flex-direction:column;align-items:stretch;gap:2px}.review-summary-actions .review-button{font-size:10px;min-height:34px;padding:8px 10px}.review-summary-actions .review-text-button{font-size:10px;padding:5px 0}
+@media(max-width:850px){.review-summary-head,.review-summary-row{grid-template-columns:minmax(120px,1fr) 125px minmax(120px,1.3fr) 120px;gap:12px}}
+@media(max-width:640px){.review-summary-head{display:none}.review-summary-row{grid-template-columns:minmax(0,1fr) auto;gap:12px}.review-summary-reason{grid-column:1/-1}.review-summary-actions{grid-column:1/-1;flex-direction:row;align-items:center;gap:18px}.review-summary-actions .review-button{font-size:11px}.review-summary-name{font-size:13px}}
 .review-report-header{display:flex;align-items:center;justify-content:space-between;gap:20px}
 .review-report-header h2{font-size:26px;letter-spacing:-.6px;font-weight:650}
 .review-report-header h2 a{color:var(--rv-text);text-decoration:none}
