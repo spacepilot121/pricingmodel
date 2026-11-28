@@ -86,7 +86,7 @@ export default function BrowserSafetyTab(){
       <main className="review-main">
         <section className="review-panel">
           <div className="review-panel-heading"><span className="review-step">01</span><div><h2>Add your creators</h2><p>Paste YouTube channel URLs, @handles or channel IDs. One per line, up to 20.</p></div></div>
-          <label className="review-field"><span className="review-sr-only">YouTube channels</span><textarea className="review-channel-input" value={input} maxLength={10000} rows={5} disabled={busy} onChange={e=>setInput(e.target.value)} placeholder={'https://www.youtube.com/@creator\n@anothercreator\nUC...'} /></label>
+          <label className="review-field"><span className="review-sr-only">YouTube channels</span><textarea aria-label="YouTube channels" className="review-channel-input" value={input} maxLength={10000} rows={5} disabled={busy} onChange={e=>setInput(e.target.value)} placeholder={'https://www.youtube.com/@creator\n@anothercreator\nUC...'} /></label>
           <div className="review-input-footer"><span>Duplicates are removed automatically.</span><span>Exact channels only</span></div>
         </section>
         <section className="review-panel">

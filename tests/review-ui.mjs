@@ -10,7 +10,7 @@ let browser;
 try{
   for(let i=0;i<40;i++){try{if((await fetch('http://127.0.0.1:4173/pricingmodel/docs/')).ok)break;}catch{}await new Promise(r=>setTimeout(r,250));}
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});
-  const page=await browser.newPage({viewport:{width:1360,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage({viewport:{width:1360,height:1000}});const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.log('BROWSER_ERROR:'+e.message);});
   await page.addInitScript(()=>{if(!localStorage.getItem('ui-seeded')){localStorage.setItem('brandSafety_openAiKey','test-gpt-key');localStorage.setItem('brand_safety_api_keys',JSON.stringify({youtubeApiKey:'test-youtube-key',openAiApiKey:'old-key',openAiModel:'gpt-4o-mini'}));localStorage.setItem('ui-seeded','yes');}});
   let yt=0,gpt=0,health=0,other=0;
   await page.route('https://www.googleapis.com/**',route=>{
