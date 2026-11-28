@@ -1547,7 +1547,7 @@
     const CPV_WITH_MARGIN_LABEL = 'Client CPV (Including Margin)';
 
     const DEFAULT_PAID_RATES = {
-      cpv: 0.06,
+      cpv: 0.07,
       cpm: 12,
     };
 
@@ -1914,7 +1914,7 @@
         budget: 0,
         rate: DEFAULT_PAID_RATES.cpv,
       },
-      marginGoal: 0,
+      marginGoal: 40,
       insightNotes: '',
     };
 
@@ -4828,7 +4828,7 @@
       );
     }
 
-    function EditorToolbar({ campaign, onBack, onSaveTemplate }) {
+    function EditorToolbar({ campaign, onBack, onSaveTemplate, onDuplicate }) {
       const contextLabel = campaign ? `Editing ${campaign.name}` : 'Select a campaign to begin.';
       return h('div', { className: 'campaign-app' },
         h('div', { className: 'campaign-toolbar' },
@@ -4844,6 +4844,7 @@
               disabled: !campaign,
             }, 'Export CSV'),
             h('button', { onClick: onSaveTemplate }, 'Save as Template'),
+            h('button', { className: 'secondary', onClick: () => onDuplicate(campaign.id), disabled: !campaign }, 'Duplicate'),
           ),
         ),
       );
@@ -4989,24 +4990,19 @@
       }, []);
 
       const handleDuplicateCampaign = useCallback(id => {
-        let duplicate = null;
-        setCampaigns(prev => {
-          const source = prev.find(campaign => campaign.id === id);
-          if (!source) {
-            return prev;
-          }
-          duplicate = createCampaignRecord(
-            source.data,
-            createId(),
-            `Copy of ${source.name || 'Campaign'}`,
-          );
-          return [...prev, duplicate];
-        });
-        if (duplicate) {
-          setActiveCampaignId(duplicate.id);
-          setView('editor');
-        }
-      }, []);
+        const source = campaignsRef.current.find(campaign => campaign.id === id);
+        if (!source) return;
+        const sourceData = view === 'editor' && id === activeCampaignId ? state : source.data;
+        const sourceName = sourceData.details?.campaignName || source.name || 'Campaign';
+        const duplicate = createCampaignRecord(
+          sourceData,
+          createId(),
+          `Copy of ${sourceName}`,
+        );
+        setCampaigns(prev => [...prev, duplicate]);
+        setActiveCampaignId(duplicate.id);
+        setView('editor');
+      }, [view, activeCampaignId]);
 
       const handleMoveCampaign = useCallback((id, direction) => {
         setCampaigns(prev => {
@@ -5079,6 +5075,7 @@
               campaign: activeCampaign,
               onBack: handleBackToDashboard,
               onSaveTemplate: handleSaveTemplate,
+              onDuplicate: handleDuplicateCampaign,
             }),
           );
     }
